@@ -1,0 +1,55 @@
+services:
+  api:
+    container_name: api
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - .env
+    environment:
+      - ENVIRONMENT=prod
+    ports:
+      - "8000:8000"
+    profiles:
+      - prod
+
+  api-dev:
+    container_name: api-dev
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - .env
+    environment:
+      - ENVIRONMENT=dev
+    ports:
+      - "8000:8000"
+    command: fastapi run app/main.py --reload --host 0.0.0.0 --port 8000
+    depends_on:
+      - minio
+    volumes:
+      - ../code/app:/code/app
+    profiles:
+      - dev
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: minio
+    env_file:
+      - .env
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: [ "server", "--console-address", ":9001", "/data" ]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - minio_data:/data
+    profiles:
+      - dev
+
+volumes:
+  minio_data:

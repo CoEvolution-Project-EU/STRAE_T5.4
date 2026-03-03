@@ -1,0 +1,93 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.7",
+  "serialNumber": "urn:uuid:8f6a3c9e-9f34-4a7f-9bcb-7d6c9d9a1112",
+  "version": 1,
+
+  "metadata": {
+    "timestamp": "2025-07-22T15:00:00Z",
+    "tools": {
+      "services": [
+        {
+          "name": "STAE",
+          "version": "1.0.0",
+          "provider": {
+            "name": "SLC"
+          }
+        }
+      ]
+    },
+    "component": {
+      "bom-ref": "model-123",
+      "type": "machine-learning-model",
+      "name": "Fraud Detection Model",
+      "version": "2.1.0",
+      "description": "AI model for fraud detection",
+      "modelCard": {
+        "modelParameters": {
+          "architectureFamily": "Transformer",
+          "task": "Classification",
+          "datasets": [
+            {
+              "type": "dataset",
+              "name": "Fraud Training Dataset",
+              "contents": {
+                "url": "https://data.example.org/datasets/fraud-training-dataset.csv"
+              }
+            },
+            {
+              "type": "dataset",
+              "name": "Fraud Testing Dataset",
+              "contents": {
+                "url": "https://data.example.org/datasets/fraud-testing-dataset.csv"
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+
+	"externalReferences": [
+    {
+      "type": "risk-assessment",
+      "url": "https://kb.example.org/risks/fraud-model-risk.json"
+    }
+  ],
+
+  "properties": [
+    {
+      "name": "ai.assessment.design.threats",
+      "value": "data poisoning, model inversion"
+    },
+    {
+      "name": "ai.assessment.design.mitigations",
+      "value": "differential privacy, secure data pipelines"
+    },
+    {
+      "name": "ai.assessment.training.attacks-tested",
+      "value": "FGSM, backdoor insertion"
+    },
+    {
+      "name": "ai.assessment.training.robustness-score",
+      "value": "0.87"
+    }
+  ],
+
+	"annotations": [
+    {
+      "subjects": ["model-123"],
+      "annotator": {
+        "service": {
+          "name": "STAE",
+          "version": "1.0.0",
+          "provider": {
+            "name": "SLC"
+          }
+        }
+      },
+      "timestamp": "2025-07-22T14:10:00Z",
+      "text": "Lifecycle assessment completed. Threats include data poisoning and model inversion. Training robustness score: 0.87."
+    }
+	]
+}

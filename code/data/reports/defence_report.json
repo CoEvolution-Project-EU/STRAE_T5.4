@@ -1,0 +1,88 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.7",
+  "serialNumber": "urn:uuid:8f6a3c9e-9f34-4a7f-9bcb-7d6c9d9a1111",
+  "version": 1,
+
+  "metadata": {
+    "timestamp": "2025-07-22T15:00:00Z",
+    "tools": {
+      "components": [
+        {
+          "type": "framework",
+          "name": "STR Defence Framework"
+        }
+      ]
+    },
+    "component": {
+      "bom-ref": "model-123",
+      "type": "machine-learning-model",
+      "name": "Fraud Detection Model",
+      "version": "2.1.0",
+      "description": "AI model for fraud detection",
+      "modelCard": {
+        "modelParameters": {
+          "architectureFamily": "Transformer",
+          "task": "Classification",
+          "datasets": [
+            {
+              "type": "dataset",
+              "name": "Fraud Training Dataset",
+              "contents": {
+                "url": "https://data.example.org/datasets/fraud-training-dataset.csv"
+              }
+            },
+            {
+              "type": "dataset",
+              "name": "Fraud Testing Dataset",
+              "contents": {
+                "url": "https://data.example.org/datasets/fraud-testing-dataset.csv"
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+
+	"components": [
+    {
+      "bom-ref": "lib-art",
+      "type": "library",
+      "name": "ART",
+      "version": "1.18.0",
+      "properties": [
+        {
+          "name": "ai.defence.category",
+          "value": "adversarial-robustness"
+        }
+      ]
+    },
+    {
+      "bom-ref": "lib-foolbox",
+      "type": "library",
+      "name": "Foolbox",
+      "version": "3.3.4",
+      "properties": [
+        {
+          "name": "ai.defence.category",
+          "value": "adversarial-robustness"
+        }
+      ]
+    }
+  ],
+
+	"annotations": [
+    {
+      "subjects": ["model-123"],
+      "annotator": {
+        "component": {
+          "type": "framework",
+          "name": "STR Defence Framework"
+        }
+      },
+      "timestamp": "2025-07-22T14:30:00Z",
+      "text": "Defensive measures include adversarial training and input sanitization."
+    }
+	]
+}

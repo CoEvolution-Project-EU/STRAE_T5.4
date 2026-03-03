@@ -1,0 +1,51 @@
+from enum import Enum
+
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Environment(str, Enum):
+    dev = "dev"
+    prod = "prod"
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_ignore_empty=True,
+        extra="ignore",
+    )
+
+    # MinIO configuration (from .env)
+    MINIO_ENDPOINT: str
+    MINIO_ACCESS_KEY: str
+    MINIO_SECRET_KEY: str
+    MINIO_SECURE: bool
+
+    # Hardcoded in the docker-compose file, based on docker profile.
+    # Default to "dev" when running without docker, for tests.
+    ENVIRONMENT: Environment = Environment.dev
+
+    # Logging
+    LOG_LEVEL: str = "INFO"
+
+    @field_validator("LOG_LEVEL")
+    @classmethod
+    def validate_log_level(cls, v: str) -> str:
+        level = v.upper()
+        valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        if level not in valid_levels:
+            raise ValueError(f"Invalid LOG_LEVEL: {v}. Must be one of {valid_levels}")
+        return level
+
+    # STRAE details
+    NAME: str = "STRAE"
+    VERSION: str = "1.0.0"
+    PROVIDER_NAME: str = "CBRL"
+
+    # Bucket names for MinIO
+    REPORTS_BUCKET: str = "reports"
+    AIMBOMS_BUCKET: str = "aimboms"
+
+
+settings = Settings()

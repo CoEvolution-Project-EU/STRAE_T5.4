@@ -1,0 +1,93 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.7",
+  "serialNumber": "urn:uuid:8f6a3c9e-9f34-4a7f-9bcb-7d6c9d9a1113",
+  "version": 1,
+
+  "metadata": {
+    "timestamp": "2025-07-22T15:00:00Z",
+    "tools": {
+      "services": [
+        {
+          "name": "RAGRE",
+          "version": "1.0.0",
+          "provider": {
+            "name": "SLC"
+          }
+        }
+      ]
+    },
+    "component": {
+      "bom-ref": "model-123",
+      "type": "machine-learning-model",
+      "name": "Fraud Detection Model",
+      "version": "2.1.0",
+      "description": "AI model for fraud detection",
+      "modelCard": {
+        "modelParameters": {
+          "architectureFamily": "Transformer",
+          "task": "Classification",
+          "datasets": [
+            {
+              "type": "dataset",
+              "name": "Fraud Training Dataset",
+              "contents": {
+                "url": "https://data.example.org/datasets/fraud-training-dataset.csv"
+              }
+            },
+            {
+              "type": "dataset",
+              "name": "Fraud Testing Dataset",
+              "contents": {
+                "url": "https://data.example.org/datasets/fraud-testing-dataset.csv"
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+
+	"externalReferences": [
+    {
+      "type": "website",
+      "url": "https://eur-lex.europa.eu/ai-act",
+      "comment": "EU AI Act - Low Risk AI System"
+    }
+  ],
+
+  "vulnerabilities": [
+    {
+      "id": "CVE-2024-12345",
+      "ratings": [
+        {
+          "severity": "high"
+        }
+      ],
+      "description": "Buffer overflow in dependency",
+      "affects": [
+        {
+          "ref": "model-123"
+        }
+      ]
+    }
+  ],
+
+	"annotations": [
+    {
+      "subjects": ["model-123"],
+      "annotator": {
+        "service": {
+          "name": "RAGRE",
+          "version": "1.0.0",
+          "provider": {
+            "name": "SLC"
+          }
+        }
+      },
+      "timestamp": "2025-07-22T14:00:00Z",
+      "text": "Risk assessment completed. Code quality score: 82. One high-severity vulnerability identified."
+    }
+	]
+
+}
