@@ -12,8 +12,8 @@ The application requires Docker Compose to run properly.
 
 ### 1. Clone the repository
 ```bash
-git clone git@github.com:CyberAlytics/strae.git
-cd strae/docker
+git clone git@github.com:CoEvolution-Project-EU/STRAE_T5.4.git
+cd STRAE_T5.4/docker
 ```
 
 ### 2. Configure environment
