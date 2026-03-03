@@ -2,6 +2,10 @@
 
 ## Running Tests
 
+### Prerequisites:
+- Python 3.12 (recommended: 3.12.3)
+- `pip`
+
 To run the test suite, make sure your virtual environment is activated and dependencies are installed.
 
 The tests use a mock MinIO server in order to perform unit tests without requiring a database connection.
