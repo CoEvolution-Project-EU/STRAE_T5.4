@@ -1,6 +1,7 @@
+name: strae
+
 services:
   api:
-    container_name: api
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -12,9 +13,10 @@ services:
       - "8000:8000"
     profiles:
       - prod
+    restart: unless-stopped
+    networks: [strae-net]
 
   api-dev:
-    container_name: api-dev
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -26,15 +28,17 @@ services:
       - "8000:8000"
     command: fastapi run app/main.py --reload --host 0.0.0.0 --port 8000
     depends_on:
-      - minio
+      minio:
+        condition: service_healthy
     volumes:
       - ../code/app:/code/app
     profiles:
       - dev
+    restart: unless-stopped
+    networks: [strae-net]
 
   minio:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    container_name: minio
     env_file:
       - .env
     ports:
@@ -50,6 +54,13 @@ services:
       - minio_data:/data
     profiles:
       - dev
+    restart: unless-stopped
+    networks: [strae-net]
 
 volumes:
   minio_data:
+
+networks:
+  strae-net:
+    driver: bridge
+    name: strae-net
