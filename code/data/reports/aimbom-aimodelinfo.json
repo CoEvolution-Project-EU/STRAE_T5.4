@@ -1,0 +1,176 @@
+{
+    "bomFormat": "CycloneDX",
+    "specVersion": "1.7",
+    "serialNumber": "urn:uuid:9a2f63de-bb87-4c30-a1aa-1c95d27c45a2",
+    "version": 1,
+    "metadata": {
+        "timestamp": "2026-01-20T18:45:00Z",
+        "component": {
+            "type": "machine-learning-model",
+            "bom-ref": "model-4ff2dab7-bffe-414d-88a5-1826b9fea8df",
+            "name": "Autonomous Perception Model",
+            "version": "1.0",
+            "supplier": {
+                "name": "Example Autonomous Systems Lab"
+            },
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "6fce8a2c0b7a31c21db94c76fd43b1c4f0f16fabc4e7e984f3e9b82c50a2f3ab"
+                }
+            ],
+            "description": "AI model used for perception and object detection in autonomous driving environments.",
+            "properties": [
+                {
+                    "name": "model_uuid",
+                    "value": "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
+                },
+                {
+                    "name": "model_identifier",
+                    "value": "autonomous-perception-model-v1"
+                },
+                {
+                    "name": "model_family",
+                    "value": "AutonomousPerceptionSeries"
+                },
+                {
+                    "name": "model_release_date",
+                    "value": "2026-01-15"
+                },
+                {
+                    "name": "organization_owner",
+                    "value": "AVISENSE"
+                },
+                {
+                    "name": "development_team",
+                    "value": "AVISENSE AI Group"
+                },
+                {
+                    "name": "contact_channel",
+                    "value": "avisense@avisense.gr"
+                },
+                {
+                    "name": "model_risk_tier",
+                    "value": "low-impact"
+                },
+                {
+                    "name": "model_type",
+                    "value": "deep-learning"
+                },
+                {
+                    "name": "model_family_type",
+                    "value": "neural-network"
+                },
+                {
+                    "name": "primary_task",
+                    "value": "object-detection"
+                },
+                {
+                    "name": "supported_modality",
+                    "value": "lidar"
+                },
+                {
+                    "name": "secondary_modality_support",
+                    "value": "camera"
+                },
+                {
+                    "name": "export_format",
+                    "value": "ONNX"
+                },
+                {
+                    "name": "runtime_environment",
+                    "value": "CUDA-enabled GPU"
+                },
+                {
+                    "name": "inference_mode",
+                    "value": "real-time"
+                },
+                {
+                    "name": "deployment_context",
+                    "value": "autonomous-driving"
+                },
+                {
+                    "name": "operational_domain",
+                    "value": "vehicle-perception"
+                },
+                {
+                    "name": "approximate_model_size_mb",
+                    "value": "320"
+                },
+                {
+                    "name": "model_precision",
+                    "value": "fp32"
+                },
+                {
+                    "name": "supported_hardware",
+                    "value": "NVIDIA GPU"
+                },
+                {
+                    "name": "intended_use",
+                    "value": "object detection for autonomous navigation systems"
+                },
+                {
+                    "name": "documentation_reference",
+                    "value": "internal-model-doc-APS-v1"
+                },
+                {
+                    "name": "responsible_ai_review",
+                    "value": "completed"
+                },
+                {
+                    "name": "security_review_status",
+                    "value": "completed"
+                }
+            ],
+            "pedigree": {
+                "ancestors": [
+                    {
+                        "type": "machine-learning-model",
+                        "bom-ref": "model-base-perception-001",
+                        "name": "Base Perception Model",
+                        "version": "0.9"
+                    }
+                ]
+            }
+        }
+    },
+    "components": [
+        {
+            "type": "machine-learning-model",
+            "bom-ref": "model-base-perception-001",
+            "name": "Base Perception Model",
+            "version": "0.9",
+            "supplier": {
+                "name": "Example Autonomous Systems Lab"
+            },
+            "description": "Base pretrained perception model used as the foundation for derived model variants.",
+            "properties": [
+                {
+                    "name": "model_identifier",
+                    "value": "base-perception-model"
+                },
+                {
+                    "name": "model_lifecycle_stage",
+                    "value": "archived"
+                }
+            ]
+        }
+    ],
+    "dependencies": [
+        {
+            "ref": "model-4ff2dab7-bffe-414d-88a5-1826b9fea8df",
+            "dependsOn": [
+                "model-base-perception-001"
+            ]
+        }
+    ],
+    "signature": {
+        "algorithm": "ES256",
+        "value": "MEYCIQD1OqRRFKwKx+AJsRN3BkwI+kniEBPc7Bzvwf+kjdzZigIhAMDKEXKVShQZuxm/IzXUcFBoZXU/wtXr4qOV6c7kGdXZ",
+        "certificatePath": [
+            "MIIDizCCAzCgAwIBAgIUQoC/z4LURlXxDRypetEwBZIG4vIwCgYIKoZIzj0EAwMw\ncTELMAkGA1UEBhMCSVQxGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNV\nBAUTCzA3OTQ1MjExMDA2MTEwLwYDVQQDDChNSURQS0kgU0hBUkVEIElORk9DRVJU\nIE9QRVJBVE9SIEVDRFNBIENMMB4XDTI1MTEyODE1MjE0NFoXDTI4MTEyNzE1MjE0\nM1owgYsxCzAJBgNVBAYTAklUMQ4wDAYDVQQIEwVJdGFseTEPMA0GA1UEBxMGTWls\nYW5vMREwDwYDVQQKEwhJbmZvQ2VydDEMMAoGA1UECxMDSW9UMRUwEwYDVQQDEwxT\nQ0hST0VESU5HRVIxIzAhBgkqhkiG9w0BCQEWFHRlYW0uaW90QGluZm9jZXJ0Lml0\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQhPYvbbg1ra1KQEIUMt/pqM5p+TT\nmjP6QeCmXnNRTFcdp/O9jDMgGI4aOXFdfCO7KDrwClpqH8NuwaSIfr84QaOCAYkw\nggGFMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUZ6L872McRRUKoDkQgSy6bH4b\nL1IwgaYGCCsGAQUFBwEBBIGZMIGWMFkGCCsGAQUFBzAChk1odHRwOi8vbWlkcGtp\nLXN0YWdlLmluZm9jZXJ0LmRpZ2l0YWwvaW90L2NlcnRzL0lORk9DRVJULU9QRVJB\nVE9SLUVDRFNBLUNMLmNydDA5BggrBgEFBQcwAYYtaHR0cDovL21pZHBraS1vY3Nw\nLXN0YWdlLmluZm9jZXJ0LmRpZ2l0YWwvaW90MB0GA1UdJQQWMBQGCCsGAQUFBwMC\nBggrBgEFBQcDATBdBgNVHR8EVjBUMFKgUKBOhkxodHRwOi8vbWlkcGtpLXN0YWdl\nLmluZm9jZXJ0LmRpZ2l0YWwvaW90L2NybC9pbmZvY2VydC9wZXJzb24vZWNkc2Ev\nQ1JMMDEuY3JsMB0GA1UdDgQWBBRaxnxHvnz2FkEEarTXFJEEMiiuLTAOBgNVHQ8B\nAf8EBAMCBaAwCgYIKoZIzj0EAwMDSQAwRgIhAI9BjuQH4Om0bSZkWwi8bqCKO1Nt\n7HYjNOoyezYCaCQAAiEAtnhzPkmCcV0diFhy60J4NiMX1iCsjZrs7AKCzIq14Eg=",
+            "MIIDcTCCAvegAwIBAgIUdcFHVfj9rf0E6AYnoU6/7wkqhB4wCgYIKoZIzj0EAwMw\nXzELMAkGA1UEBhMCSVQxGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNV\nBAUTCzA3OTQ1MjExMDA2MR8wHQYDVQQDDBZNSURQS0kgU0hBUkVEIEVDRFNBIENM\nMB4XDTIzMDcxMTEwMzY0MFoXDTM4MDcxMTExMzY0MFowcTELMAkGA1UEBhMCSVQx\nGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNVBAUTCzA3OTQ1MjExMDA2\nMTEwLwYDVQQDDChNSURQS0kgU0hBUkVEIElORk9DRVJUIE9QRVJBVE9SIEVDRFNB\nIENMMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdJHP+4XWXCFdflKIHnBkjJuO\n2wEHk1LAY7WXA6uungRFG9tiMlODsDPsBUTrarNUnn8uYJ9Wds2/Lon297ahRaOC\nAX0wggF5MBIGA1UdEwEB/wQIMAYBAf8CAQAwgaIGCCsGAQUFBwEBBIGVMIGSMDkG\nCCsGAQUFBzABhi1odHRwOi8vbWlkcGtpLW9jc3Atc3RhZ2UuaW5mb2NlcnQuZGln\naXRhbC9pb3QwVQYIKwYBBQUHMAKGSWh0dHA6Ly9taWRwa2ktc3RhZ2UuaW5mb2Nl\ncnQuZGlnaXRhbC9pb3QvY2VydHMvTUlEUEtJLVNIQVJFRC1FQ0RTQS1DTC5jcnQw\nEwYDVR0gBAwwCjAIBgYrBgEEAgIwWQYDVR0fBFIwUDBOoEygSoZIaHR0cDovL21p\nZHBraS1zdGFnZS5pbmZvY2VydC5kaWdpdGFsL2lvdC9jcmwvbWlkcGtpLXNoYXJl\nZC9lY2RzYS9DUkwuY3JsMA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUZ6L872Mc\nRRUKoDkQgSy6bH4bL1IwHwYDVR0jBBgwFoAUGk8WJyhk6NACBbytREKZaD9Oybww\nCgYIKoZIzj0EAwMDaAAwZQIxAO2YA/HCiC5EFmswdEqdm7UE+fQ+Sa6xLKUAplHg\n3lp5i4CR2ODaQKQltmd6okKBngIwDalDXGkzOBDl3BckN0uZQOv0iff1jxc5XKbz\nFUpnTJevICxBKZVZZaRCliA9peDr",
+            "MIIC2TCCAl6gAwIBAgIUfn1VXwMKUMO2SnIyAN4Xe8sp1CgwCgYIKoZIzj0EAwMw\nWzELMAkGA1UEBhMCSVQxGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNV\nBAUTCzA3OTQ1MjExMDA2MRswGQYDVQQDDBJTUyBNSURQS0kgRUNEU0EgQ0wwHhcN\nMjIwMTIxMTQwODMwWhcNNDcwMTIxMTUwODMwWjBfMQswCQYDVQQGEwJJVDEZMBcG\nA1UECgwQSW9UIEluZm9DZXJ0IFNwQTEUMBIGA1UEBRMLMDc5NDUyMTEwMDYxHzAd\nBgNVBAMMFk1JRFBLSSBTSEFSRUQgRUNEU0EgQ0wwdjAQBgcqhkjOPQIBBgUrgQQA\nIgNiAAROsE9xJCGLgaJYW+/dWe+EIPCtLZBCilebEWKlXazMsA0oe/7775Nm/da7\nGtP5zVO0eSiGKYYGTsklsqCudHd7g7HMZWcry6AKBgRDCzs/ndo7zyZwmmPbJl82\nWqHE5I+jgd4wgdswDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYD\nVR0OBBYEFBpPFicoZOjQAgW8rURCmWg/Tsm8MIGYBgNVHSMEgZAwgY2AFJWpq43E\n89Jq07h3djFKj3lU/utToV+kXTBbMQswCQYDVQQGEwJJVDEZMBcGA1UECgwQSW9U\nIEluZm9DZXJ0IFNwQTEUMBIGA1UEBRMLMDc5NDUyMTEwMDYxGzAZBgNVBAMMElNT\nIE1JRFBLSSBFQ0RTQSBDTIIUe7gn0G+7rEWyZZc4BUUOrPJcSp4wCgYIKoZIzj0E\nAwMDaQAwZgIxAJPFeb+RGWj7tty0FRUSPgLSNXv0A/arbU23BUw8SU6QRnvVTIOY\n9SvPBAX9s+P1pAIxAKj0r28gk9w0WQroRzbHG0A9Rc1HhTlPyVMZ+m8vO5XkFgsT\ngvtVUjds83EjPUzT4g=="
+        ]
+    }
+}
