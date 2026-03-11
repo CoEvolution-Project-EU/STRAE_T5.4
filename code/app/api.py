@@ -1,13 +1,14 @@
 import logging
+from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.config import settings
 from app.generator import (
     AIMBOMGenerator,
-    GenerationError,
-    MinioStorageError,
-    MissingReportsError,
+    GeneratorGenerationError,
+    GeneratorMinioError,
+    GeneratorMissingReportError,
     get_generator,
 )
 from app.models.responses import AIMBOMGeneratedResponse, StatusResponse
@@ -37,7 +38,9 @@ def get_status():
     response_model=AIMBOMGeneratedResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def generate_aimbom(model_id: str, generator: AIMBOMGenerator = Depends(get_generator)):
+def generate_aimbom(
+    model_id: str, model_info: Dict, generator: AIMBOMGenerator = Depends(get_generator)
+):
     """
     Generate an AIMBOM for the given model ID by aggregating reports from MinIO.
 
@@ -48,16 +51,16 @@ def generate_aimbom(model_id: str, generator: AIMBOMGenerator = Depends(get_gene
     logger.info("AIMBOM generation requested for model_id=%s", model_id)
 
     try:
-        aimbom = generator.generate(model_id)
-    except MissingReportsError as e:
+        aimbom = generator.generate(model_id, model_info)
+    except GeneratorMissingReportError as e:
         logger.warning("Missing reports for model_id=%s: %s", model_id, e)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
-    except MinioStorageError as e:
+    except GeneratorMinioError as e:
         logger.error("MinIO error for model_id=%s", model_id, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
         )
-    except GenerationError as e:
+    except GeneratorGenerationError as e:
         logger.error("AIMBOM generation error for model_id=%s", model_id, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -77,5 +80,5 @@ def generate_aimbom(model_id: str, generator: AIMBOMGenerator = Depends(get_gene
     return AIMBOMGeneratedResponse(
         detail="AIMBOM generated successfully",
         id=aimbom.serial_number,
-        model_id=aimbom.get_model_id(),
+        model_id=model_id,
     )

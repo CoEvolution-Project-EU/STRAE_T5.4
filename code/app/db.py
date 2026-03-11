@@ -3,7 +3,7 @@ import logging
 from functools import lru_cache
 from io import BytesIO
 
-from minio import Minio
+from minio import Minio, S3Error
 from minio.datatypes import Object
 
 from app.config import settings
@@ -11,8 +11,20 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-class MinioConnectionError(Exception):
+class MinioError(Exception):
+    """Base exception for MinIO errors."""
+
+    pass
+
+
+class MinioConnectionError(MinioError):
     """Minio connection error."""
+
+    pass
+
+
+class MinioOperationError(MinioError):
+    """Minio operation error."""
 
     pass
 
@@ -38,6 +50,10 @@ class MinioDB:
                 logger.info("Created bucket %s", bucket_name)
             else:
                 logger.debug("Bucket %s already exists", bucket_name)
+        except S3Error as e:
+            raise MinioOperationError(
+                f"S3 error while ensuring bucket '{bucket_name}': {e}"
+            ) from e
         except Exception as e:
             raise MinioConnectionError(
                 f"Failed to ensure bucket '{bucket_name}': {e}"
@@ -60,6 +76,10 @@ class MinioDB:
                 length=len(json_bytes),
                 content_type="application/vnd.cyclonedx+json",
             )
+        except S3Error as e:
+            raise MinioOperationError(
+                f"S3 error while uploading '{object_name}' to bucket '{bucket_name}': {e}"
+            ) from e
         except Exception as e:
             raise MinioConnectionError(
                 f"Failed to upload object '{object_name}' to bucket '{bucket_name}': {e}"
@@ -76,6 +96,10 @@ class MinioDB:
                     recursive=True,
                 )
             )
+        except S3Error as e:
+            raise MinioOperationError(
+                f"S3 error while listing objects in bucket '{bucket_name}': {e}"
+            ) from e
         except Exception as e:
             raise MinioConnectionError(
                 f"Failed to list objects in bucket '{bucket_name}': {e}"
@@ -93,6 +117,10 @@ class MinioDB:
                     bucket_name=bucket_name,
                     object_name=object_name,
                 )
+            except S3Error as e:
+                raise MinioOperationError(
+                    f"S3 operation failed for '{object_name}' in bucket '{bucket_name}': {e}"
+                ) from e
             except Exception as e:
                 raise MinioConnectionError(
                     f"Failed to retrieve object '{object_name}' from bucket '{bucket_name}': {e}"

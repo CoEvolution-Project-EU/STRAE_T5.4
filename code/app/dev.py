@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 
 from app.config import settings
-from app.db import MinioConnectionError, MinioDB, get_minio_client
+from app.db import MinioDB, MinioError, get_minio_client
 from app.models.responses import ReportSavedResponse
 
 # !This router is excluded from production and should only be used for development!
@@ -42,7 +42,7 @@ def store_report(model_id: str, report_name: str, report: Dict, minio: MinioDB) 
             object_name=f"{model_id}/{report_name}.json",
             data=jsonable_encoder(report, exclude_none=True),
         )
-    except MinioConnectionError as e:
+    except MinioError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"MinIO error while saving report: {e}",

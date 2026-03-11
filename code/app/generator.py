@@ -1,23 +1,19 @@
 import logging
 import uuid
+from typing import Dict
 
 from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
 
 from app.config import settings
-from app.db import MinioConnectionError, MinioDB, get_minio_client
-from app.models.cyclonedx import (
-    AIMBOM,
-    AssessmentReport,
-    DefenceReport,
-    Metadata,
-    ReportOrigin,
-    RiskAssessmentReport,
-    SecurityReport,
-    ServiceProvider,
-    Tools,
-    ToolService,
+from app.db import (
+    MinioConnectionError,
+    MinioDB,
+    MinioError,
+    MinioOperationError,
+    get_minio_client,
 )
+from app.models.aimbom import AIMBOM, ReportType
 from app.utils import utc_now_datetime
 
 logger = logging.getLogger(__name__)
@@ -29,19 +25,19 @@ class GeneratorError(Exception):
     pass
 
 
-class MissingReportsError(GeneratorError):
-    """Raised when some required security reports are missing."""
+class GeneratorMissingReportError(GeneratorError):
+    """Raised when a required security report is missing."""
 
     pass
 
 
-class MinioStorageError(GeneratorError):
-    """Raised when saving AIMBOM to storage fails."""
+class GeneratorMinioError(GeneratorError):
+    """Raised when an operation with MinIO fails."""
 
     pass
 
 
-class GenerationError(GeneratorError):
+class GeneratorGenerationError(GeneratorError):
     """Raised when AIMBOM generation fails due to unexpected issues."""
 
     pass
@@ -51,133 +47,85 @@ class AIMBOMGenerator:
     def __init__(self, minio: MinioDB):
         self.minio = minio
 
-    def generate(self, model_id: str) -> AIMBOM:
+    def generate(self, model_id: str, model_info: Dict) -> AIMBOM:
         logger.debug("Starting generation pipeline model_id=%s", model_id)
 
-        matched_reports = self._retrieve_reports(model_id)
-        aimbom = self._create_aimbom_from_reports(matched_reports)
-        self._save_aimbom_to_bucket(aimbom)
+        reports = self._retrieve_reports(model_id)
+        aimbom = self._create_aimbom_from_reports(model_info, reports)
+        self._save_aimbom_to_bucket(model_id, aimbom)
 
         logger.debug("Generation completed model_id=%s", model_id)
         return aimbom
 
     def _retrieve_reports(self, model_id: str) -> dict:
-        matched_reports: dict[ReportOrigin, SecurityReport | None] = {
-            ReportOrigin.STR_Defence_Framework: None,
-            ReportOrigin.STAE: None,
-            ReportOrigin.RAGRE: None,
+        reports: dict[ReportType, Dict | None] = {
+            ReportType.AI_MODEL_INFO: None,
+            ReportType.ASSESSMENTS: None,
+            ReportType.DATASETS: None,
+            ReportType.EU_AI_ACT: None,
+            ReportType.GADGETS: None,
         }
 
-        prefix = f"{model_id}/"
+        # TODO: Verify if we are going to retrieve the reports by names
+        # TODO: Verify how are we going to find the latest reports,
+        # if we are going to have multiple versions of the same report
+        # TODO: Validate the retrieved reports against their respective schemas
+        # to ensure data integrity before processing
+        # TODO: Get the reports concurrently to improve performance
+        # Minio's Python SDK does not support async natively, so consider using threads.
 
-        try:
-            # TODO: Optimize by getting each report directly if object names are known
-            # TODO: Get the reports concurrently to improve performance
-            # Minio's Python SDK does not support async natively, so consider using threads.
+        for report_type in reports.keys():
+            try:
+                reports[report_type] = self.minio.get_json(
+                    settings.REPORTS_BUCKET,
+                    f"{model_id}/{report_type.value}.json",
+                )
+            except MinioConnectionError as e:
+                raise GeneratorMinioError(
+                    f"Failed to retrieve report {report_type.value} for model_id={model_id} from MinIO storage: {str(e)}"
+                ) from e
+            except MinioOperationError as e:
+                raise GeneratorMissingReportError(
+                    f"Required report {report_type.value} is missing for model_id={model_id}: {str(e)}"
+                ) from e
+            except Exception as e:
+                raise GeneratorGenerationError(
+                    f"Failed to retrieve/parse data for report {report_type.value} for model_id={model_id}: {str(e)}"
+                ) from e
 
-            objects = self.minio.list_objects_in_bucket(
-                bucket_name=settings.REPORTS_BUCKET, prefix=prefix
-            )
-
-            for obj in objects:
-                if not obj.object_name.endswith(".json"):
-                    continue
-
-                data = self.minio.get_json(settings.REPORTS_BUCKET, obj.object_name)
-                self._parse_report_data(data, matched_reports)
-        except MinioConnectionError as e:
-            logger.error(
-                "MinIO failure while retrieving reports model_id=%s",
-                model_id,
-                exc_info=True,
-            )
-            raise MinioStorageError(f"MinIO error while retrieving reports: {e}") from e
-        except GenerationError:
-            raise
-
-        # Check for missing reports
-        missing_reports = [
-            origin.value if hasattr(origin, "value") else str(origin)
-            for origin, report in matched_reports.items()
-            if report is None
-        ]
-
-        if missing_reports:
-            raise MissingReportsError(
-                f"Missing reports for model_id {model_id} from: {', '.join(missing_reports)}"
-            )
-
-        return matched_reports
-
-    def _parse_report_data(
-        self, report_data: dict, matched_reports: dict[ReportOrigin, SecurityReport]
-    ) -> None:
-        try:
-            # TODO: Additional check if model_id from report matches the expected one
-            tools = report_data.get("metadata").get("tools")
-
-            # Check services first
-            services = tools.get("services")
-            if services:
-                first_service = services[0]
-                service_name = first_service.get("name")
-                if service_name == ReportOrigin.RAGRE:
-                    matched_reports[ReportOrigin.RAGRE] = RiskAssessmentReport(
-                        **report_data
-                    )
-                    return
-                elif service_name == ReportOrigin.STAE:
-                    matched_reports[ReportOrigin.STAE] = AssessmentReport(**report_data)
-                    return
-
-            # Check components
-            components = tools.get("components")
-            if components:
-                first_component = components[0]
-                component_name = first_component.get("name")
-                if component_name == ReportOrigin.STR_Defence_Framework:
-                    matched_reports[ReportOrigin.STR_Defence_Framework] = DefenceReport(
-                        **report_data
-                    )
-                    return
-        except Exception as e:
-            raise GenerationError(f"Failed to parse report data: {str(e)}") from e
+        return reports
 
     def _create_aimbom_from_reports(
-        self, matched_reports: dict[ReportOrigin, SecurityReport]
+        self, model_info: Dict, reports: dict[ReportType, Dict]
     ) -> AIMBOM:
         try:
-            # Create AIMBOM metadata
-            metadata = Metadata(
-                timestamp=utc_now_datetime(),
-                tools=Tools(
-                    services=[
-                        ToolService(
-                            name=settings.NAME,
-                            version=settings.VERSION,
-                            provider=ServiceProvider(name=settings.PROVIDER_NAME),
-                        )
-                    ]
-                ),
-                component=matched_reports[ReportOrigin.STAE].metadata.component,
-            )
+            # TODO: Create pydantic models for metadata, external references and signature to ensure
+            # proper structure and validation
 
-            # Flatten external references
+            # Create metadata
+            metadata = {
+                "timestamp": utc_now_datetime(),
+                "component": model_info.get("component"),
+                "supplier": {"name": "coevolution-project.eu"},
+                "tools": [
+                    {
+                        "name": settings.NAME,
+                        "version": settings.VERSION,
+                        "vendor": settings.PROVIDER_NAME,
+                    }
+                ],
+                "authors": model_info.get("authors"),
+            }
+
+            # Create external references for each report
             external_references = [
-                ref
-                for report_origin in [ReportOrigin.STAE, ReportOrigin.RAGRE]
-                for ref in matched_reports[report_origin].external_references
-            ]
-
-            # Flatten annotations
-            annotations = [
-                ann
-                for report_origin in [
-                    ReportOrigin.STR_Defence_Framework,
-                    ReportOrigin.STAE,
-                    ReportOrigin.RAGRE,
-                ]
-                for ann in matched_reports[report_origin].annotations
+                {
+                    "type": "bom",
+                    "url": report.get("serialNumber"),
+                    "comment": origin.value,
+                }
+                for origin, report in reports.items()
+                if report is not None
             ]
 
             # Create the AIMBOM
@@ -187,32 +135,25 @@ class AIMBOMGenerator:
                 serial_number=f"urn:uuid:{str(uuid.uuid4())}",
                 version=1,  # TODO Handle versioning properly
                 metadata=metadata,
-                components=matched_reports[
-                    ReportOrigin.STR_Defence_Framework
-                ].components,
-                vulnerabilities=matched_reports[ReportOrigin.RAGRE].vulnerabilities,
                 external_references=external_references,
-                properties=matched_reports[ReportOrigin.STAE].properties,
-                annotations=annotations,
+                signature={},  # TODO: Sign the AIMBOM for future verification
             )
         except Exception as e:
-            raise GenerationError(
+            raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM from reports: {str(e)}"
             ) from e
 
-        # TODO: Sign the AIMBOM for future verification
-
         return aimbom
 
-    def _save_aimbom_to_bucket(self, aimbom: AIMBOM):
+    def _save_aimbom_to_bucket(self, model_id: str, aimbom: AIMBOM):
         try:
             self.minio.upload_json(
                 bucket_name=settings.AIMBOMS_BUCKET,
-                object_name=f"{aimbom.get_model_id()}/{aimbom.serial_number}.json",
+                object_name=f"{model_id}/{aimbom.serial_number}.json",
                 data=jsonable_encoder(aimbom, exclude_none=True),
             )
-        except MinioConnectionError as e:
-            raise MinioStorageError(f"MinIO error while saving AIMBOM: {e}") from e
+        except MinioError as e:
+            raise GeneratorMinioError(f"MinIO error while saving AIMBOM: {e}") from e
 
 
 # AIMBOMGenerator dependency

@@ -1,8 +1,20 @@
 from datetime import datetime
+from enum import Enum
 from typing import Annotated, Dict, List, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from pydantic.alias_generators import to_camel
+
+
+# ============================================================
+# Enums
+# ============================================================
+class ReportType(str, Enum):
+    AI_MODEL_INFO = "aimodelinfo"
+    ASSESSMENTS = "assessments"
+    DATASETS = "datasets"
+    EU_AI_ACT = "euaiact"
+    GADGETS = "gadgets"
 
 
 # ============================================================
@@ -60,3 +72,4 @@ class AIMBOM(CamelModel):
     )
     metadata: Dict
     external_references: List[Dict]
+    signature: Dict
