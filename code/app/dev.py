@@ -19,7 +19,7 @@ router = APIRouter(
     response_model=ReportSavedResponse,
     status_code=status.HTTP_200_OK,
 )
-def gather_defence_report(
+def save_report(
     model_id: str,
     report_name: str,
     report: Dict,
