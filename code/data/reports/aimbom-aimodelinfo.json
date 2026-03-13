@@ -11,7 +11,7 @@
             "name": "Autonomous Perception Model",
             "version": "1.0",
             "supplier": {
-                "name": "Example Autonomous Systems Lab"
+                "name": "AVISENSE.ai"
             },
             "hashes": [
                 {
@@ -19,119 +19,158 @@
                     "content": "6fce8a2c0b7a31c21db94c76fd43b1c4f0f16fabc4e7e984f3e9b82c50a2f3ab"
                 }
             ],
-            "description": "AI model used for perception and object detection in autonomous driving environments.",
-            "properties": [
-                {
-                    "name": "model_uuid",
-                    "value": "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
+            "modelCard": {
+                "bom-ref": "ref-lidar-segmentation-model-card",
+                "modelParameters": {
+                    "approach": {
+                        "type": "supervised"
+                    },
+                    "task": "object-detection",
+                    "architectureFamily": "CNN",
+                    "modelArchitecture": "Resnet50",
+                    "datasets": [
+                        {
+                            "ref": "a bom link to the aimbomb-datasets.json"
+                        }
+                    ],
+                    "inputs": [
+                        {
+                            "format": "string"
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "format": "string"
+                        }
+                    ]
                 },
-                {
-                    "name": "model_identifier",
-                    "value": "autonomous-perception-model-v1"
+                "quantitativeAnalysis": {
+                    "performanceMetrics": [
+                        {
+                            "type": "accuracy",
+                            "value": "81.3%"
+                        },
+                        {
+                            "type": "latency",
+                            "value": "120ms"
+                        }
+                    ]
                 },
-                {
-                    "name": "model_family",
-                    "value": "AutonomousPerceptionSeries"
+                "considerations": {
+                    "users": [
+                        "Car owners",
+                        "Car manufacturers"
+                    ]
                 },
-                {
-                    "name": "model_release_date",
-                    "value": "2026-01-15"
-                },
-                {
-                    "name": "organization_owner",
-                    "value": "AVISENSE"
-                },
-                {
-                    "name": "development_team",
-                    "value": "AVISENSE AI Group"
-                },
-                {
-                    "name": "contact_channel",
-                    "value": "avisense@avisense.gr"
-                },
-                {
-                    "name": "model_risk_tier",
-                    "value": "low-impact"
-                },
-                {
-                    "name": "model_type",
-                    "value": "deep-learning"
-                },
-                {
-                    "name": "model_family_type",
-                    "value": "neural-network"
-                },
-                {
-                    "name": "primary_task",
-                    "value": "object-detection"
-                },
-                {
-                    "name": "supported_modality",
-                    "value": "lidar"
-                },
-                {
-                    "name": "secondary_modality_support",
-                    "value": "camera"
-                },
-                {
-                    "name": "export_format",
-                    "value": "ONNX"
-                },
-                {
-                    "name": "runtime_environment",
-                    "value": "CUDA-enabled GPU"
-                },
-                {
-                    "name": "inference_mode",
-                    "value": "real-time"
-                },
-                {
-                    "name": "deployment_context",
-                    "value": "autonomous-driving"
-                },
-                {
-                    "name": "operational_domain",
-                    "value": "vehicle-perception"
-                },
-                {
-                    "name": "approximate_model_size_mb",
-                    "value": "320"
-                },
-                {
-                    "name": "model_precision",
-                    "value": "fp32"
-                },
-                {
-                    "name": "supported_hardware",
-                    "value": "NVIDIA GPU"
-                },
-                {
-                    "name": "intended_use",
-                    "value": "object detection for autonomous navigation systems"
-                },
-                {
-                    "name": "documentation_reference",
-                    "value": "internal-model-doc-APS-v1"
-                },
-                {
-                    "name": "responsible_ai_review",
-                    "value": "completed"
-                },
-                {
-                    "name": "security_review_status",
-                    "value": "completed"
-                }
-            ],
-            "pedigree": {
-                "ancestors": [
+                "properties": [
                     {
-                        "type": "machine-learning-model",
-                        "bom-ref": "model-base-perception-001",
-                        "name": "Base Perception Model",
-                        "version": "0.9"
+                        "name": "model_uuid",
+                        "value": "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
+                    },
+                    {
+                        "name": "model_identifier",
+                        "value": "autonomous-perception-model-v1"
+                    },
+                    {
+                        "name": "model_release_date",
+                        "value": "2026-01-15"
+                    },
+                    {
+                        "name": "organization_owner",
+                        "value": "AVISENSE"
+                    },
+                    {
+                        "name": "development_team",
+                        "value": "AVISENSE AI Group"
+                    },
+                    {
+                        "name": "contact_channel",
+                        "value": "avisense@avisense.gr"
+                    },
+                    {
+                        "name": "model_risk_tier",
+                        "value": "low-impact"
+                    },
+                    {
+                        "name": "model_type",
+                        "value": "deep-learning"
+                    },
+                    {
+                        "name": "model_family_type",
+                        "value": "neural-network"
+                    },
+                    {
+                        "name": "primary_task",
+                        "value": "object-detection"
+                    },
+                    {
+                        "name": "supported_modality",
+                        "value": "lidar"
+                    },
+                    {
+                        "name": "secondary_modality_support",
+                        "value": "camera"
+                    },
+                    {
+                        "name": "export_format",
+                        "value": "ONNX"
+                    },
+                    {
+                        "name": "runtime_environment",
+                        "value": "CUDA-enabled GPU"
+                    },
+                    {
+                        "name": "inference_mode",
+                        "value": "real-time"
+                    },
+                    {
+                        "name": "deployment_context",
+                        "value": "autonomous-driving"
+                    },
+                    {
+                        "name": "operational_domain",
+                        "value": "vehicle-perception"
+                    },
+                    {
+                        "name": "approximate_model_size_mb",
+                        "value": "320"
+                    },
+                    {
+                        "name": "model_precision",
+                        "value": "fp32"
+                    },
+                    {
+                        "name": "supported_hardware",
+                        "value": "NVIDIA GPU"
+                    },
+                    {
+                        "name": "intended_use",
+                        "value": "object detection for autonomous navigation systems"
+                    },
+                    {
+                        "name": "documentation_reference",
+                        "value": "internal-model-doc-APS-v1"
+                    },
+                    {
+                        "name": "responsible_ai_review",
+                        "value": "completed"
+                    },
+                    {
+                        "name": "security_review_status",
+                        "value": "completed"
                     }
                 ]
             }
+        },
+        "pedigree": {
+            "ancestors": [
+                {
+                    "type": "lidar-segmentation-model",
+                    "bom-ref": "model-base-perception-001",
+                    "name": "Base Perception Model",
+                    "version": "0.9"
+                }
+            ]
         }
     },
     "components": [

@@ -1,5 +1,4 @@
 import logging
-from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -38,9 +37,7 @@ def get_status():
     response_model=AIMBOMGeneratedResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def generate_aimbom(
-    model_id: str, model_info: Dict, generator: AIMBOMGenerator = Depends(get_generator)
-):
+def generate_aimbom(model_id: str, generator: AIMBOMGenerator = Depends(get_generator)):
     """
     Generate an AIMBOM for the given model ID by aggregating reports from MinIO.
 
@@ -51,7 +48,7 @@ def generate_aimbom(
     logger.info("AIMBOM generation requested for model_id=%s", model_id)
 
     try:
-        aimbom = generator.generate(model_id, model_info)
+        aimbom = generator.generate(model_id)
     except GeneratorMissingReportError as e:
         logger.warning("Missing reports for model_id=%s: %s", model_id, e)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))

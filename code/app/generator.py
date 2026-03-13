@@ -47,11 +47,11 @@ class AIMBOMGenerator:
     def __init__(self, minio: MinioDB):
         self.minio = minio
 
-    def generate(self, model_id: str, model_info: Dict) -> AIMBOM:
+    def generate(self, model_id: str) -> AIMBOM:
         logger.debug("Starting generation pipeline model_id=%s", model_id)
 
         reports = self._retrieve_reports(model_id)
-        aimbom = self._create_aimbom_from_reports(model_info, reports)
+        aimbom = self._create_aimbom_from_reports(reports)
         self._save_aimbom_to_bucket(model_id, aimbom)
 
         logger.debug("Generation completed model_id=%s", model_id)
@@ -66,13 +66,13 @@ class AIMBOMGenerator:
             ReportType.GADGETS: None,
         }
 
-        # TODO: Verify if we are going to retrieve the reports by names
+        # NOTE: This is going to be a single API call to retrieve all the reports
+        # from the CoEvolution Knowledge Base.
+
         # TODO: Verify how are we going to find the latest reports,
-        # if we are going to have multiple versions of the same report
+        # if we are going to have multiple versions of the same report.
         # TODO: Validate the retrieved reports against their respective schemas
-        # to ensure data integrity before processing
-        # TODO: Get the reports concurrently to improve performance
-        # Minio's Python SDK does not support async natively, so consider using threads.
+        # to ensure data integrity before processing.
 
         for report_type in reports.keys():
             try:
@@ -95,17 +95,23 @@ class AIMBOMGenerator:
 
         return reports
 
-    def _create_aimbom_from_reports(
-        self, model_info: Dict, reports: dict[ReportType, Dict]
-    ) -> AIMBOM:
+    def _create_aimbom_from_reports(self, reports: dict[ReportType, Dict]) -> AIMBOM:
         try:
             # TODO: Create pydantic models for metadata, external references and signature to ensure
             # proper structure and validation
+            model_info_metadata = reports[ReportType.AI_MODEL_INFO].get("metadata")
+            model_info_component = model_info_metadata.get("component")
 
             # Create metadata
             metadata = {
                 "timestamp": utc_now_datetime(),
-                "component": model_info.get("component"),
+                "component": {
+                    "type": model_info_component.get("type"),
+                    "name": model_info_component.get("name"),
+                    "version": model_info_component.get("version"),
+                    "supplier": model_info_component.get("supplier"),
+                    "hashes": model_info_component.get("hashes"),
+                },
                 "supplier": {"name": "coevolution-project.eu"},
                 "tools": [
                     {
@@ -114,7 +120,6 @@ class AIMBOMGenerator:
                         "vendor": settings.PROVIDER_NAME,
                     }
                 ],
-                "authors": model_info.get("authors"),
             }
 
             # Create external references for each report
