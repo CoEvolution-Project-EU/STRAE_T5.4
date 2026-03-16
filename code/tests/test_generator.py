@@ -8,7 +8,7 @@ from app.generator import (
     GeneratorMissingReportError,
 )
 
-from tests.utils import create_empty_mock_minio, create_new_mock_minio, get_model_info
+from tests.utils import create_empty_mock_minio, create_new_mock_minio
 
 
 def test_generate_success():
@@ -18,7 +18,7 @@ def test_generate_success():
 
     generator = AIMBOMGenerator(minio)
 
-    aimbom = generator.generate(model_id, get_model_info())
+    aimbom = generator.generate(model_id)
 
     assert aimbom.serial_number.startswith("urn:uuid:")
 
@@ -31,7 +31,7 @@ def test_generate_missing_reports():
     generator = AIMBOMGenerator(minio)
 
     with pytest.raises(GeneratorMissingReportError):
-        generator.generate(model_id, get_model_info())
+        generator.generate(model_id)
 
 
 def test_minio_connection_failure():
@@ -41,7 +41,7 @@ def test_minio_connection_failure():
     generator = AIMBOMGenerator(minio)
 
     with pytest.raises(GeneratorMinioError):
-        generator.generate("4ff2dab7-bffe-414d-88a5-1826b9fea8df", get_model_info())
+        generator.generate("4ff2dab7-bffe-414d-88a5-1826b9fea8df")
 
 
 # Update this test when we have report validation logic implemented
@@ -57,4 +57,4 @@ def test_minio_connection_failure():
 #     generator = AIMBOMGenerator(minio)
 
 #     with pytest.raises(GeneratorGenerationError):
-#         generator.generate("4ff2dab7-bffe-414d-88a5-1826b9fea8df", get_model_info())
+#         generator.generate("4ff2dab7-bffe-414d-88a5-1826b9fea8df")
