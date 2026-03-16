@@ -4,6 +4,7 @@ from pathlib import Path
 from tests.mock_db import MockMinioDB
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "data/reports"
+MODEL_ID = "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
 
 
 def load_json(path: Path):
@@ -11,11 +12,11 @@ def load_json(path: Path):
         return json.load(f)
 
 
-def seed_report(db, filename, object_name):
+def seed_report(db: MockMinioDB, filename: str, object_name: str):
     data = load_json(REPORTS_DIR / filename)
     db.upload_json(
         "reports",
-        f"4ff2dab7-bffe-414d-88a5-1826b9fea8df/{object_name}",
+        f"{MODEL_ID}/{object_name}",
         data,
     )
 
