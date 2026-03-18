@@ -119,10 +119,7 @@ class AIMBOMGenerator:
                     supplier=Supplier(
                         name=model_info_component.get("supplier").get("name")
                     ),
-                    hashes=[
-                        Hash(**hash_dict)
-                        for hash_dict in model_info_component.get("hashes", [])
-                    ],
+                    hashes=[Hash(**h) for h in model_info_component.get("hashes", [])],
                 ),
                 supplier=Supplier(name="coevolution-project.eu"),
                 tools=[
@@ -159,6 +156,9 @@ class AIMBOMGenerator:
             raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM from reports: {str(e)}"
             ) from e
+
+        # TODO: Validate the generated AIMBOM against the CycloneDX schema to ensure it adheres
+        # to the specification before saving.
 
         return aimbom
 

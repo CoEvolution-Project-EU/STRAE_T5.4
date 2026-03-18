@@ -48,6 +48,10 @@ def generate_aimbom(model_id: str, generator: AIMBOMGenerator = Depends(get_gene
     logger.info("AIMBOM generation requested for model_id=%s", model_id)
 
     try:
+        # TODO: Use asyncer to run the generation to avoid blocking the event loop,
+        # especially if MinIO operations are slow.
+        # TODO: Mayber implement caching of generated AIMBOMs to avoid regenerating
+        # for the same model_id if reports haven't changed.
         aimbom = generator.generate(model_id)
     except GeneratorMissingReportError as e:
         logger.warning("Missing reports for model_id=%s: %s", model_id, e)
