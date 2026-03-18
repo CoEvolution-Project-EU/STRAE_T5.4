@@ -13,7 +13,16 @@ from app.db import (
     MinioOperationError,
     get_minio_client,
 )
-from app.models.aimbom import AIMBOM, ReportType
+from app.models.aimbom import (
+    AIMBOM,
+    Component,
+    ExternalReference,
+    Hash,
+    Metadata,
+    ReportType,
+    Supplier,
+    Tool,
+)
 from app.utils import utc_now_datetime
 
 logger = logging.getLogger(__name__)
@@ -97,38 +106,41 @@ class AIMBOMGenerator:
 
     def _create_aimbom_from_reports(self, reports: dict[ReportType, Dict]) -> AIMBOM:
         try:
-            # TODO: Create pydantic models for metadata, external references and signature to ensure
-            # proper structure and validation
             model_info_metadata = reports[ReportType.AI_MODEL_INFO].get("metadata")
             model_info_component = model_info_metadata.get("component")
 
-            # Create metadata
-            metadata = {
-                "timestamp": utc_now_datetime(),
-                "component": {
-                    "type": model_info_component.get("type"),
-                    "name": model_info_component.get("name"),
-                    "version": model_info_component.get("version"),
-                    "supplier": model_info_component.get("supplier"),
-                    "hashes": model_info_component.get("hashes"),
-                },
-                "supplier": {"name": "coevolution-project.eu"},
-                "tools": [
-                    {
-                        "name": settings.NAME,
-                        "version": settings.VERSION,
-                        "vendor": settings.PROVIDER_NAME,
-                    }
+            metadata = Metadata(
+                timestamp=utc_now_datetime(),
+                component=Component(
+                    bom_ref=model_info_component.get("bom-ref"),
+                    type=model_info_component.get("type"),
+                    name=model_info_component.get("name"),
+                    version=model_info_component.get("version"),
+                    supplier=Supplier(
+                        name=model_info_component.get("supplier").get("name")
+                    ),
+                    hashes=[
+                        Hash(**hash_dict)
+                        for hash_dict in model_info_component.get("hashes", [])
+                    ],
+                ),
+                supplier=Supplier(name="coevolution-project.eu"),
+                tools=[
+                    Tool(
+                        vendor=settings.PROVIDER_NAME,
+                        name=settings.NAME,
+                        version=settings.VERSION,
+                    )
                 ],
-            }
+            )
 
             # Create external references for each report
             external_references = [
-                {
-                    "type": "bom",
-                    "url": report.get("serialNumber"),
-                    "comment": origin.value,
-                }
+                ExternalReference(
+                    type="bom",
+                    url=f"urn:cdx:{report.get('serialNumber').split('urn:uuid:')[1]}/{report.get('version', 1)}",
+                    comment=origin.value,
+                )
                 for origin, report in reports.items()
                 if report is not None
             ]
