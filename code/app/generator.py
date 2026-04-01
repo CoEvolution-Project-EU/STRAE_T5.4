@@ -157,8 +157,14 @@ class AIMBOMGenerator:
                 f"Failed to generate AIMBOM from reports: {str(e)}"
             ) from e
 
-        # TODO: Validate the generated AIMBOM against the CycloneDX schema to ensure it adheres
-        # to the specification before saving.
+        # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.
+        # TODO: Uncomment this section once signature is implemented, as the current empty signature will fail validation.
+        # try:
+        #     validate_aimbom(jsonable_encoder(aimbom, exclude_none=True))
+        # except ValueError as e:
+        #     raise GeneratorGenerationError(
+        #         f"Generated AIMBOM is invalid: {str(e)}"
+        #     ) from e
 
         return aimbom
 
