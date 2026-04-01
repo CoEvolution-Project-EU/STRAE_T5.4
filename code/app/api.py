@@ -1,4 +1,5 @@
 import logging
+from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -33,6 +34,25 @@ def get_status():
 
 
 @router.post(
+    "/sign",
+    response_model=Dict,
+    status_code=status.HTTP_200_OK,
+)
+def sign_report(report: dict):
+    """
+    Sign the given report using the configured signing key.
+
+    Args:
+        report (Dict) - The report to be signed.
+
+    Returns:
+        Dict - The signed report.
+    """
+
+    pass
+
+
+@router.post(
     "/generate/{model_id}",
     response_model=AIMBOMGeneratedResponse,
     status_code=status.HTTP_201_CREATED,
@@ -40,6 +60,9 @@ def get_status():
 def generate_aimbom(model_id: str, generator: AIMBOMGenerator = Depends(get_generator)):
     """
     Generate an AIMBOM for the given model ID by aggregating reports from MinIO.
+
+    Args:
+        model_id (str): The ID of the model for which to generate the AIMBOM.
 
     Returns:
         AIMBOMGeneratedResponse - A response containing the details of the generated AIMBOM.
