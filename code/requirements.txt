@@ -8,3 +8,5 @@ pytest==9.0.2
 pytest-env==1.5.0
 httpx==0.28.1
 jsonschema==4.26.0
+jcs==0.2.1
+cryptography==46.0.6

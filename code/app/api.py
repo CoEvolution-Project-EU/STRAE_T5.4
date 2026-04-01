@@ -3,6 +3,7 @@ from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app import signing
 from app.config import settings
 from app.generator import (
     AIMBOMGenerator,
@@ -38,7 +39,7 @@ def get_status():
     response_model=Dict,
     status_code=status.HTTP_200_OK,
 )
-def sign_report(report: dict):
+def sign_report(report: Dict):
     """
     Sign the given report using the configured signing key.
 
@@ -49,7 +50,8 @@ def sign_report(report: dict):
         Dict - The signed report.
     """
 
-    pass
+    signed_report = signing.sign_report(report)
+    return signed_report
 
 
 @router.post(
