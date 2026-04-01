@@ -1,4 +1,5 @@
 import base64
+import copy
 from typing import Dict
 
 import jcs  # RFC8785 canonicalization
@@ -66,6 +67,7 @@ def sign_report(report: Dict) -> Dict:
     """
     Sign the given CycloneDX report using ES256.
     """
+    report = copy.deepcopy(report)
 
     private_key = load_private_key()
     cert_chain = load_certificate_chain()
