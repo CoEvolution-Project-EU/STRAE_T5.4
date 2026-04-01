@@ -1,3 +1,6 @@
+from app.db import MinioOperationError
+
+
 class MockMinioObjectInfo:
     def __init__(self, object_name: str):
         self.object_name = object_name
@@ -27,4 +30,7 @@ class MockMinioDB:
         ]
 
     def get_json(self, bucket_name: str, object_name: str):
-        return self.buckets[bucket_name][object_name]
+        try:
+            return self.buckets[bucket_name][object_name]
+        except KeyError as e:
+            raise MinioOperationError(f"{object_name} not found") from e

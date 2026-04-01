@@ -1,277 +1,40 @@
+import json
+from pathlib import Path
+
 from tests.mock_db import MockMinioDB
+
+REPORTS_DIR = Path(__file__).resolve().parent.parent / "data/reports"
+MODEL_ID = "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
+
+
+def load_json(path: Path):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def seed_report(db: MockMinioDB, filename: str, object_name: str):
+    data = load_json(REPORTS_DIR / filename)
+    db.upload_json(
+        "reports",
+        f"{MODEL_ID}/{object_name}",
+        data,
+    )
 
 
 def create_empty_mock_minio():
     db = MockMinioDB()
-
-    # Create empty buckets
     db.create_bucket("reports")
     db.create_bucket("aimboms")
-
     return db
 
 
 def create_new_mock_minio():
-    db = MockMinioDB()
+    db = create_empty_mock_minio()
 
-    # Create reports bucket
-    db.create_bucket("reports")
-    db.create_bucket("aimboms")
-
-    # Seed test reports
-    db.upload_json(
-        "reports",
-        "model-123/urn:uuid:8f6a3c9e-9f34-4a7f-9bcb-7d6c9d9a1111.json",
-        {
-            "bomFormat": "CycloneDX",
-            "specVersion": "1.7",
-            "serialNumber": "urn:uuid:8f6a3c9e-9f34-4a7f-9bcb-7d6c9d9a1111",
-            "version": 1,
-            "metadata": {
-                "timestamp": "2025-07-22T15:00:00Z",
-                "tools": {
-                    "components": [
-                        {"type": "framework", "name": "STR Defence Framework"}
-                    ]
-                },
-                "component": {
-                    "bom-ref": "model-123",
-                    "type": "machine-learning-model",
-                    "name": "Fraud Detection Model",
-                    "version": "2.1.0",
-                    "description": "AI model for fraud detection",
-                    "modelCard": {
-                        "modelParameters": {
-                            "architectureFamily": "Transformer",
-                            "task": "Classification",
-                            "datasets": [
-                                {
-                                    "type": "dataset",
-                                    "name": "Fraud Training Dataset",
-                                    "contents": {
-                                        "url": "https://data.example.org/datasets/fraud-training-dataset.csv"
-                                    },
-                                },
-                                {
-                                    "type": "dataset",
-                                    "name": "Fraud Testing Dataset",
-                                    "contents": {
-                                        "url": "https://data.example.org/datasets/fraud-testing-dataset.csv"
-                                    },
-                                },
-                            ],
-                        }
-                    },
-                },
-            },
-            "components": [
-                {
-                    "bom-ref": "lib-art",
-                    "type": "library",
-                    "name": "ART",
-                    "version": "1.18.0",
-                    "properties": [
-                        {
-                            "name": "ai.defence.category",
-                            "value": "adversarial-robustness",
-                        }
-                    ],
-                },
-                {
-                    "bom-ref": "lib-foolbox",
-                    "type": "library",
-                    "name": "Foolbox",
-                    "version": "3.3.4",
-                    "properties": [
-                        {
-                            "name": "ai.defence.category",
-                            "value": "adversarial-robustness",
-                        }
-                    ],
-                },
-            ],
-            "annotations": [
-                {
-                    "subjects": ["model-123"],
-                    "annotator": {
-                        "component": {
-                            "type": "framework",
-                            "name": "STR Defence Framework",
-                        }
-                    },
-                    "timestamp": "2025-07-22T14:30:00Z",
-                    "text": "Defensive measures include adversarial training and input sanitization.",
-                }
-            ],
-        },
-    )
-
-    db.upload_json(
-        "reports",
-        "model-123/urn:uuid:8f6a3c9e-9f34-4a7f-9bcb-7d6c9d9a1112.json",
-        {
-            "bomFormat": "CycloneDX",
-            "specVersion": "1.7",
-            "serialNumber": "urn:uuid:8f6a3c9e-9f34-4a7f-9bcb-7d6c9d9a1112",
-            "version": 1,
-            "metadata": {
-                "timestamp": "2025-07-22T15:00:00Z",
-                "tools": {
-                    "services": [
-                        {
-                            "name": "STAE",
-                            "version": "1.0.0",
-                            "provider": {"name": "SLC"},
-                        }
-                    ]
-                },
-                "component": {
-                    "bom-ref": "model-123",
-                    "type": "machine-learning-model",
-                    "name": "Fraud Detection Model",
-                    "version": "2.1.0",
-                    "description": "AI model for fraud detection",
-                    "modelCard": {
-                        "modelParameters": {
-                            "architectureFamily": "Transformer",
-                            "task": "Classification",
-                            "datasets": [
-                                {
-                                    "type": "dataset",
-                                    "name": "Fraud Training Dataset",
-                                    "contents": {
-                                        "url": "https://data.example.org/datasets/fraud-training-dataset.csv"
-                                    },
-                                },
-                                {
-                                    "type": "dataset",
-                                    "name": "Fraud Testing Dataset",
-                                    "contents": {
-                                        "url": "https://data.example.org/datasets/fraud-testing-dataset.csv"
-                                    },
-                                },
-                            ],
-                        }
-                    },
-                },
-            },
-            "externalReferences": [
-                {
-                    "type": "risk-assessment",
-                    "url": "https://kb.example.org/risks/fraud-model-risk.json",
-                }
-            ],
-            "properties": [
-                {
-                    "name": "ai.assessment.design.threats",
-                    "value": "data poisoning, model inversion",
-                },
-                {
-                    "name": "ai.assessment.design.mitigations",
-                    "value": "differential privacy, secure data pipelines",
-                },
-                {
-                    "name": "ai.assessment.training.attacks-tested",
-                    "value": "FGSM, backdoor insertion",
-                },
-                {"name": "ai.assessment.training.robustness-score", "value": "0.87"},
-            ],
-            "annotations": [
-                {
-                    "subjects": ["model-123"],
-                    "annotator": {
-                        "service": {
-                            "name": "STAE",
-                            "version": "1.0.0",
-                            "provider": {"name": "SLC"},
-                        }
-                    },
-                    "timestamp": "2025-07-22T14:10:00Z",
-                    "text": "Lifecycle assessment completed. Threats include data poisoning and model inversion. Training robustness score: 0.87.",
-                }
-            ],
-        },
-    )
-
-    db.upload_json(
-        "reports",
-        "model-123/urn:uuid:8f6a3c9e-9f34-4a7f-9bcb-7d6c9d9a1113.json",
-        {
-            "bomFormat": "CycloneDX",
-            "specVersion": "1.7",
-            "serialNumber": "urn:uuid:8f6a3c9e-9f34-4a7f-9bcb-7d6c9d9a1113",
-            "version": 1,
-            "metadata": {
-                "timestamp": "2025-07-22T15:00:00Z",
-                "tools": {
-                    "services": [
-                        {
-                            "name": "RAGRE",
-                            "version": "1.0.0",
-                            "provider": {"name": "SLC"},
-                        }
-                    ]
-                },
-                "component": {
-                    "bom-ref": "model-123",
-                    "type": "machine-learning-model",
-                    "name": "Fraud Detection Model",
-                    "version": "2.1.0",
-                    "description": "AI model for fraud detection",
-                    "modelCard": {
-                        "modelParameters": {
-                            "architectureFamily": "Transformer",
-                            "task": "Classification",
-                            "datasets": [
-                                {
-                                    "type": "dataset",
-                                    "name": "Fraud Training Dataset",
-                                    "contents": {
-                                        "url": "https://data.example.org/datasets/fraud-training-dataset.csv"
-                                    },
-                                },
-                                {
-                                    "type": "dataset",
-                                    "name": "Fraud Testing Dataset",
-                                    "contents": {
-                                        "url": "https://data.example.org/datasets/fraud-testing-dataset.csv"
-                                    },
-                                },
-                            ],
-                        }
-                    },
-                },
-            },
-            "externalReferences": [
-                {
-                    "type": "website",
-                    "url": "https://eur-lex.europa.eu/ai-act",
-                    "comment": "EU AI Act - Low Risk AI System",
-                }
-            ],
-            "vulnerabilities": [
-                {
-                    "id": "CVE-2024-12345",
-                    "ratings": [{"severity": "high"}],
-                    "description": "Buffer overflow in dependency",
-                    "affects": [{"ref": "model-123"}],
-                }
-            ],
-            "annotations": [
-                {
-                    "subjects": ["model-123"],
-                    "annotator": {
-                        "service": {
-                            "name": "RAGRE",
-                            "version": "1.0.0",
-                            "provider": {"name": "SLC"},
-                        }
-                    },
-                    "timestamp": "2025-07-22T14:00:00Z",
-                    "text": "Risk assessment completed. Code quality score: 82. One high-severity vulnerability identified.",
-                }
-            ],
-        },
-    )
+    seed_report(db, "aimbom-aimodelinfo.json", "aimodelinfo.json")
+    seed_report(db, "aimbom-assessments.json", "assessments.json")
+    seed_report(db, "aimbom-datasets.json", "datasets.json")
+    seed_report(db, "aimbom-euaiact.json", "euaiact.json")
+    seed_report(db, "aimbom-gadgets.json", "gadgets.json")
 
     return db

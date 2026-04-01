@@ -39,9 +39,9 @@ class Settings(BaseSettings):
         return level
 
     # STRAE details
-    NAME: str = "STRAE"
+    NAME: str = "Assurance Engine"
     VERSION: str = "1.0.0"
-    PROVIDER_NAME: str = "CBRL"
+    PROVIDER_NAME: str = "CoEvolution Project"
 
     # Bucket names for MinIO
     REPORTS_BUCKET: str = "reports"
