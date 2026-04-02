@@ -158,17 +158,6 @@ class AIMBOMGenerator:
                 f"Failed to generate AIMBOM from reports: {str(e)}"
             ) from e
 
-        # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.
-        # TODO: Validate after signing to ensure the signing process does not break compliance.
-        # Right now this fails because the signature field is not included in the schema, we
-        # need to find a way to include it without breaking the schema validation.
-        try:
-            validate_aimbom(jsonable_encoder(aimbom, exclude_none=True))
-        except ValueError as e:
-            raise GeneratorGenerationError(
-                f"Generated AIMBOM is invalid: {str(e)}"
-            ) from e
-
         # Sign the AIMBOM to ensure its integrity and authenticity.
         try:
             signed_aimbom = signing.sign_report(
@@ -177,6 +166,14 @@ class AIMBOMGenerator:
             aimbom = AIMBOM(**signed_aimbom)
         except Exception as e:
             raise GeneratorGenerationError(f"Failed to sign AIMBOM: {str(e)}") from e
+
+        # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.
+        try:
+            validate_aimbom(jsonable_encoder(aimbom, exclude_none=True))
+        except ValueError as e:
+            raise GeneratorGenerationError(
+                f"Generated AIMBOM is invalid: {str(e)}"
+            ) from e
 
         return aimbom
 

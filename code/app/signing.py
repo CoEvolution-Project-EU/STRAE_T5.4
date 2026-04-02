@@ -69,6 +69,16 @@ def sign_data(private_key: ec.EllipticCurvePrivateKey, data: bytes) -> str:
     return base64.b64encode(raw_signature).decode()
 
 
+def url_safe_to_standard_base64(value: str) -> str:
+    # Replace URL-safe chars with standard Base64 chars
+    standard = value.replace("-", "+").replace("_", "/")
+    # Re-pad if necessary (URL-safe b64 often strips padding)
+    padding = 4 - len(standard) % 4
+    if padding != 4:
+        standard += "=" * padding
+    return standard
+
+
 def sign_report(report: Dict) -> Dict:
     """
     Sign the given CycloneDX report using ES256.
