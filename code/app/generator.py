@@ -5,6 +5,7 @@ from typing import Dict
 from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
 
+from app import signing
 from app.config import settings
 from app.db import (
     MinioConnectionError,
@@ -24,6 +25,7 @@ from app.models.aimbom import (
     Tool,
 )
 from app.utils import utc_now_datetime
+from app.validation import validate_aimbom
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +152,6 @@ class AIMBOMGenerator:
                 version=1,  # TODO Handle versioning properly
                 metadata=metadata,
                 external_references=external_references,
-                signature={},  # TODO: Sign the AIMBOM for future verification
             )
         except Exception as e:
             raise GeneratorGenerationError(
@@ -158,13 +159,24 @@ class AIMBOMGenerator:
             ) from e
 
         # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.
-        # TODO: Uncomment this section once signature is implemented, as the current empty signature will fail validation.
-        # try:
-        #     validate_aimbom(jsonable_encoder(aimbom, exclude_none=True))
-        # except ValueError as e:
-        #     raise GeneratorGenerationError(
-        #         f"Generated AIMBOM is invalid: {str(e)}"
-        #     ) from e
+        # TODO: Validate after signing to ensure the signing process does not break compliance.
+        # Right now this fails because the signature field is not included in the schema, we
+        # need to find a way to include it without breaking the schema validation.
+        try:
+            validate_aimbom(jsonable_encoder(aimbom, exclude_none=True))
+        except ValueError as e:
+            raise GeneratorGenerationError(
+                f"Generated AIMBOM is invalid: {str(e)}"
+            ) from e
+
+        # Sign the AIMBOM to ensure its integrity and authenticity.
+        try:
+            signed_aimbom = signing.sign_report(
+                jsonable_encoder(aimbom, exclude_none=True)
+            )
+            aimbom = AIMBOM(**signed_aimbom)
+        except Exception as e:
+            raise GeneratorGenerationError(f"Failed to sign AIMBOM: {str(e)}") from e
 
         return aimbom
 

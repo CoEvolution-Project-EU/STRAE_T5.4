@@ -12,6 +12,9 @@ def get_validator():
     with open(SCHEMA_PATH, encoding="utf-8") as f:
         schema = json.load(f)
 
+    # TODO: Use register to load the additional schemas with a URI to allow for proper $ref resolution,
+    # currently this is not working (e.g., signature) because the schema contains $ref to external files which are not being resolved correctly.
+
     Draft7Validator.check_schema(schema)
     return Draft7Validator(schema)
 

@@ -8,6 +8,9 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
+# This is a hardcoded key pair for demonstration purposes only.
+# TODO: In production, use a secure key management solution. Do not hardcode keys.
+# TODO: Rotate keys regularly in production.
 PRIVATE_KEY_PEM = b"""-----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIIWW3PLDoBQ/GctT30iqcsvbvN6wbrfMP9tsi68cHuCAoAoGCCqGSM49
 AwEHoUQDQgAE2euo5Cc5lYhUVSi/1BOs6oaJxHhGzpKI9omB2LjndL0Y61jSp5oH
@@ -32,6 +35,7 @@ w6FRV5qdpdACzsLGYh9cOxjP6IlXW7tAXg9GJ7g=
 -----END CERTIFICATE-----"""
 
 
+# TODO: Maybe cache this
 def load_private_key() -> ec.EllipticCurvePrivateKey:
     return serialization.load_pem_private_key(
         PRIVATE_KEY_PEM,
@@ -39,7 +43,8 @@ def load_private_key() -> ec.EllipticCurvePrivateKey:
     )
 
 
-def load_certificate_chain() -> list:
+# TODO: Maybe cache this
+def load_certificate_path() -> list:
     cert = x509.load_pem_x509_certificate(CERT_PEM)
 
     der_bytes = cert.public_bytes(serialization.Encoding.DER)
@@ -54,6 +59,7 @@ def canonicalize_json(data: dict) -> bytes:
 
 
 def sign_data(private_key: ec.EllipticCurvePrivateKey, data: bytes) -> str:
+    # TODO: Verify that the signing process is correct and compatible with the expected verification process.
     signature = private_key.sign(data, ec.ECDSA(hashes.SHA256()))
 
     # Convert DER signature to raw r|s format
@@ -70,13 +76,14 @@ def sign_report(report: Dict) -> Dict:
     report = copy.deepcopy(report)
 
     private_key = load_private_key()
-    cert_chain = load_certificate_chain()
+    cert_path = load_certificate_path()
 
     # Remove existing signature if present
+    # NOTE: Maybe prevent signing an already signed report.
     report.pop("signature", None)
 
     # Create signature object WITHOUT value
-    report["signature"] = {"algorithm": "ES256", "certificatePath": cert_chain}
+    report["signature"] = {"algorithm": "ES256", "certificatePath": cert_path}
 
     # Canonicalize JSON (RFC8785)
     canonical_json = canonicalize_json(report)
