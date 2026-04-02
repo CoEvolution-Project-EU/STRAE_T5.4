@@ -14,7 +14,7 @@ CDEFS_SCHEMA_PATH = Path(__file__).parent / "schemas" / "cryptography-defs.schem
 
 # This is a work around by using a custom format checker that makes the URI check stricter
 # so ES256 doesn't accidentally match both sub-schemas. Without this the signature validation fails.
-def make_format_checker():
+def make_format_checker() -> FormatChecker:
     checker = FormatChecker()
 
     # Override the uri format to be strict — ES256 etc. must not match
@@ -55,7 +55,7 @@ def make_validator_registry() -> Registry[Any]:
 
 
 @lru_cache
-def get_validator():
+def get_validator() -> Draft7Validator:
     with open(CDX_SCHEMA_PATH) as sf:
         validator = Draft7Validator(
             json.load(sf),
@@ -66,7 +66,7 @@ def get_validator():
     return validator
 
 
-def validate_aimbom(aimbom_dict: dict):
+def validate_aimbom(aimbom_dict: dict) -> None:
     validator = get_validator()
     errors = sorted(validator.iter_errors(aimbom_dict), key=lambda e: e.path)
 
