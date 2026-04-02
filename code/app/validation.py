@@ -12,8 +12,13 @@ JSF_SCHEMA_PATH = Path(__file__).parent / "schemas" / "jsf-0.82.schema.json"
 CDEFS_SCHEMA_PATH = Path(__file__).parent / "schemas" / "cryptography-defs.schema.json"
 
 
-# This is a work around by using a custom format checker that makes the URI check stricter
-# so ES256 doesn't accidentally match both sub-schemas. Without this the signature validation fails.
+# The JSF schema defines the `algorithm` field as a `oneOf` between a known algorithm
+# enum (e.g. "ES256") and a `format: uri` string for custom/proprietary algorithms.
+# By default, jsonschema's URI format validation is loose enough that plain strings
+# like "ES256" pass as valid URIs (interpreted as relative URIs), causing "ES256" to
+# match both branches and failing `oneOf` (which requires exactly one match).
+# This custom checker enforces that a URI must have a scheme (e.g. "https://"),
+# so known algorithm names only match the enum branch.
 def make_format_checker() -> FormatChecker:
     checker = FormatChecker()
 
