@@ -36,7 +36,7 @@ w6FRV5qdpdACzsLGYh9cOxjP6IlXW7tAXg9GJ7g=
 
 
 # TODO: Maybe cache this
-def load_private_key() -> ec.EllipticCurvePrivateKey:
+def get_private_key() -> ec.EllipticCurvePrivateKey:
     return serialization.load_pem_private_key(
         PRIVATE_KEY_PEM,
         password=None,
@@ -44,7 +44,7 @@ def load_private_key() -> ec.EllipticCurvePrivateKey:
 
 
 # TODO: Maybe cache this
-def load_certificate_path() -> list:
+def get_certificate_path() -> list:
     cert = x509.load_pem_x509_certificate(CERT_PEM)
 
     der_bytes = cert.public_bytes(serialization.Encoding.DER)
@@ -75,8 +75,8 @@ def sign_report(report: Dict) -> Dict:
     """
     report = copy.deepcopy(report)
 
-    private_key = load_private_key()
-    cert_path = load_certificate_path()
+    private_key = get_private_key()
+    cert_path = get_certificate_path()
 
     # Remove existing signature if present
     # NOTE: Maybe prevent signing an already signed report.

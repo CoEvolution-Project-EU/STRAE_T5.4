@@ -19,7 +19,7 @@ CDEFS_SCHEMA_PATH = Path(__file__).parent / "schemas" / "cryptography-defs.schem
 # match both branches and failing `oneOf` (which requires exactly one match).
 # This custom checker enforces that a URI must have a scheme (e.g. "https://"),
 # so known algorithm names only match the enum branch.
-def make_format_checker() -> FormatChecker:
+def get_format_checker() -> FormatChecker:
     checker = FormatChecker()
 
     # Override the uri format to be strict — ES256 etc. must not match
@@ -35,7 +35,7 @@ def make_format_checker() -> FormatChecker:
     return checker
 
 
-def make_validator_registry() -> Registry[Any]:
+def get_validator_registry() -> Registry[Any]:
     with (
         open(SPDX_SCHEMA_PATH) as spdx,
         open(JSF_SCHEMA_PATH) as jsf,
@@ -64,8 +64,8 @@ def get_validator() -> Draft7Validator:
     with open(CDX_SCHEMA_PATH) as sf:
         validator = Draft7Validator(
             json.load(sf),
-            registry=make_validator_registry(),
-            format_checker=make_format_checker(),
+            registry=get_validator_registry(),
+            format_checker=get_format_checker(),
         )
 
     return validator
