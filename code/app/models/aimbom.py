@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Dict, List, Literal
+from typing import Annotated, List, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from pydantic.alias_generators import to_camel
@@ -106,6 +106,12 @@ class ExternalReference(CamelModel):
     comment: str
 
 
+class Signature(CamelModel):
+    algorithm: Literal["ES256"]
+    certificate_path: List[str]
+    value: str
+
+
 class AIMBOM(CamelModel):
     bom_format: Literal["CycloneDX"]
     spec_version: Literal["1.7"]
@@ -115,4 +121,4 @@ class AIMBOM(CamelModel):
     )
     metadata: Metadata
     external_references: List[ExternalReference]
-    signature: Dict
+    signature: Signature | None = None

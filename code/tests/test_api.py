@@ -29,6 +29,23 @@ def test_get_status():
     assert "version" in data
 
 
+def test_sign_report():
+    report = {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.7",
+        "serialNumber": "urn:uuid:test",
+        "version": 1,
+    }
+    response = client.post("/api/sign", json=report)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["detail"] == "Report signed successfully"
+    assert "signed_report" in data
+    assert data["signed_report"]["signature"]["algorithm"] == "ES256"
+    assert data["signed_report"]["signature"]["value"]
+
+
 def test_generate_aimbom_success():
     model_id = MODEL_ID
 

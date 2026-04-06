@@ -1,7 +1,9 @@
 import logging
+from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app import signing
 from app.config import settings
 from app.generator import (
     AIMBOMGenerator,
@@ -10,7 +12,11 @@ from app.generator import (
     GeneratorMissingReportError,
     get_generator,
 )
-from app.models.responses import AIMBOMGeneratedResponse, StatusResponse
+from app.models.responses import (
+    AIMBOMGeneratedResponse,
+    SignedReportResponse,
+    StatusResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +39,39 @@ def get_status():
 
 
 @router.post(
+    "/sign",
+    response_model=SignedReportResponse,
+    status_code=status.HTTP_200_OK,
+)
+def sign_report(report: Dict):
+    """
+    Sign the given report using the configured signing key.
+
+    Args:
+        report (Dict) - The report to be signed.
+
+    Returns:
+        SignedReportResponse - The signed report payload wrapped in a response model.
+    """
+
+    logger.info("Report signing requested")
+    try:
+        # NOTE: Maybe use asyncer to avoid blocking the event loop,
+        # especially if signing is slow with loading key/certificate operations.
+        signed_report = signing.sign_report(report)
+        logger.info("Report signed successfully")
+        return SignedReportResponse(
+            detail="Report signed successfully",
+            signed_report=signed_report,
+        )
+    except Exception as e:
+        logger.error("Error signing report", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.post(
     "/generate/{model_id}",
     response_model=AIMBOMGeneratedResponse,
     status_code=status.HTTP_201_CREATED,
@@ -40,6 +79,9 @@ def get_status():
 def generate_aimbom(model_id: str, generator: AIMBOMGenerator = Depends(get_generator)):
     """
     Generate an AIMBOM for the given model ID by aggregating reports from MinIO.
+
+    Args:
+        model_id (str): The ID of the model for which to generate the AIMBOM.
 
     Returns:
         AIMBOMGeneratedResponse - A response containing the details of the generated AIMBOM.

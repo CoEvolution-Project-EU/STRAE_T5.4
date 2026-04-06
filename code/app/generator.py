@@ -5,6 +5,7 @@ from typing import Dict
 from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
 
+from app import signing
 from app.config import settings
 from app.db import (
     MinioConnectionError,
@@ -24,6 +25,7 @@ from app.models.aimbom import (
     Tool,
 )
 from app.utils import utc_now_datetime
+from app.validation import validate_aimbom
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +69,7 @@ class AIMBOMGenerator:
         return aimbom
 
     def _retrieve_reports(self, model_id: str) -> dict:
+        logger.debug("Retrieving reports for model_id=%s", model_id)
         reports: dict[ReportType, Dict | None] = {
             ReportType.AI_MODEL_INFO: None,
             ReportType.ASSESSMENTS: None,
@@ -89,22 +92,42 @@ class AIMBOMGenerator:
                     settings.REPORTS_BUCKET,
                     f"{model_id}/{report_type.value}.json",
                 )
+                logger.debug(
+                    "Retrieved report %s for model_id=%s", report_type.value, model_id
+                )
             except MinioConnectionError as e:
+                logger.error(
+                    "MinIO connection error retrieving %s for model_id=%s",
+                    report_type.value,
+                    model_id,
+                    exc_info=True,
+                )
                 raise GeneratorMinioError(
                     f"Failed to retrieve report {report_type.value} for model_id={model_id} from MinIO storage: {str(e)}"
                 ) from e
             except MinioOperationError as e:
+                logger.warning(
+                    "Missing report %s for model_id=%s", report_type.value, model_id
+                )
                 raise GeneratorMissingReportError(
                     f"Required report {report_type.value} is missing for model_id={model_id}: {str(e)}"
                 ) from e
             except Exception as e:
+                logger.error(
+                    "Unexpected error retrieving %s for model_id=%s",
+                    report_type.value,
+                    model_id,
+                    exc_info=True,
+                )
                 raise GeneratorGenerationError(
                     f"Failed to retrieve/parse data for report {report_type.value} for model_id={model_id}: {str(e)}"
                 ) from e
 
+        logger.debug("All reports retrieved for model_id=%s", model_id)
         return reports
 
     def _create_aimbom_from_reports(self, reports: dict[ReportType, Dict]) -> AIMBOM:
+        logger.debug("Creating AIMBOM from reports")
         try:
             model_info_metadata = reports[ReportType.AI_MODEL_INFO].get("metadata")
             model_info_component = model_info_metadata.get("component")
@@ -150,32 +173,54 @@ class AIMBOMGenerator:
                 version=1,  # TODO Handle versioning properly
                 metadata=metadata,
                 external_references=external_references,
-                signature={},  # TODO: Sign the AIMBOM for future verification
             )
+            logger.debug("AIMBOM created with serial_number=%s", aimbom.serial_number)
         except Exception as e:
+            logger.error("Error creating AIMBOM from reports", exc_info=True)
             raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM from reports: {str(e)}"
             ) from e
 
+        # Sign the AIMBOM to ensure its integrity and authenticity.
+        try:
+            logger.debug("Signing AIMBOM")
+            signed_aimbom = signing.sign_report(
+                jsonable_encoder(aimbom, exclude_none=True)
+            )
+            aimbom = AIMBOM(**signed_aimbom)
+            logger.debug("AIMBOM signed successfully")
+        except Exception as e:
+            logger.error("Error signing AIMBOM", exc_info=True)
+            raise GeneratorGenerationError(f"Failed to sign AIMBOM: {str(e)}") from e
+
         # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.
-        # TODO: Uncomment this section once signature is implemented, as the current empty signature will fail validation.
-        # try:
-        #     validate_aimbom(jsonable_encoder(aimbom, exclude_none=True))
-        # except ValueError as e:
-        #     raise GeneratorGenerationError(
-        #         f"Generated AIMBOM is invalid: {str(e)}"
-        #     ) from e
+        try:
+            logger.debug("Validating AIMBOM")
+            validate_aimbom(jsonable_encoder(aimbom, exclude_none=True))
+            logger.debug("AIMBOM validation successful")
+        except ValueError as e:
+            logger.error("AIMBOM validation failed: %s", str(e))
+            raise GeneratorGenerationError(
+                f"Generated AIMBOM is invalid: {str(e)}"
+            ) from e
 
         return aimbom
 
     def _save_aimbom_to_bucket(self, model_id: str, aimbom: AIMBOM):
+        logger.debug(
+            "Saving AIMBOM to bucket for model_id=%s, serial_number=%s",
+            model_id,
+            aimbom.serial_number,
+        )
         try:
             self.minio.upload_json(
                 bucket_name=settings.AIMBOMS_BUCKET,
                 object_name=f"{model_id}/{aimbom.serial_number}.json",
                 data=jsonable_encoder(aimbom, exclude_none=True),
             )
+            logger.debug("AIMBOM saved successfully")
         except MinioError as e:
+            logger.error("Error saving AIMBOM to bucket", exc_info=True)
             raise GeneratorMinioError(f"MinIO error while saving AIMBOM: {e}") from e
 
 

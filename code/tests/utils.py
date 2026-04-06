@@ -4,6 +4,7 @@ from pathlib import Path
 from tests.mock_db import MockMinioDB
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "data/reports"
+AIMBOMS_DIR = Path(__file__).resolve().parent.parent / "data/aimboms"
 MODEL_ID = "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
 
 

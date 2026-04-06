@@ -37,12 +37,6 @@
                 "name": "Assurance Engine",
                 "version": "1.0"
             }
-        ],
-        "authors": [
-            {
-                "name": "Alexandros Gkillas",
-                "organization": "AviSense.AI"
-            }
         ]
     },
     "externalReferences": [
