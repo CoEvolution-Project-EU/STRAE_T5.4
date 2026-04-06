@@ -17,8 +17,8 @@ JSF_SCHEMA_PATH = SCHEMAS_DIR / "jsf-0.82.schema.json"
 CDEFS_SCHEMA_PATH = SCHEMAS_DIR / "cryptography-defs.schema.json"
 
 
-# The JSF schema defines the `algorithm` field as a `oneOf` between a known algorithm
-# enum (e.g. "ES256") and a `format: uri` string for custom/proprietary algorithms.
+# The JSF schema defines the `algorithm` field in the `signature` as a `oneOf` between a
+# known algorithm enum (e.g. "ES256") and a `format: uri` string for custom/proprietary algorithms.
 # By default, jsonschema's URI format validation is loose enough that plain strings
 # like "ES256" pass as valid URIs (interpreted as relative URIs), causing "ES256" to
 # match both branches and failing `oneOf` (which requires exactly one match).

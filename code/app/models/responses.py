@@ -1,3 +1,5 @@
+from typing import Dict
+
 from pydantic import BaseModel, Field
 
 
@@ -12,6 +14,11 @@ class AIMBOMGeneratedResponse(BaseModel):
     detail: str
     id: str = Field(..., min_length=1)
     model_id: str = Field(..., min_length=1)
+
+
+class SignedReportResponse(BaseModel):
+    detail: str
+    signed_report: Dict
 
 
 class StatusResponse(BaseModel):

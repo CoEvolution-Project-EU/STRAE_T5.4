@@ -12,7 +12,11 @@ from app.generator import (
     GeneratorMissingReportError,
     get_generator,
 )
-from app.models.responses import AIMBOMGeneratedResponse, StatusResponse
+from app.models.responses import (
+    AIMBOMGeneratedResponse,
+    SignedReportResponse,
+    StatusResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +40,7 @@ def get_status():
 
 @router.post(
     "/sign",
-    response_model=Dict,
+    response_model=SignedReportResponse,
     status_code=status.HTTP_200_OK,
 )
 def sign_report(report: Dict):
@@ -47,16 +51,19 @@ def sign_report(report: Dict):
         report (Dict) - The report to be signed.
 
     Returns:
-        Dict - The signed report.
+        SignedReportResponse - The signed report payload wrapped in a response model.
     """
 
     logger.info("Report signing requested")
     try:
-        # NOTE: Maybe use asyncer to run the signing in a thread to avoid blocking the event loop,
+        # NOTE: Maybe use asyncer to avoid blocking the event loop,
         # especially if signing is slow with loading key/certificate operations.
         signed_report = signing.sign_report(report)
         logger.info("Report signed successfully")
-        return signed_report
+        return SignedReportResponse(
+            detail="Report signed successfully",
+            signed_report=signed_report,
+        )
     except Exception as e:
         logger.error("Error signing report", exc_info=True)
         raise HTTPException(
