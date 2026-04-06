@@ -50,8 +50,18 @@ def sign_report(report: Dict):
         Dict - The signed report.
     """
 
-    signed_report = signing.sign_report(report)
-    return signed_report
+    logger.info("Report signing requested")
+    try:
+        # NOTE: Maybe use asyncer to run the signing in a thread to avoid blocking the event loop,
+        # especially if signing is slow with loading key/certificate operations.
+        signed_report = signing.sign_report(report)
+        logger.info("Report signed successfully")
+        return signed_report
+    except Exception as e:
+        logger.error("Error signing report", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 @router.post(

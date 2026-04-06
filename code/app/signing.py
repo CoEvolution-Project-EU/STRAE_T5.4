@@ -1,5 +1,6 @@
 import base64
 import copy
+import logging
 from typing import Dict
 
 import jcs  # RFC8785 canonicalization
@@ -7,6 +8,8 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
+
+logger = logging.getLogger(__name__)
 
 # This is a hardcoded key pair for demonstration purposes only.
 # TODO: In production, use a secure key management solution. Do not hardcode keys.
@@ -73,6 +76,7 @@ def sign_report(report: Dict) -> Dict:
     """
     Sign the given CycloneDX report using ES256.
     """
+    logger.debug("Starting report signing")
     report = copy.deepcopy(report)
 
     private_key = get_private_key()
@@ -94,4 +98,5 @@ def sign_report(report: Dict) -> Dict:
     # Add signature value
     report["signature"]["value"] = signature_value
 
+    logger.debug("Report signed successfully")
     return report

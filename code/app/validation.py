@@ -1,4 +1,5 @@
 import json
+import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -6,10 +7,14 @@ from typing import Any
 from jsonschema import Draft7Validator, FormatChecker
 from referencing import Registry, Resource
 
-CDX_SCHEMA_PATH = Path(__file__).parent / "schemas" / "bom-1.7.schema.json"
-SPDX_SCHEMA_PATH = Path(__file__).parent / "schemas" / "spdx.schema.json"
-JSF_SCHEMA_PATH = Path(__file__).parent / "schemas" / "jsf-0.82.schema.json"
-CDEFS_SCHEMA_PATH = Path(__file__).parent / "schemas" / "cryptography-defs.schema.json"
+logger = logging.getLogger(__name__)
+
+SCHEMAS_DIR = Path(__file__).parent / "schemas"
+
+CDX_SCHEMA_PATH = SCHEMAS_DIR / "bom-1.7.schema.json"
+SPDX_SCHEMA_PATH = SCHEMAS_DIR / "spdx.schema.json"
+JSF_SCHEMA_PATH = SCHEMAS_DIR / "jsf-0.82.schema.json"
+CDEFS_SCHEMA_PATH = SCHEMAS_DIR / "cryptography-defs.schema.json"
 
 
 # The JSF schema defines the `algorithm` field as a `oneOf` between a known algorithm
@@ -72,9 +77,13 @@ def get_validator() -> Draft7Validator:
 
 
 def validate_aimbom(aimbom_dict: dict) -> None:
+    logger.debug("Starting AIMBOM validation")
     validator = get_validator()
     errors = sorted(validator.iter_errors(aimbom_dict), key=lambda e: e.path)
 
     if errors:
         messages = [f"{list(error.path)}: {error.message}" for error in errors]
+        logger.warning("AIMBOM validation failed with %d errors", len(errors))
         raise ValueError("CycloneDX validation failed:\n" + "\n".join(messages))
+    else:
+        logger.debug("AIMBOM validation successful")
