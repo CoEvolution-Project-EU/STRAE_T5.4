@@ -132,24 +132,24 @@ class MinioDB:
                 response.close()
                 response.release_conn()
 
-    def get_reports_for_model(self, model_uuid: str, model_version: str) -> Dict:
+    def get_reports_for_model(
+        self, bucket_name: str, model_uuid: str, model_version: str
+    ) -> Dict:
         reports = {}
         prefix = f"{model_uuid}/{model_version}/"
 
-        objects = self.list_objects_in_bucket(
-            bucket_name=settings.REPORTS_BUCKET, prefix=prefix
-        )
+        objects = self.list_objects_in_bucket(bucket_name=bucket_name, prefix=prefix)
 
         if not objects:
             raise MinioOperationError(
-                f"No reports found for model_uuid={model_uuid}, model_version={model_version} in bucket '{settings.REPORTS_BUCKET}' with prefix '{prefix}'"
+                f"No reports found for model_uuid={model_uuid}, model_version={model_version} in bucket '{bucket_name}' with prefix '{prefix}'"
             )
 
         for obj in objects:
             if not obj.object_name.endswith(".json"):
                 continue
 
-            data = self.get_json(settings.REPORTS_BUCKET, obj.object_name)
+            data = self.get_json(bucket_name, obj.object_name)
             reports[obj.object_name.split("/")[-1].replace(".json", "")] = data
 
         return reports

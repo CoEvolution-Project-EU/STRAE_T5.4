@@ -100,7 +100,7 @@ class AIMBOMGenerator:
         # if we have new reports for the same model_uuid and model_version.
         try:
             retrieved_reports = self.minio.get_reports_for_model(
-                model_uuid, model_version
+                settings.REPORTS_BUCKET, model_uuid, model_version
             )
         except MinioConnectionError as e:
             logger.error(

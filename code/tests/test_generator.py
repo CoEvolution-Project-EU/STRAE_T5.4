@@ -46,7 +46,7 @@ def test_minio_connection_failure():
     model_version = MODEL_VERSION
 
     minio = MagicMock(spec=MinioDB)
-    minio.get_json.side_effect = MinioConnectionError("MinIO down")
+    minio.get_reports_for_model.side_effect = MinioConnectionError("MinIO down")
 
     generator = AIMBOMGenerator(minio)
 
