@@ -96,38 +96,38 @@ class AIMBOMGenerator:
             ReportType.GADGETS: None,
         }
 
-        # NOTE: This is going to be a single API call to retrieve all the reports
-        # from the CoEvolution Knowledge Base.
+        # NOTE: Verify how are we going to find the latest reports,
+        # if we have new reports for the same model_uuid and model_version.
+        try:
+            retrieved_reports = self.minio.get_reports_for_model(
+                model_uuid, model_version
+            )
+        except MinioConnectionError as e:
+            logger.error(
+                "MinIO connection error retrieving reports for model_uuid=%s, model_version=%s",
+                model_uuid,
+                model_version,
+                exc_info=True,
+            )
+            raise GeneratorMinioError(
+                f"Failed to retrieve reports for model_uuid={model_uuid}, model_version={model_version} from MinIO storage: {str(e)}"
+            ) from e
+        except MinioOperationError as e:
+            logger.warning(
+                "Missing reports for model_uuid=%s, model_version=%s",
+                model_uuid,
+                model_version,
+            )
+            raise GeneratorMissingReportError(
+                f"Required reports are missing for model_uuid={model_uuid}, model_version={model_version}: {str(e)}"
+            ) from e
 
-        # TODO: Verify how are we going to find the latest reports,
-        # if we have multiple versions of the same report.
         # TODO: Validate the retrieved reports against their respective schemas
         # to ensure data integrity before processing.
-
         for report_type in reports.keys():
-            try:
-                reports[report_type] = self.minio.get_json(
-                    settings.REPORTS_BUCKET,
-                    f"{model_uuid}/{model_version}/{report_type.value}.json",
-                )
-                logger.debug(
-                    "Retrieved report %s for model_uuid=%s, model_version=%s",
-                    report_type.value,
-                    model_uuid,
-                    model_version,
-                )
-            except MinioConnectionError as e:
-                logger.error(
-                    "MinIO connection error retrieving %s for model_uuid=%s, model_version=%s",
-                    report_type.value,
-                    model_uuid,
-                    model_version,
-                    exc_info=True,
-                )
-                raise GeneratorMinioError(
-                    f"Failed to retrieve report {report_type.value} for model_uuid={model_uuid}, model_version={model_version} from MinIO storage: {str(e)}"
-                ) from e
-            except MinioOperationError as e:
+            report = retrieved_reports.get(report_type.value)
+
+            if report is None:
                 logger.warning(
                     "Missing report %s for model_uuid=%s, model_version=%s",
                     report_type.value,
@@ -135,19 +135,18 @@ class AIMBOMGenerator:
                     model_version,
                 )
                 raise GeneratorMissingReportError(
-                    f"Required report {report_type.value} is missing for model_uuid={model_uuid}, model_version={model_version}: {str(e)}"
-                ) from e
-            except Exception as e:
-                logger.error(
-                    "Unexpected error retrieving %s for model_uuid=%s, model_version=%s",
-                    report_type.value,
-                    model_uuid,
-                    model_version,
-                    exc_info=True,
+                    f"Required report {report_type.value} is missing for "
+                    f"model_uuid={model_uuid}, model_version={model_version}"
                 )
-                raise GeneratorGenerationError(
-                    f"Failed to retrieve/parse data for report {report_type.value} for model_uuid={model_uuid}, model_version={model_version}: {str(e)}"
-                ) from e
+
+            reports[report_type] = report
+
+            logger.debug(
+                "Retrieved report %s for model_uuid=%s, model_version=%s",
+                report_type.value,
+                model_uuid,
+                model_version,
+            )
 
         logger.debug(
             "All reports retrieved for model_uuid=%s, model_version=%s",
