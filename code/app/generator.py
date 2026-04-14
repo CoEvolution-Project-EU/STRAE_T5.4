@@ -58,18 +58,36 @@ class AIMBOMGenerator:
     def __init__(self, minio: MinioDB):
         self.minio = minio
 
-    def generate(self, model_id: str) -> AIMBOM:
-        logger.debug("Starting generation pipeline model_id=%s", model_id)
+    def generate(self, model_uuid: str, model_version: str) -> AIMBOM:
+        logger.debug(
+            "Starting generation pipeline model_uuid=%s, model_version=%s",
+            model_uuid,
+            model_version,
+        )
 
-        reports = self._retrieve_reports(model_id)
+        # TODO: Check if an AIMBOM already exists for the given model_uuid and
+        # model_version before starting the generation process.
+        # 1 -> If it exists, we have AIMBOM deprecation and we need to generate a
+        # new AIMBOM with the new reports that includes the deprecated one.
+        # 2 -> If it doesn't exist, we proceed with the generation as normal.
+
+        reports = self._retrieve_reports(model_uuid, model_version)
         aimbom = self._create_aimbom_from_reports(reports)
-        self._save_aimbom_to_bucket(model_id, aimbom)
+        self._save_aimbom_to_bucket(model_uuid, model_version, aimbom)
 
-        logger.debug("Generation completed model_id=%s", model_id)
+        logger.debug(
+            "Generation completed model_uuid=%s, model_version=%s",
+            model_uuid,
+            model_version,
+        )
         return aimbom
 
-    def _retrieve_reports(self, model_id: str) -> dict:
-        logger.debug("Retrieving reports for model_id=%s", model_id)
+    def _retrieve_reports(self, model_uuid: str, model_version: str) -> dict:
+        logger.debug(
+            "Retrieving reports for model_uuid=%s, model_version=%s",
+            model_uuid,
+            model_version,
+        )
         reports: dict[ReportType, Dict | None] = {
             ReportType.AI_MODEL_INFO: None,
             ReportType.ASSESSMENTS: None,
@@ -82,7 +100,7 @@ class AIMBOMGenerator:
         # from the CoEvolution Knowledge Base.
 
         # TODO: Verify how are we going to find the latest reports,
-        # if we are going to have multiple versions of the same report.
+        # if we have multiple versions of the same report.
         # TODO: Validate the retrieved reports against their respective schemas
         # to ensure data integrity before processing.
 
@@ -90,40 +108,52 @@ class AIMBOMGenerator:
             try:
                 reports[report_type] = self.minio.get_json(
                     settings.REPORTS_BUCKET,
-                    f"{model_id}/{report_type.value}.json",
+                    f"{model_uuid}/{model_version}/{report_type.value}.json",
                 )
                 logger.debug(
-                    "Retrieved report %s for model_id=%s", report_type.value, model_id
+                    "Retrieved report %s for model_uuid=%s, model_version=%s",
+                    report_type.value,
+                    model_uuid,
+                    model_version,
                 )
             except MinioConnectionError as e:
                 logger.error(
-                    "MinIO connection error retrieving %s for model_id=%s",
+                    "MinIO connection error retrieving %s for model_uuid=%s, model_version=%s",
                     report_type.value,
-                    model_id,
+                    model_uuid,
+                    model_version,
                     exc_info=True,
                 )
                 raise GeneratorMinioError(
-                    f"Failed to retrieve report {report_type.value} for model_id={model_id} from MinIO storage: {str(e)}"
+                    f"Failed to retrieve report {report_type.value} for model_uuid={model_uuid}, model_version={model_version} from MinIO storage: {str(e)}"
                 ) from e
             except MinioOperationError as e:
                 logger.warning(
-                    "Missing report %s for model_id=%s", report_type.value, model_id
+                    "Missing report %s for model_uuid=%s, model_version=%s",
+                    report_type.value,
+                    model_uuid,
+                    model_version,
                 )
                 raise GeneratorMissingReportError(
-                    f"Required report {report_type.value} is missing for model_id={model_id}: {str(e)}"
+                    f"Required report {report_type.value} is missing for model_uuid={model_uuid}, model_version={model_version}: {str(e)}"
                 ) from e
             except Exception as e:
                 logger.error(
-                    "Unexpected error retrieving %s for model_id=%s",
+                    "Unexpected error retrieving %s for model_uuid=%s, model_version=%s",
                     report_type.value,
-                    model_id,
+                    model_uuid,
+                    model_version,
                     exc_info=True,
                 )
                 raise GeneratorGenerationError(
-                    f"Failed to retrieve/parse data for report {report_type.value} for model_id={model_id}: {str(e)}"
+                    f"Failed to retrieve/parse data for report {report_type.value} for model_uuid={model_uuid}, model_version={model_version}: {str(e)}"
                 ) from e
 
-        logger.debug("All reports retrieved for model_id=%s", model_id)
+        logger.debug(
+            "All reports retrieved for model_uuid=%s, model_version=%s",
+            model_uuid,
+            model_version,
+        )
         return reports
 
     def _create_aimbom_from_reports(self, reports: dict[ReportType, Dict]) -> AIMBOM:
@@ -170,7 +200,7 @@ class AIMBOMGenerator:
                 bom_format="CycloneDX",
                 spec_version="1.7",
                 serial_number=f"urn:uuid:{str(uuid.uuid4())}",
-                version=1,  # TODO Handle versioning properly
+                version=1,
                 metadata=metadata,
                 external_references=external_references,
             )
@@ -206,16 +236,19 @@ class AIMBOMGenerator:
 
         return aimbom
 
-    def _save_aimbom_to_bucket(self, model_id: str, aimbom: AIMBOM):
+    def _save_aimbom_to_bucket(
+        self, model_uuid: str, model_version: str, aimbom: AIMBOM
+    ):
         logger.debug(
-            "Saving AIMBOM to bucket for model_id=%s, serial_number=%s",
-            model_id,
+            "Saving AIMBOM to bucket for model_uuid=%s, model_version=%s, serial_number=%s",
+            model_uuid,
+            model_version,
             aimbom.serial_number,
         )
         try:
             self.minio.upload_json(
                 bucket_name=settings.AIMBOMS_BUCKET,
-                object_name=f"{model_id}/{aimbom.serial_number}.json",
+                object_name=f"{model_uuid}/{model_version}/{aimbom.serial_number}.json",
                 data=jsonable_encoder(aimbom, exclude_none=True),
             )
             logger.debug("AIMBOM saved successfully")
