@@ -1,9 +1,9 @@
 import pytest
-from fastapi.testclient import TestClient
-
 from app.db import get_minio_client
 from app.main import app
-from tests.utils import create_new_mock_minio
+from fastapi.testclient import TestClient
+
+from tests.utils import MODEL_UUID, MODEL_VERSION, create_new_mock_minio
 
 
 @pytest.fixture
@@ -29,18 +29,38 @@ def test_get_status():
     assert "version" in data
 
 
-def test_generate_aimbom_success():
-    model_id = "model-123"
+def test_sign_report():
+    report = {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.7",
+        "serialNumber": "urn:uuid:test",
+        "version": 1,
+    }
+    response = client.post("/api/sign", json=report)
 
-    response = client.post(f"/api/generate/{model_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["detail"] == "Report signed successfully"
+    assert "signed_report" in data
+    assert data["signed_report"]["signature"]["algorithm"] == "ES256"
+    assert data["signed_report"]["signature"]["value"]
+
+
+def test_generate_aimbom_success():
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
+
+    response = client.post(f"/api/generate/{model_uuid}/{model_version}")
 
     assert response.status_code == 201
     data = response.json()
-    assert data["model_id"] == model_id
+    assert data["model_uuid"] == model_uuid
     assert "id" in data
 
 
 def test_generate_aimbom_no_reports():
-    model_id = "nonexistent_model"
-    response = client.post(f"/api/generate/{model_id}")
+    model_uuid = "nonexistent_model"
+    model_version = MODEL_VERSION
+
+    response = client.post(f"/api/generate/{model_uuid}/{model_version}")
     assert response.status_code == 409

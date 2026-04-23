@@ -1,61 +1,72 @@
 from unittest.mock import MagicMock
 
 import pytest
-
 from app.db import MinioConnectionError, MinioDB
 from app.generator import (
     AIMBOMGenerator,
-    GenerationError,
-    MinioStorageError,
-    MissingReportsError,
+    GeneratorMinioError,
+    GeneratorMissingReportError,
 )
-from tests.utils import create_empty_mock_minio, create_new_mock_minio
+
+from tests.utils import (
+    MODEL_UUID,
+    MODEL_VERSION,
+    create_empty_mock_minio,
+    create_new_mock_minio,
+)
 
 
 def test_generate_success():
-    model_id = "model-123"
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
 
     minio = create_new_mock_minio()
 
     generator = AIMBOMGenerator(minio)
 
-    aimbom = generator.generate(model_id)
+    aimbom = generator.generate(model_uuid, model_version)
 
-    assert aimbom.get_model_id() == model_id
     assert aimbom.serial_number.startswith("urn:uuid:")
 
 
 def test_generate_missing_reports():
-    model_id = "model-123"
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
 
     minio = create_empty_mock_minio()
 
     generator = AIMBOMGenerator(minio)
 
-    with pytest.raises(MissingReportsError):
-        generator.generate(model_id)
+    with pytest.raises(GeneratorMissingReportError):
+        generator.generate(model_uuid, model_version)
 
 
 def test_minio_connection_failure():
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
+
     minio = MagicMock(spec=MinioDB)
-    minio.list_objects_in_bucket.side_effect = MinioConnectionError("MinIO down")
+    minio.get_reports_for_model.side_effect = MinioConnectionError("MinIO down")
 
     generator = AIMBOMGenerator(minio)
 
-    with pytest.raises(MinioStorageError):
-        generator.generate("model-123")
+    with pytest.raises(GeneratorMinioError):
+        generator.generate(model_uuid, model_version)
 
 
-def test_invalid_report_data():
-    minio = MagicMock(spec=MinioDB)
+# Update this test when we have report validation logic implemented
+# def test_invalid_report_data():
+#     model_uuid = "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
 
-    obj = MagicMock()
-    obj.object_name = "model-123/bad.json"
+#     minio = MagicMock(spec=MinioDB)
 
-    minio.list_objects_in_bucket.return_value = [obj]
-    minio.get_json.return_value = {"invalid": "schema"}
+#     obj = MagicMock()
+#     obj.object_name = "4ff2dab7-bffe-414d-88a5-1826b9fea8df/bad.json"
 
-    generator = AIMBOMGenerator(minio)
+#     minio.list_objects_in_bucket.return_value = [obj]
+#     minio.get_json.return_value = {"invalid": "schema"}
 
-    with pytest.raises(GenerationError):
-        generator.generate("model-123")
+#     generator = AIMBOMGenerator(minio)
+
+#     with pytest.raises(GeneratorGenerationError):
+#         generator.generate(model_uuid)

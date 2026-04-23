@@ -1,16 +1,22 @@
 import logging
+from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app import signing
 from app.config import settings
 from app.generator import (
     AIMBOMGenerator,
-    GenerationError,
-    MinioStorageError,
-    MissingReportsError,
+    GeneratorGenerationError,
+    GeneratorMinioError,
+    GeneratorMissingReportError,
     get_generator,
 )
-from app.models.responses import AIMBOMGeneratedResponse, StatusResponse
+from app.models.responses import (
+    AIMBOMGeneratedResponse,
+    SignedReportResponse,
+    StatusResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,32 +39,83 @@ def get_status():
 
 
 @router.post(
-    "/generate/{model_id}",
+    "/sign",
+    response_model=SignedReportResponse,
+    status_code=status.HTTP_200_OK,
+)
+def sign_report(report: Dict):
+    """
+    Sign the given report using the configured signing key.
+
+    Args:
+        report (Dict) - The report to be signed.
+
+    Returns:
+        SignedReportResponse - The signed report payload wrapped in a response model.
+    """
+
+    logger.info("Report signing requested")
+    try:
+        # NOTE: Maybe use asyncer to avoid blocking the event loop,
+        # especially if signing is slow with loading key/certificate operations.
+        signed_report = signing.sign_report(report)
+        logger.info("Report signed successfully")
+        return SignedReportResponse(
+            detail="Report signed successfully",
+            signed_report=signed_report,
+        )
+    except Exception as e:
+        logger.error("Error signing report", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.post(
+    "/generate/{model_uuid}/{model_version}",
     response_model=AIMBOMGeneratedResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def generate_aimbom(model_id: str, generator: AIMBOMGenerator = Depends(get_generator)):
+def generate_aimbom(
+    model_uuid: str,
+    model_version: str,
+    generator: AIMBOMGenerator = Depends(get_generator),
+):
     """
     Generate an AIMBOM for the given model ID by aggregating reports from MinIO.
+
+    Args:
+        model_uuid (str) - The ID of the model for which to generate the AIMBOM.
+        model_version (str) - The version of the model for which to generate the AIMBOM.
 
     Returns:
         AIMBOMGeneratedResponse - A response containing the details of the generated AIMBOM.
     """
 
-    logger.info("AIMBOM generation requested for model_id=%s", model_id)
+    logger.info(
+        "AIMBOM generation requested for model_uuid=%s, model_version=%s",
+        model_uuid,
+        model_version,
+    )
 
     try:
-        aimbom = generator.generate(model_id)
-    except MissingReportsError as e:
-        logger.warning("Missing reports for model_id=%s: %s", model_id, e)
+        # TODO: Use asyncer to run the generation to avoid blocking the event loop,
+        # especially if MinIO operations are slow.
+        # TODO: Maybe implement caching of generated AIMBOMs to avoid regenerating
+        # for the same model_uuid & model_version if reports haven't changed.
+        aimbom = generator.generate(model_uuid, model_version)
+    except GeneratorMissingReportError as e:
+        logger.warning("Missing reports for model_uuid=%s: %s", model_uuid, e)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
-    except MinioStorageError as e:
-        logger.error("MinIO error for model_id=%s", model_id, exc_info=True)
+    except GeneratorMinioError as e:
+        logger.error("MinIO error for model_uuid=%s", model_uuid, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
         )
-    except GenerationError as e:
-        logger.error("AIMBOM generation error for model_id=%s", model_id, exc_info=True)
+    except GeneratorGenerationError as e:
+        logger.error(
+            "AIMBOM generation error for model_uuid=%s", model_uuid, exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -69,13 +126,15 @@ def generate_aimbom(model_id: str, generator: AIMBOMGenerator = Depends(get_gene
         )
 
     logger.info(
-        "AIMBOM generated: model_id=%s, serial_number=%s",
-        model_id,
+        "AIMBOM generated: model_uuid=%s, model_version=%s, serial_number=%s",
+        model_uuid,
+        model_version,
         aimbom.serial_number,
     )
 
     return AIMBOMGeneratedResponse(
         detail="AIMBOM generated successfully",
         id=aimbom.serial_number,
-        model_id=aimbom.get_model_id(),
+        model_uuid=model_uuid,
+        model_version=model_version,
     )
