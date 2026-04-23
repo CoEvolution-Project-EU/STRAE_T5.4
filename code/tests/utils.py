@@ -5,7 +5,8 @@ from tests.mock_db import MockMinioDB
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "data/reports"
 AIMBOMS_DIR = Path(__file__).resolve().parent.parent / "data/aimboms"
-MODEL_ID = "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
+MODEL_UUID = "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
+MODEL_VERSION = "1.0"
 
 
 def load_json(path: Path):
@@ -17,7 +18,7 @@ def seed_report(db: MockMinioDB, filename: str, object_name: str):
     data = load_json(REPORTS_DIR / filename)
     db.upload_json(
         "reports",
-        f"{MODEL_ID}/{object_name}",
+        f"{MODEL_UUID}/{MODEL_VERSION}/{object_name}",
         data,
     )
 

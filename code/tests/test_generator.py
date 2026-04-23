@@ -8,47 +8,55 @@ from app.generator import (
     GeneratorMissingReportError,
 )
 
-from tests.utils import MODEL_ID, create_empty_mock_minio, create_new_mock_minio
+from tests.utils import (
+    MODEL_UUID,
+    MODEL_VERSION,
+    create_empty_mock_minio,
+    create_new_mock_minio,
+)
 
 
 def test_generate_success():
-    model_id = MODEL_ID
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
 
     minio = create_new_mock_minio()
 
     generator = AIMBOMGenerator(minio)
 
-    aimbom = generator.generate(model_id)
+    aimbom = generator.generate(model_uuid, model_version)
 
     assert aimbom.serial_number.startswith("urn:uuid:")
 
 
 def test_generate_missing_reports():
-    model_id = MODEL_ID
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
 
     minio = create_empty_mock_minio()
 
     generator = AIMBOMGenerator(minio)
 
     with pytest.raises(GeneratorMissingReportError):
-        generator.generate(model_id)
+        generator.generate(model_uuid, model_version)
 
 
 def test_minio_connection_failure():
-    model_id = MODEL_ID
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
 
     minio = MagicMock(spec=MinioDB)
-    minio.get_json.side_effect = MinioConnectionError("MinIO down")
+    minio.get_reports_for_model.side_effect = MinioConnectionError("MinIO down")
 
     generator = AIMBOMGenerator(minio)
 
     with pytest.raises(GeneratorMinioError):
-        generator.generate(model_id)
+        generator.generate(model_uuid, model_version)
 
 
 # Update this test when we have report validation logic implemented
 # def test_invalid_report_data():
-#     model_id = "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
+#     model_uuid = "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
 
 #     minio = MagicMock(spec=MinioDB)
 
@@ -61,4 +69,4 @@ def test_minio_connection_failure():
 #     generator = AIMBOMGenerator(minio)
 
 #     with pytest.raises(GeneratorGenerationError):
-#         generator.generate(model_id)
+#         generator.generate(model_uuid)

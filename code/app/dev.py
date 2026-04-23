@@ -15,31 +15,35 @@ router = APIRouter(
 
 
 @router.post(
-    "/{model_id}/reports/{report_name}",
+    "/{model_uuid}/{model_version}/reports/{report_name}",
     response_model=ReportSavedResponse,
     status_code=status.HTTP_200_OK,
 )
 def save_report(
-    model_id: str,
+    model_uuid: str,
+    model_version: str,
     report_name: str,
     report: Dict,
     minio: MinioDB = Depends(get_minio_client),
 ):
-    store_report(model_id, report_name, report, minio)
+    store_report(model_uuid, model_version, report_name, report, minio)
 
     return ReportSavedResponse(
         detail="Report saved successfully",
         id=report.get("serialNumber"),
         report_name=report_name,
-        model_id=model_id,
+        model_uuid=model_uuid,
+        model_version=model_version,
     )
 
 
-def store_report(model_id: str, report_name: str, report: Dict, minio: MinioDB) -> None:
+def store_report(
+    model_uuid: str, model_version: str, report_name: str, report: Dict, minio: MinioDB
+) -> None:
     try:
         minio.upload_json(
             bucket_name=settings.REPORTS_BUCKET,
-            object_name=f"{model_id}/{report_name}.json",
+            object_name=f"{model_uuid}/{model_version}/{report_name}.json",
             data=jsonable_encoder(report, exclude_none=True),
         )
     except MinioError as e:

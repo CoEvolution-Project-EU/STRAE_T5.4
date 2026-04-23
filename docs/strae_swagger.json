@@ -2,7 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "STR Assurance Engine API",
-    "version": "0.1.0"
+    "description": "Collects the security reports from the rest of the CoEvolution components and generate, based on those reports, the AIMBOM for a given assessed/secured/robust AI model.",
+    "version": "1.0.0"
   },
   "paths": {
     "/api/status": {
@@ -33,7 +34,7 @@
           "api"
         ],
         "summary": "Sign Report",
-        "description": "Sign the given report using the configured signing key.\n\nArgs:\n    report (Dict) - The report to be signed.\n\nReturns:\n    Dict - The signed report.",
+        "description": "Sign the given report using the configured signing key.\n\nArgs:\n    report (Dict) - The report to be signed.\n\nReturns:\n    SignedReportResponse - The signed report payload wrapped in a response model.",
         "operationId": "sign_report_api_sign_post",
         "requestBody": {
           "content": {
@@ -53,9 +54,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Sign Report Api Sign Post"
+                  "$ref": "#/components/schemas/SignedReportResponse"
                 }
               }
             }
@@ -73,22 +72,31 @@
         }
       }
     },
-    "/api/generate/{model_id}": {
+    "/api/generate/{model_uuid}/{model_version}": {
       "post": {
         "tags": [
           "api"
         ],
         "summary": "Generate Aimbom",
-        "description": "Generate an AIMBOM for the given model ID by aggregating reports from MinIO.\n\nArgs:\n    model_id (str): The ID of the model for which to generate the AIMBOM.\n\nReturns:\n    AIMBOMGeneratedResponse - A response containing the details of the generated AIMBOM.",
-        "operationId": "generate_aimbom_api_generate__model_id__post",
+        "description": "Generate an AIMBOM for the given model ID by aggregating reports from MinIO.\n\nArgs:\n    model_uuid (str) - The ID of the model for which to generate the AIMBOM.\n    model_version (str) - The version of the model for which to generate the AIMBOM.\n\nReturns:\n    AIMBOMGeneratedResponse - A response containing the details of the generated AIMBOM.",
+        "operationId": "generate_aimbom_api_generate__model_uuid___model_version__post",
         "parameters": [
           {
-            "name": "model_id",
+            "name": "model_uuid",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Model Id"
+              "title": "Model Uuid"
+            }
+          },
+          {
+            "name": "model_version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Model Version"
             }
           }
         ],
@@ -130,17 +138,23 @@
             "minLength": 1,
             "title": "Id"
           },
-          "model_id": {
+          "model_uuid": {
             "type": "string",
             "minLength": 1,
-            "title": "Model Id"
+            "title": "Model Uuid"
+          },
+          "model_version": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Model Version"
           }
         },
         "type": "object",
         "required": [
           "detail",
           "id",
-          "model_id"
+          "model_uuid",
+          "model_version"
         ],
         "title": "AIMBOMGeneratedResponse"
       },
@@ -156,6 +170,25 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "SignedReportResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "signed_report": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Signed Report"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail",
+          "signed_report"
+        ],
+        "title": "SignedReportResponse"
       },
       "StatusResponse": {
         "properties": {

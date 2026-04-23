@@ -34,3 +34,26 @@ class MockMinioDB:
             return self.buckets[bucket_name][object_name]
         except KeyError as e:
             raise MinioOperationError(f"{object_name} not found") from e
+
+    def get_reports_for_model(
+        self, bucket_name: str, model_uuid: str, model_version: str
+    ):
+        reports = {}
+
+        prefix = f"{model_uuid}/{model_version}/"
+
+        objects = self.list_objects_in_bucket(bucket_name=bucket_name, prefix=prefix)
+        if not objects:
+            raise MinioOperationError(
+                f"No reports found for model_uuid={model_uuid}, model_version={model_version} in bucket '{bucket_name}' with prefix '{prefix}'"
+            )
+
+        for obj in objects:
+            if not obj.object_name.endswith(".json"):
+                continue
+
+            data = self.get_json(bucket_name, obj.object_name)
+
+            reports[obj.object_name.split("/")[-1].replace(".json", "")] = data
+
+        return reports

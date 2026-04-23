@@ -3,7 +3,7 @@ from app.db import get_minio_client
 from app.main import app
 from fastapi.testclient import TestClient
 
-from tests.utils import MODEL_ID, create_new_mock_minio
+from tests.utils import MODEL_UUID, MODEL_VERSION, create_new_mock_minio
 
 
 @pytest.fixture
@@ -47,17 +47,20 @@ def test_sign_report():
 
 
 def test_generate_aimbom_success():
-    model_id = MODEL_ID
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
 
-    response = client.post(f"/api/generate/{model_id}")
+    response = client.post(f"/api/generate/{model_uuid}/{model_version}")
 
     assert response.status_code == 201
     data = response.json()
-    assert data["model_id"] == model_id
+    assert data["model_uuid"] == model_uuid
     assert "id" in data
 
 
 def test_generate_aimbom_no_reports():
-    model_id = "nonexistent_model"
-    response = client.post(f"/api/generate/{model_id}")
+    model_uuid = "nonexistent_model"
+    model_version = MODEL_VERSION
+
+    response = client.post(f"/api/generate/{model_uuid}/{model_version}")
     assert response.status_code == 409

@@ -38,7 +38,12 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down STR Assurance Engine API")
 
 
-app = FastAPI(title="STR Assurance Engine API", lifespan=lifespan)
+app = FastAPI(
+    title="STR Assurance Engine API",
+    version=settings.VERSION,
+    description="Collects the security reports from the rest of the CoEvolution components and generate, based on those reports, the AIMBOM for a given assessed/secured/robust AI model.",
+    lifespan=lifespan,
+)
 
 # Configure CORS (TODO: adjust origins in production)
 app.add_middleware(
