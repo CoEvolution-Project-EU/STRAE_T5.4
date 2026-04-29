@@ -1,3 +1,4 @@
+asyncer==0.0.17
 fastapi==0.116.0
 fastapi-cli==0.0.8
 minio==7.2.20
@@ -6,6 +7,7 @@ pydantic-settings==2.12.0
 uvicorn==0.35.0
 pytest==9.0.2
 pytest-env==1.5.0
+pytest-asyncio==1.3.0
 httpx==0.28.1
 jsonschema==4.26.0
 jcs==0.2.1

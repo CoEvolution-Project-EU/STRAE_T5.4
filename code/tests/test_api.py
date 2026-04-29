@@ -1,6 +1,6 @@
 import pytest
-from app.db import get_minio_client
 from app.main import app
+from app.storage import MinioStorage, get_storage
 from fastapi.testclient import TestClient
 
 from tests.utils import MODEL_UUID, MODEL_VERSION, create_new_mock_minio
@@ -12,8 +12,8 @@ def get_mock_minio():
 
 
 @pytest.fixture(autouse=True)
-def override_minio(get_mock_minio):
-    app.dependency_overrides[get_minio_client] = lambda: get_mock_minio
+def override_storage(get_mock_minio):
+    app.dependency_overrides[get_storage] = lambda: MinioStorage(get_mock_minio)
     yield
     app.dependency_overrides.clear()
 

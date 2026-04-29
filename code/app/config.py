@@ -16,6 +16,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    ORCHESTRATOR_URL: str = "http://orchestrator:8000"
+
     # MinIO configuration (from .env)
     MINIO_ENDPOINT: str
     MINIO_ACCESS_KEY: str

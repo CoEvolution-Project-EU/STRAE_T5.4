@@ -7,13 +7,6 @@ from fastapi.encoders import jsonable_encoder
 
 from app import signing
 from app.config import settings
-from app.db import (
-    MinioConnectionError,
-    MinioDB,
-    MinioError,
-    MinioOperationError,
-    get_minio_client,
-)
 from app.models.aimbom import (
     AIMBOM,
     Component,
@@ -23,6 +16,13 @@ from app.models.aimbom import (
     ReportType,
     Supplier,
     Tool,
+)
+from app.storage import (
+    StorageConnectionError,
+    StorageError,
+    StorageInterface,
+    StorageOperationError,
+    get_storage,
 )
 from app.utils import utc_now_datetime
 from app.validation import validate_aimbom
@@ -42,7 +42,7 @@ class GeneratorMissingReportError(GeneratorError):
     pass
 
 
-class GeneratorMinioError(GeneratorError):
+class GeneratorStorageError(GeneratorError):
     """Raised when an operation with MinIO fails."""
 
     pass
@@ -55,10 +55,10 @@ class GeneratorGenerationError(GeneratorError):
 
 
 class AIMBOMGenerator:
-    def __init__(self, minio: MinioDB):
-        self.minio = minio
+    def __init__(self, storage: StorageInterface):
+        self.storage = storage
 
-    def generate(self, model_uuid: str, model_version: str) -> AIMBOM:
+    async def generate(self, model_uuid: str, model_version: str) -> AIMBOM:
         logger.debug(
             "Starting generation pipeline model_uuid=%s, model_version=%s",
             model_uuid,
@@ -71,9 +71,9 @@ class AIMBOMGenerator:
         # new AIMBOM with the new reports that includes the deprecated one.
         # 2 -> If it doesn't exist, we proceed with the generation as normal.
 
-        reports = self._retrieve_reports(model_uuid, model_version)
+        reports = await self._retrieve_reports(model_uuid, model_version)
         aimbom = self._create_aimbom_from_reports(reports)
-        self._save_aimbom_to_bucket(model_uuid, model_version, aimbom)
+        await self._save_aimbom_to_bucket(model_uuid, model_version, aimbom)
 
         logger.debug(
             "Generation completed model_uuid=%s, model_version=%s",
@@ -82,7 +82,7 @@ class AIMBOMGenerator:
         )
         return aimbom
 
-    def _retrieve_reports(self, model_uuid: str, model_version: str) -> dict:
+    async def _retrieve_reports(self, model_uuid: str, model_version: str) -> dict:
         logger.debug(
             "Retrieving reports for model_uuid=%s, model_version=%s",
             model_uuid,
@@ -99,20 +99,20 @@ class AIMBOMGenerator:
         # NOTE: Verify how are we going to find the latest reports,
         # if we have new reports for the same model_uuid and model_version.
         try:
-            retrieved_reports = self.minio.get_reports_for_model(
-                settings.REPORTS_BUCKET, model_uuid, model_version
+            retrieved_reports = await self.storage.get_reports_for_model(
+                model_uuid, model_version
             )
-        except MinioConnectionError as e:
+        except StorageConnectionError as e:
             logger.error(
-                "MinIO connection error retrieving reports for model_uuid=%s, model_version=%s",
+                "Storage connection error retrieving reports for model_uuid=%s, model_version=%s",
                 model_uuid,
                 model_version,
                 exc_info=True,
             )
-            raise GeneratorMinioError(
+            raise GeneratorStorageError(
                 f"Failed to retrieve reports for model_uuid={model_uuid}, model_version={model_version} from MinIO storage: {str(e)}"
             ) from e
-        except MinioOperationError as e:
+        except StorageOperationError as e:
             logger.warning(
                 "Missing reports for model_uuid=%s, model_version=%s",
                 model_uuid,
@@ -235,7 +235,7 @@ class AIMBOMGenerator:
 
         return aimbom
 
-    def _save_aimbom_to_bucket(
+    async def _save_aimbom_to_bucket(
         self, model_uuid: str, model_version: str, aimbom: AIMBOM
     ):
         logger.debug(
@@ -245,17 +245,19 @@ class AIMBOMGenerator:
             aimbom.serial_number,
         )
         try:
-            self.minio.upload_json(
-                bucket_name=settings.AIMBOMS_BUCKET,
-                object_name=f"{model_uuid}/{model_version}/{aimbom.serial_number}.json",
-                data=jsonable_encoder(aimbom, exclude_none=True),
+            await self.storage.save_aimbom(
+                model_uuid=model_uuid,
+                model_version=model_version,
+                aimbom=aimbom,
             )
             logger.debug("AIMBOM saved successfully")
-        except MinioError as e:
+        except StorageError as e:
             logger.error("Error saving AIMBOM to bucket", exc_info=True)
-            raise GeneratorMinioError(f"MinIO error while saving AIMBOM: {e}") from e
+            raise GeneratorStorageError(
+                f"Storage error while saving AIMBOM: {e}"
+            ) from e
 
 
 # AIMBOMGenerator dependency
-def get_generator(minio: MinioDB = Depends(get_minio_client)) -> AIMBOMGenerator:
-    return AIMBOMGenerator(minio)
+def get_generator(storage: StorageInterface = Depends(get_storage)) -> AIMBOMGenerator:
+    return AIMBOMGenerator(storage)
