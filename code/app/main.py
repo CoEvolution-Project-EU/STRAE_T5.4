@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down STR Assurance Engine API")
 
     if settings.ENVIRONMENT == Environment.prod:
+        logger.info("Closing storage connection")
         storage = get_storage()
 
         if isinstance(storage, OrchestratorStorage):

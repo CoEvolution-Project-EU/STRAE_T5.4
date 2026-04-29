@@ -1,7 +1,8 @@
 from functools import lru_cache
-from typing import Dict
+from typing import Dict, Protocol
 
 import httpx
+from asyncer import asyncify
 from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
 
@@ -22,25 +23,26 @@ class StorageOperationError(StorageError):
     """Generic failure during storage operation."""
 
 
-class StorageInterface:
-    async def get_reports_for_model(self, model_uuid: str, model_version: str) -> Dict:
-        raise NotImplementedError
+class StorageInterface(Protocol):
+    async def get_reports_for_model(
+        self, model_uuid: str, model_version: str
+    ) -> Dict: ...
 
     async def save_aimbom(
         self, model_uuid: str, model_version: str, aimbom: AIMBOM
-    ) -> None:
-        raise NotImplementedError
+    ) -> None: ...
 
 
 class MinioStorage(StorageInterface):
     def __init__(self, minio: MinioDB):
         self.minio = minio
 
-    # TODO: Use asyncer to make these methods async without blocking the event loop
     async def get_reports_for_model(self, model_uuid: str, model_version: str) -> Dict:
         try:
-            return self.minio.get_reports_for_model(
-                settings.REPORTS_BUCKET, model_uuid, model_version
+            return await asyncify(self.minio.get_reports_for_model)(
+                bucket_name=settings.REPORTS_BUCKET,
+                model_uuid=model_uuid,
+                model_version=model_version,
             )
         except MinioConnectionError as e:
             raise StorageConnectionError(str(e)) from e
@@ -51,7 +53,7 @@ class MinioStorage(StorageInterface):
         self, model_uuid: str, model_version: str, aimbom: AIMBOM
     ) -> None:
         try:
-            self.minio.upload_json(
+            await asyncify(self.minio.upload_json)(
                 bucket_name=settings.AIMBOMS_BUCKET,
                 object_name=f"{model_uuid}/{model_version}/{aimbom.serial_number}.json",
                 data=jsonable_encoder(aimbom, exclude_none=True),
@@ -110,8 +112,12 @@ class OrchestratorStorage(StorageInterface):
         await self.client.aclose()
 
 
+# StorageInterface dependency
+# Use lru_cache to ensure a singleton StorageInterface instance is used throughout the application
+# Officially recommended by FastAPI for shared resources. Is thread-safe.
 @lru_cache
-def get_storage(minio: MinioDB = Depends(get_minio_client)):
+def get_storage(minio: MinioDB = Depends(get_minio_client)) -> StorageInterface:
+    print(f"Creating storage instance for environment: {settings.ENVIRONMENT}")
     if settings.ENVIRONMENT == Environment.prod:
         return OrchestratorStorage()
     return MinioStorage(minio)
