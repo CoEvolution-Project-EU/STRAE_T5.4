@@ -1,7 +1,6 @@
 import pytest
 from app.main import app
 from app.storage import MinioStorage, get_storage
-from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from tests.utils import MODEL_UUID, MODEL_VERSION, create_new_mock_minio
@@ -17,9 +16,6 @@ def override_storage(get_mock_minio):
     app.dependency_overrides[get_storage] = lambda: MinioStorage(get_mock_minio)
     yield
     app.dependency_overrides.clear()
-
-
-client = TestClient(app)
 
 
 @pytest.mark.anyio
