@@ -14,7 +14,7 @@ from app.middleware import (
     RateLimitMiddleware,
     RequestSizeLimitMiddleware,
 )
-from app.storage import OrchestratorStorage, get_storage
+from app.storage import MinioStorage, OrchestratorStorage
 
 # Configure logging
 log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)
@@ -27,8 +27,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("Starting STR Assurance Engine API")
 
-    if settings.ENVIRONMENT == Environment.dev:
-        minio = get_minio_client()
+    if settings.ENVIRONMENT == Environment.prod:
+        app.state.storage = OrchestratorStorage()
+    else:
+        minio = await get_minio_client()
         for bucket in (settings.REPORTS_BUCKET, settings.AIMBOMS_BUCKET):
             try:
                 minio.create_bucket(bucket)
@@ -38,16 +40,16 @@ async def lifespan(app: FastAPI):
                 )
                 raise RuntimeError(f"MinIO startup failed for bucket {bucket}") from e
 
+        app.state.storage = MinioStorage(minio)
+
     yield
 
     logger.info("Shutting down STR Assurance Engine API")
 
     if settings.ENVIRONMENT == Environment.prod:
         logger.info("Closing storage connection")
-        storage = get_storage()
-
-        if isinstance(storage, OrchestratorStorage):
-            await storage.close()
+        if isinstance(app.state.storage, OrchestratorStorage):
+            await app.state.storage.close()
 
 
 app = FastAPI(

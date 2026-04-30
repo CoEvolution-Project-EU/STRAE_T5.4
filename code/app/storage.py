@@ -1,13 +1,12 @@
-from functools import lru_cache
 from typing import Dict, Protocol
 
 import httpx
 from asyncer import asyncify
-from fastapi import Depends
+from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 
-from app.config import Environment, settings
-from app.db import MinioConnectionError, MinioDB, MinioOperationError, get_minio_client
+from app.config import settings
+from app.db import MinioConnectionError, MinioDB, MinioOperationError
 from app.models.aimbom import AIMBOM
 
 
@@ -112,12 +111,5 @@ class OrchestratorStorage(StorageInterface):
         await self.client.aclose()
 
 
-# StorageInterface dependency
-# Use lru_cache to ensure a singleton StorageInterface instance is used throughout the application
-# Officially recommended by FastAPI for shared resources. Is thread-safe.
-@lru_cache
-def get_storage(minio: MinioDB = Depends(get_minio_client)) -> StorageInterface:
-    print(f"Creating storage instance for environment: {settings.ENVIRONMENT}")
-    if settings.ENVIRONMENT == Environment.prod:
-        return OrchestratorStorage()
-    return MinioStorage(minio)
+async def get_storage(request: Request) -> StorageInterface:
+    return request.app.state.storage

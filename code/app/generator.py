@@ -259,5 +259,7 @@ class AIMBOMGenerator:
 
 
 # AIMBOMGenerator dependency
-def get_generator(storage: StorageInterface = Depends(get_storage)) -> AIMBOMGenerator:
+async def get_generator(
+    storage: StorageInterface = Depends(get_storage),
+) -> AIMBOMGenerator:
     return AIMBOMGenerator(storage)

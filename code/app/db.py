@@ -156,5 +156,5 @@ class MinioDB:
 
 
 @lru_cache
-def get_minio_client() -> MinioDB:
+async def get_minio_client() -> MinioDB:
     return MinioDB()
