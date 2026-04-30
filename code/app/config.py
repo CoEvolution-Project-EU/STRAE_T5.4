@@ -19,10 +19,10 @@ class Settings(BaseSettings):
     ORCHESTRATOR_URL: str = "http://orchestrator:8000"
 
     # MinIO configuration (from .env)
-    MINIO_ENDPOINT: str
-    MINIO_ACCESS_KEY: str
-    MINIO_SECRET_KEY: str
-    MINIO_SECURE: bool
+    MINIO_ENDPOINT: str = "minio:9000"
+    MINIO_ACCESS_KEY: str = "minioadmin"
+    MINIO_SECRET_KEY: str = "minioadmin"
+    MINIO_SECURE: bool = False
 
     # Hardcoded in the docker-compose file, based on docker profile.
     # Default to "dev" when running without docker, for tests.
