@@ -17,7 +17,7 @@ from tests.utils import (
 )
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_generate_success():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
@@ -32,7 +32,7 @@ async def test_generate_success():
     assert aimbom.serial_number.startswith("urn:uuid:")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_generate_missing_reports():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
@@ -46,7 +46,7 @@ async def test_generate_missing_reports():
         await generator.generate(model_uuid, model_version)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_minio_connection_failure():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
