@@ -6,17 +6,38 @@
         {
             "type": "application",
             "name": "Telemetry Gadget",
-            "version": "1.0"
+            "version": "1.0",
+            "description": "A free text for this gadget",
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "6fce8a2c0b7a31c21db94c76fd43b1c4f0f16fabc4e7e984f3e9b82c50a2f3ab"
+                }
+            ]
         },
         {
             "type": "application",
             "name": "Inference time Attack Detection Gadget",
-            "version": "1.2"
+            "version": "1.2",
+            "description": "A free text for this gadget",
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "6fce8a2c0b7a31c21db94c76fd43b1c4f0f16fabc4e7e984f3e9b82c50a2f3ab"
+                }
+            ]
         },
         {
             "type": "application",
             "name": "CDS gadget",
-            "version": "1.2"
+            "version": "1.2",
+            "description": "A free text for this gadget",
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "6fce8a2c0b7a31c21db94c76fd43b1c4f0f16fabc4e7e984f3e9b82c50a2f3ab"
+                }
+            ]
         }
     ],
     "signature": {

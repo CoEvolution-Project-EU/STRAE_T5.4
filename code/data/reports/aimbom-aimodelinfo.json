@@ -1,215 +1,288 @@
 {
-    "bomFormat": "CycloneDX",
-    "specVersion": "1.7",
-    "serialNumber": "urn:uuid:9a2f63de-bb87-4c30-a1aa-1c95d27c45a2",
-    "version": 1,
-    "metadata": {
-        "timestamp": "2026-01-20T18:45:00Z",
-        "component": {
-            "type": "machine-learning-model",
-            "bom-ref": "model-4ff2dab7-bffe-414d-88a5-1826b9fea8df",
-            "name": "Autonomous Perception Model",
-            "version": "1.0",
-            "supplier": {
-                "name": "AVISENSE.ai"
-            },
-            "hashes": [
-                {
-                    "alg": "SHA-256",
-                    "content": "6fce8a2c0b7a31c21db94c76fd43b1c4f0f16fabc4e7e984f3e9b82c50a2f3ab"
-                }
-            ],
-            "modelCard": {
-                "bom-ref": "ref-lidar-segmentation-model-card",
-                "modelParameters": {
-                    "approach": {
-                        "type": "supervised"
-                    },
-                    "task": "object-detection",
-                    "architectureFamily": "CNN",
-                    "modelArchitecture": "Resnet50",
-                    "datasets": [
-                        {
-                            "ref": "a bom link to the aimbomb-datasets.json"
-                        }
-                    ],
-                    "inputs": [
-                        {
-                            "format": "string"
-                        }
-                    ],
-                    "outputs": [
-                        {
-                            "format": "string"
-                        }
-                    ]
-                },
-                "quantitativeAnalysis": {
-                    "performanceMetrics": [
-                        {
-                            "type": "accuracy",
-                            "value": "81.3%"
-                        },
-                        {
-                            "type": "latency",
-                            "value": "120ms"
-                        }
-                    ]
-                },
-                "considerations": {
-                    "users": [
-                        "Car owners",
-                        "Car manufacturers"
-                    ]
-                },
-                "properties": [
-                    {
-                        "name": "model_uuid",
-                        "value": "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
-                    },
-                    {
-                        "name": "model_identifier",
-                        "value": "autonomous-perception-model-v1"
-                    },
-                    {
-                        "name": "model_release_date",
-                        "value": "2026-01-15"
-                    },
-                    {
-                        "name": "organization_owner",
-                        "value": "AVISENSE"
-                    },
-                    {
-                        "name": "development_team",
-                        "value": "AVISENSE AI Group"
-                    },
-                    {
-                        "name": "contact_channel",
-                        "value": "avisense@avisense.gr"
-                    },
-                    {
-                        "name": "model_risk_tier",
-                        "value": "low-impact"
-                    },
-                    {
-                        "name": "model_type",
-                        "value": "deep-learning"
-                    },
-                    {
-                        "name": "model_family_type",
-                        "value": "neural-network"
-                    },
-                    {
-                        "name": "primary_task",
-                        "value": "object-detection"
-                    },
-                    {
-                        "name": "supported_modality",
-                        "value": "lidar"
-                    },
-                    {
-                        "name": "secondary_modality_support",
-                        "value": "camera"
-                    },
-                    {
-                        "name": "export_format",
-                        "value": "ONNX"
-                    },
-                    {
-                        "name": "runtime_environment",
-                        "value": "CUDA-enabled GPU"
-                    },
-                    {
-                        "name": "inference_mode",
-                        "value": "real-time"
-                    },
-                    {
-                        "name": "deployment_context",
-                        "value": "autonomous-driving"
-                    },
-                    {
-                        "name": "operational_domain",
-                        "value": "vehicle-perception"
-                    },
-                    {
-                        "name": "approximate_model_size_mb",
-                        "value": "320"
-                    },
-                    {
-                        "name": "model_precision",
-                        "value": "fp32"
-                    },
-                    {
-                        "name": "supported_hardware",
-                        "value": "NVIDIA GPU"
-                    },
-                    {
-                        "name": "intended_use",
-                        "value": "object detection for autonomous navigation systems"
-                    },
-                    {
-                        "name": "documentation_reference",
-                        "value": "internal-model-doc-APS-v1"
-                    },
-                    {
-                        "name": "responsible_ai_review",
-                        "value": "completed"
-                    },
-                    {
-                        "name": "security_review_status",
-                        "value": "completed"
-                    }
-                ]
-            }
+  "serialNumber": "urn:uuid:2d2e6ba3-b9f2-4865-a182-9d31ea4d2f9e",
+  "version": 1,
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.7",
+  "components": [
+    {
+      "bom-ref": "BomRef.06883446274690286.005929674726515621",
+      "description": "Python library for CycloneDX",
+      "name": "cyclonedx-python-lib",
+      "purl": "pkg:pypi/cyclonedx-python-lib@11.7.0",
+      "type": "library",
+      "version": "11.7.0"
+    },
+    {
+      "bom-ref": "BomRef.5778982109446356.19004430866246314",
+      "description": "Open Neural Network Exchange",
+      "name": "onnx",
+      "purl": "pkg:pypi/onnx@1.20.1",
+      "type": "library",
+      "version": "1.20.1"
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "BomRef.2629733520369836.6861615914973785"
+    },
+    {
+      "ref": "BomRef.06883446274690286.005929674726515621"
+    },
+    {
+      "ref": "BomRef.5778982109446356.19004430866246314"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "bom-ref": "BomRef.2629733520369836.6861615914973785",
+      "description": "Image Classification model (SimpleCNN) loaded from ONNX. Framework: PyTorch 2.11.0+cu130. Input: [1, 1, 28, 28] -> Output: [1, 10]. Params: 20,490 total / 20,490 trainable. Memory: 80.04 KB. ONNX opset: 17. Weight hash: a98bc25252f5285e...",
+      "externalReferences": [
+        {
+          "comment": "Model documentation",
+          "type": "documentation",
+          "url": "https://example.com/simplecnn/docs"
         },
-        "pedigree": {
+        {
+          "comment": "Source code repository",
+          "type": "vcs",
+          "url": "https://github.com/example/simplecnn"
+        },
+        {
+          "comment": "Model project homepage",
+          "type": "website",
+          "url": "https://example.com/simplecnn"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "name": "SimpleCNN",
+      "type": "machine-learning-model",
+      "version": "1.0.0",
+      "modelCard": {
+        "bom-ref": "modelcard-50844e52-cd29-4b13-b9f1-5f1b92baf852",
+        "modelParameters": {
+          "approach": {
+            "type": "supervised"
+          },
+          "task": "Image Classification",
+          "architectureFamily": "CNN",
+          "modelArchitecture": "conv1:Conv2d[16,1,3,3] -> conv2:Conv2d[32,16,3,3] -> fc1:Linear[10,1568]",
+          "datasets": [],
+          "inputs": [
+            {
+              "format": "Tensor [\"batch_size\",1,28,28] float32"
+            }
+          ],
+          "outputs": [
+            {
+              "format": "Tensor [\"batch_size\",10] float32"
+            }
+          ]
+        },
+        "quantitativeAnalysis": {
+          "performanceMetrics": [
+            {
+              "type": "parameter_count",
+              "value": "20490"
+            },
+            {
+              "type": "parameter_memory_kb",
+              "value": "80.04"
+            },
+            {
+              "type": "onnx_node_count",
+              "value": "10"
+            },
+            {
+              "type": "onnx_opset",
+              "value": "17"
+            }
+          ]
+        },
+        "considerations": {
+          "users": [],
+          "useCases": [],
+          "technicalLimitations": [
+              "Input must match shape [1, 1, 28, 28]. Model does not perform input validation internally.",
+              "Output is [1, 10] raw logits. Softmax or argmax must be applied externally.",
+              "Training status: untrained (random initialisation). Performance characteristics depend on training data and procedure."
+          ]
+        },
+        "properties": [
+          {
+            "name": "model:topology",
+            "value": "conv1:Conv2d[16,1,3,3] -> conv2:Conv2d[32,16,3,3] -> fc1:Linear[10,1568]"
+          },
+          {
+            "name": "model:total_parameters",
+            "value": "20490"
+          },
+          {
+            "name": "model:trainable_parameters",
+            "value": "20490"
+          },
+          {
+            "name": "model:frozen_parameters",
+            "value": "0"
+          },
+          {
+            "name": "model:parameter_dtypes",
+            "value": "[\"torch.float32\"]"
+          },
+          {
+            "name": "model:parameter_memory_bytes",
+            "value": "0"
+          },
+          {
+            "name": "model:parameter_memory_kb",
+            "value": "80.04"
+          },
+          {
+            "name": "model:input_shape",
+            "value": "[1,1,28,28]"
+          },
+          {
+            "name": "model:output_shape",
+            "value": "[1,10]"
+          },
+          {
+            "name": "model:onnx:producer_name",
+            "value": "pytorch"
+          },
+          {
+            "name": "model:onnx:producer_version",
+            "value": "2.11.0+cu130"
+          },
+          {
+            "name": "model:onnx:node_count",
+            "value": "10"
+          },
+          {
+            "name": "model:onnx:operator_types",
+            "value": "{\"Shape\":1,\"Conv\":2,\"Relu\":2,\"MaxPool\":2,\"Concat\":1,\"Reshape\":1,\"Gemm\":1}"
+          },
+          {
+            "name": "model:onnx:initializer_count",
+            "value": "7"
+          },
+          {
+            "name": "model:onnx:graph_inputs",
+            "value": "[{\"name\":\"input\",\"shape\":[\"batch_size\",1,28,28],\"dtype\":1}]"
+          },
+          {
+            "name": "model:onnx:graph_outputs",
+            "value": "[{\"name\":\"output\",\"shape\":[\"batch_size\",10],\"dtype\":1}]"
+          },
+          {
+            "name": "model:onnx:weight_tensors",
+            "value": "{\"conv1.weight\":{\"shape\":[16,1,3,3],\"num_elements\":144,\"dtype_name\":\"\",\"memory_bytes\":0},\"conv1.bias\":{\"shape\":[16],\"num_elements\":16,\"dtype_name\":\"\",\"memory_bytes\":0},\"conv2.bias\":{\"shape\":[32],\"num_elements\":32,\"dtype_name\":\"\",\"memory_bytes\":0},\"fc1.bias\":{\"shape\":[10],\"num_elements\":10,\"dtype_name\":\"\",\"memory_bytes\":0},\"conv2.weight\":{\"shape\":[32,16,3,3],\"num_elements\":4608,\"dtype_name\":\"\",\"memory_bytes\":0},\"fc1.weight\":{\"shape\":[10,1568],\"num_elements\":15680,\"dtype_name\":\"\",\"memory_bytes\":0},\"val_5\":{\"shape\":[1],\"num_elements\":1,\"dtype_name\":\"\",\"memory_bytes\":0}}"
+          },
+          {
+            "name": "model:weight_hash_algorithm",
+            "value": "SHA-256"
+          },
+          {
+            "name": "model:weight_hash",
+            "value": "a98bc25252f5285e3832c6e2e7df9c7fbd1dd05e57508761da13a4cf939b1b20"
+          },
+          {
+            "name": "model:weight_hash_input",
+            "value": ""
+          },
+          {
+            "name": "model:weight_hash_source",
+            "value": "metadata_props"
+          },
+          {
+            "name": "model:onnx_file_hash_algorithm",
+            "value": "SHA-256"
+          },
+          {
+            "name": "model:onnx_file_hash",
+            "value": "bb6ca6cdd49526de99aec1ab1a4f570afabd6ce29959ab09bee05ef1eea359da"
+          },
+          {
+            "name": "model:training_status",
+            "value": "untrained (random initialisation)"
+          },
+          {
+            "name": "model:eval_mode",
+            "value": "true"
+          },
+          {
+            "name": "model:pretrained",
+            "value": "false"
+          },
+          {
+            "name": "model:weight_initialisation",
+            "value": "PyTorch default (kaiming_uniform for Conv2d/Linear)"
+          },
+          {
+            "name": "model:framework",
+            "value": "PyTorch"
+          },
+          {
+            "name": "model:framework_version",
+            "value": "2.11.0+cu130"
+          },
+          {
+            "name": "model:class",
+            "value": "SimpleCNN"
+          },
+          {
+            "name": "model:export:exported_at",
+            "value": "2026-04-23T09:17:56.643276Z"
+          },
+          {
+            "name": "model:export:python_version",
+            "value": "3.12.3"
+          },
+          {
+            "name": "model:export:onnx_version",
+            "value": "1.20.1"
+          },
+          {
+            "name": "model:export:os_platform",
+            "value": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39"
+          },
+          {
+            "name": "model:export:cpu_architecture",
+            "value": "x86_64"
+          },
+          {
+            "name": "model:sbom:generated_at",
+            "value": "2026-04-23T09:18:35.549654Z"
+          },
+          {
+            "name": "model:sbom:schema_used",
+            "value": "onnx_sbom_schema.json v1.0.0"
+          }
+        ]
+      },
+      "pedigree": {
             "ancestors": [
                 {
-                    "type": "lidar-segmentation-model",
+                    "type": "machine-learning-model",
                     "bom-ref": "model-base-perception-001",
                     "name": "Base Perception Model",
                     "version": "0.9"
                 }
             ]
+      },
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bb6ca6cdd49526de99aec1ab1a4f570afabd6ce29959ab09bee05ef1eea359da"
         }
+      ]
     },
-    "components": [
-        {
-            "type": "machine-learning-model",
-            "bom-ref": "model-base-perception-001",
-            "name": "Base Perception Model",
-            "version": "0.9",
-            "supplier": {
-                "name": "Example Autonomous Systems Lab"
-            },
-            "description": "Base pretrained perception model used as the foundation for derived model variants.",
-            "properties": [
-                {
-                    "name": "model_identifier",
-                    "value": "base-perception-model"
-                },
-                {
-                    "name": "model_lifecycle_stage",
-                    "value": "archived"
-                }
-            ]
-        }
-    ],
-    "dependencies": [
-        {
-            "ref": "model-4ff2dab7-bffe-414d-88a5-1826b9fea8df",
-            "dependsOn": [
-                "model-base-perception-001"
-            ]
-        }
-    ],
-    "signature": {
-        "algorithm": "ES256",
-        "value": "MEYCIQD1OqRRFKwKx+AJsRN3BkwI+kniEBPc7Bzvwf+kjdzZigIhAMDKEXKVShQZuxm/IzXUcFBoZXU/wtXr4qOV6c7kGdXZ",
-        "certificatePath": [
-            "MIIDizCCAzCgAwIBAgIUQoC/z4LURlXxDRypetEwBZIG4vIwCgYIKoZIzj0EAwMw\ncTELMAkGA1UEBhMCSVQxGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNV\nBAUTCzA3OTQ1MjExMDA2MTEwLwYDVQQDDChNSURQS0kgU0hBUkVEIElORk9DRVJU\nIE9QRVJBVE9SIEVDRFNBIENMMB4XDTI1MTEyODE1MjE0NFoXDTI4MTEyNzE1MjE0\nM1owgYsxCzAJBgNVBAYTAklUMQ4wDAYDVQQIEwVJdGFseTEPMA0GA1UEBxMGTWls\nYW5vMREwDwYDVQQKEwhJbmZvQ2VydDEMMAoGA1UECxMDSW9UMRUwEwYDVQQDEwxT\nQ0hST0VESU5HRVIxIzAhBgkqhkiG9w0BCQEWFHRlYW0uaW90QGluZm9jZXJ0Lml0\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQhPYvbbg1ra1KQEIUMt/pqM5p+TT\nmjP6QeCmXnNRTFcdp/O9jDMgGI4aOXFdfCO7KDrwClpqH8NuwaSIfr84QaOCAYkw\nggGFMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUZ6L872McRRUKoDkQgSy6bH4b\nL1IwgaYGCCsGAQUFBwEBBIGZMIGWMFkGCCsGAQUFBzAChk1odHRwOi8vbWlkcGtp\nLXN0YWdlLmluZm9jZXJ0LmRpZ2l0YWwvaW90L2NlcnRzL0lORk9DRVJULU9QRVJB\nVE9SLUVDRFNBLUNMLmNydDA5BggrBgEFBQcwAYYtaHR0cDovL21pZHBraS1vY3Nw\nLXN0YWdlLmluZm9jZXJ0LmRpZ2l0YWwvaW90MB0GA1UdJQQWMBQGCCsGAQUFBwMC\nBggrBgEFBQcDATBdBgNVHR8EVjBUMFKgUKBOhkxodHRwOi8vbWlkcGtpLXN0YWdl\nLmluZm9jZXJ0LmRpZ2l0YWwvaW90L2NybC9pbmZvY2VydC9wZXJzb24vZWNkc2Ev\nQ1JMMDEuY3JsMB0GA1UdDgQWBBRaxnxHvnz2FkEEarTXFJEEMiiuLTAOBgNVHQ8B\nAf8EBAMCBaAwCgYIKoZIzj0EAwMDSQAwRgIhAI9BjuQH4Om0bSZkWwi8bqCKO1Nt\n7HYjNOoyezYCaCQAAiEAtnhzPkmCcV0diFhy60J4NiMX1iCsjZrs7AKCzIq14Eg=",
-            "MIIDcTCCAvegAwIBAgIUdcFHVfj9rf0E6AYnoU6/7wkqhB4wCgYIKoZIzj0EAwMw\nXzELMAkGA1UEBhMCSVQxGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNV\nBAUTCzA3OTQ1MjExMDA2MR8wHQYDVQQDDBZNSURQS0kgU0hBUkVEIEVDRFNBIENM\nMB4XDTIzMDcxMTEwMzY0MFoXDTM4MDcxMTExMzY0MFowcTELMAkGA1UEBhMCSVQx\nGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNVBAUTCzA3OTQ1MjExMDA2\nMTEwLwYDVQQDDChNSURQS0kgU0hBUkVEIElORk9DRVJUIE9QRVJBVE9SIEVDRFNB\nIENMMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdJHP+4XWXCFdflKIHnBkjJuO\n2wEHk1LAY7WXA6uungRFG9tiMlODsDPsBUTrarNUnn8uYJ9Wds2/Lon297ahRaOC\nAX0wggF5MBIGA1UdEwEB/wQIMAYBAf8CAQAwgaIGCCsGAQUFBwEBBIGVMIGSMDkG\nCCsGAQUFBzABhi1odHRwOi8vbWlkcGtpLW9jc3Atc3RhZ2UuaW5mb2NlcnQuZGln\naXRhbC9pb3QwVQYIKwYBBQUHMAKGSWh0dHA6Ly9taWRwa2ktc3RhZ2UuaW5mb2Nl\ncnQuZGlnaXRhbC9pb3QvY2VydHMvTUlEUEtJLVNIQVJFRC1FQ0RTQS1DTC5jcnQw\nEwYDVR0gBAwwCjAIBgYrBgEEAgIwWQYDVR0fBFIwUDBOoEygSoZIaHR0cDovL21p\nZHBraS1zdGFnZS5pbmZvY2VydC5kaWdpdGFsL2lvdC9jcmwvbWlkcGtpLXNoYXJl\nZC9lY2RzYS9DUkwuY3JsMA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUZ6L872Mc\nRRUKoDkQgSy6bH4bL1IwHwYDVR0jBBgwFoAUGk8WJyhk6NACBbytREKZaD9Oybww\nCgYIKoZIzj0EAwMDaAAwZQIxAO2YA/HCiC5EFmswdEqdm7UE+fQ+Sa6xLKUAplHg\n3lp5i4CR2ODaQKQltmd6okKBngIwDalDXGkzOBDl3BckN0uZQOv0iff1jxc5XKbz\nFUpnTJevICxBKZVZZaRCliA9peDr",
-            "MIIC2TCCAl6gAwIBAgIUfn1VXwMKUMO2SnIyAN4Xe8sp1CgwCgYIKoZIzj0EAwMw\nWzELMAkGA1UEBhMCSVQxGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNV\nBAUTCzA3OTQ1MjExMDA2MRswGQYDVQQDDBJTUyBNSURQS0kgRUNEU0EgQ0wwHhcN\nMjIwMTIxMTQwODMwWhcNNDcwMTIxMTUwODMwWjBfMQswCQYDVQQGEwJJVDEZMBcG\nA1UECgwQSW9UIEluZm9DZXJ0IFNwQTEUMBIGA1UEBRMLMDc5NDUyMTEwMDYxHzAd\nBgNVBAMMFk1JRFBLSSBTSEFSRUQgRUNEU0EgQ0wwdjAQBgcqhkjOPQIBBgUrgQQA\nIgNiAAROsE9xJCGLgaJYW+/dWe+EIPCtLZBCilebEWKlXazMsA0oe/7775Nm/da7\nGtP5zVO0eSiGKYYGTsklsqCudHd7g7HMZWcry6AKBgRDCzs/ndo7zyZwmmPbJl82\nWqHE5I+jgd4wgdswDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYD\nVR0OBBYEFBpPFicoZOjQAgW8rURCmWg/Tsm8MIGYBgNVHSMEgZAwgY2AFJWpq43E\n89Jq07h3djFKj3lU/utToV+kXTBbMQswCQYDVQQGEwJJVDEZMBcGA1UECgwQSW9U\nIEluZm9DZXJ0IFNwQTEUMBIGA1UEBRMLMDc5NDUyMTEwMDYxGzAZBgNVBAMMElNT\nIE1JRFBLSSBFQ0RTQSBDTIIUe7gn0G+7rEWyZZc4BUUOrPJcSp4wCgYIKoZIzj0E\nAwMDaQAwZgIxAJPFeb+RGWj7tty0FRUSPgLSNXv0A/arbU23BUw8SU6QRnvVTIOY\n9SvPBAX9s+P1pAIxAKj0r28gk9w0WQroRzbHG0A9Rc1HhTlPyVMZ+m8vO5XkFgsT\ngvtVUjds83EjPUzT4g=="
-        ]
-    }
+    "timestamp": "2026-04-23T09:18:35.479844+00:00"
+  },
+  "signature": {
+    "algorithm": "ES256",
+    "value": "PLACEHOLDER \u2014 sign this BOM with your private key"
+  }
 }

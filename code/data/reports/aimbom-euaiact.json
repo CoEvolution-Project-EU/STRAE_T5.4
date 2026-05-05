@@ -3,15 +3,6 @@
     "specVersion": "1.7",
     "serialNumber": "urn:uuid:7e8a5f72-1b3e-4f4c-94d1-3a2f6c4fbbd1",
     "version": 1,
-    "metadata": {
-        "timestamp": "2026-01-20T18:45:00Z",
-        "component": {
-            "type": "machine-learning-model",
-            "bom-ref": "model-4ff2dab7-bffe-414d-88a5-1826b9fea8df",
-            "name": "Autonomous Perception Model",
-            "version": "1.0"
-        }
-    },
     "properties": [
         {
             "name": "eu_ai_act.system_trade_name",

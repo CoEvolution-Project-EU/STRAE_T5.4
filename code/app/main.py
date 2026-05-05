@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     if settings.ENVIRONMENT == Environment.prod:
         app.state.storage = OrchestratorStorage()
     else:
-        minio = await get_minio_client()
+        minio = get_minio_client()
         for bucket in (settings.REPORTS_BUCKET, settings.AIMBOMS_BUCKET):
             try:
                 minio.create_bucket(bucket)

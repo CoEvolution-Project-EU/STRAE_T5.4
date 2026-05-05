@@ -13,8 +13,10 @@ class ReportType(str, Enum):
     AI_MODEL_INFO = "aimodelinfo"
     ASSESSMENTS = "assessments"
     DATASETS = "datasets"
+    DEFENCES = "defences"
     EU_AI_ACT = "euaiact"
     GADGETS = "gadgets"
+    RISK_REPORT = "riskreport"
 
 
 # ============================================================
@@ -39,9 +41,6 @@ SerialNumber = Annotated[
     ),
 ]
 
-# ============================================================
-# External references
-# ============================================================
 BomLinkDocument = Annotated[
     str,
     StringConstraints(
@@ -80,6 +79,18 @@ class Hash(CamelModel):
     content: str
 
 
+class LicenseID(CamelModel):
+    id: str
+
+
+class License(CamelModel):
+    license: LicenseID
+
+
+class LicenseExpression(CamelModel):
+    expression: str
+
+
 class Component(CamelModel):
     bom_ref: str = Field(..., min_length=1, alias="bom-ref")
     type: Literal["machine-learning-model"]
@@ -89,8 +100,10 @@ class Component(CamelModel):
         max_length=1024,
         description="Version of the component, must be at most 1024 characters",
     )
-    supplier: Supplier
+    description: str
+    # supplier: Supplier
     hashes: List[Hash]
+    licenses: List[License | LicenseExpression]
 
 
 class Metadata(CamelModel):

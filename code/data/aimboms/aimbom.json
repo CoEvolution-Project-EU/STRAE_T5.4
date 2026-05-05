@@ -31,11 +31,9 @@
         "supplier": {
             "name": "coevolution-project.eu"
         },
-        "tools": [
+        "authors": [
             {
-                "vendor": "CoEvolution Project",
-                "name": "Assurance Engine",
-                "version": "1.0"
+                "name": "Alexandros Gkillas"
             }
         ]
     },

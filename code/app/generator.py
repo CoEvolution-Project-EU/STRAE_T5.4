@@ -12,6 +12,8 @@ from app.models.aimbom import (
     Component,
     ExternalReference,
     Hash,
+    License,
+    LicenseExpression,
     Metadata,
     ReportType,
     Supplier,
@@ -24,7 +26,7 @@ from app.storage import (
     StorageOperationError,
     get_storage,
 )
-from app.utils import utc_now_datetime
+from app.utils import report_to_comment, utc_now_datetime, uuid_from_serial_number
 from app.validation import validate_aimbom
 
 logger = logging.getLogger(__name__)
@@ -92,8 +94,10 @@ class AIMBOMGenerator:
             ReportType.AI_MODEL_INFO: None,
             ReportType.ASSESSMENTS: None,
             ReportType.DATASETS: None,
+            ReportType.DEFENCES: None,
             ReportType.EU_AI_ACT: None,
             ReportType.GADGETS: None,
+            ReportType.RISK_REPORT: None,
         }
 
         # NOTE: Verify how are we going to find the latest reports,
@@ -168,10 +172,19 @@ class AIMBOMGenerator:
                     type=model_info_component.get("type"),
                     name=model_info_component.get("name"),
                     version=model_info_component.get("version"),
-                    supplier=Supplier(
-                        name=model_info_component.get("supplier").get("name")
-                    ),
-                    hashes=[Hash(**h) for h in model_info_component.get("hashes", [])],
+                    description=model_info_component.get("description"),
+                    # supplier=Supplier(
+                    #     name=model_info_component.get("supplier").get("name")
+                    # ),
+                    hashes=[
+                        Hash(**hash) for hash in model_info_component.get("hashes", [])
+                    ],
+                    licenses=[
+                        License(**license)
+                        if "license" in license
+                        else LicenseExpression(**license)
+                        for license in model_info_component.get("licenses", [])
+                    ],
                 ),
                 supplier=Supplier(name="coevolution-project.eu"),
                 tools=[
@@ -187,8 +200,8 @@ class AIMBOMGenerator:
             external_references = [
                 ExternalReference(
                     type="bom",
-                    url=f"urn:cdx:{report.get('serialNumber').split('urn:uuid:')[1]}/{report.get('version', 1)}",
-                    comment=origin.value,
+                    url=f"urn:cdx:{uuid_from_serial_number(report.get('serialNumber'))}/{report.get('version', 1)}",
+                    comment=report_to_comment.get(origin.value),
                 )
                 for origin, report in reports.items()
                 if report is not None
