@@ -11,14 +11,12 @@ from app.models.aimbom import (
     AIMBOM,
     Component,
     ExternalReference,
-    Hash,
-    License,
-    LicenseExpression,
     Metadata,
     ReportType,
     Supplier,
     Tool,
 )
+from app.models.aimodelinfo import AIModelInfo
 from app.storage import (
     StorageConnectionError,
     StorageError,
@@ -27,7 +25,7 @@ from app.storage import (
     get_storage,
 )
 from app.utils import report_to_comment, utc_now_datetime, uuid_from_serial_number
-from app.validation import validate_aimbom
+from app.validation import validate_report
 
 logger = logging.getLogger(__name__)
 
@@ -162,29 +160,19 @@ class AIMBOMGenerator:
     def _create_aimbom_from_reports(self, reports: dict[ReportType, Dict]) -> AIMBOM:
         logger.debug("Creating AIMBOM from reports")
         try:
-            model_info_metadata = reports[ReportType.AI_MODEL_INFO].get("metadata")
-            model_info_component = model_info_metadata.get("component")
+            model_info = AIModelInfo(**reports[ReportType.AI_MODEL_INFO])
+            model_info_component = model_info.metadata.component
 
             metadata = Metadata(
                 timestamp=utc_now_datetime(),
                 component=Component(
-                    bom_ref=model_info_component.get("bom-ref"),
-                    type=model_info_component.get("type"),
-                    name=model_info_component.get("name"),
-                    version=model_info_component.get("version"),
-                    description=model_info_component.get("description"),
-                    # supplier=Supplier(
-                    #     name=model_info_component.get("supplier").get("name")
-                    # ),
-                    hashes=[
-                        Hash(**hash) for hash in model_info_component.get("hashes", [])
-                    ],
-                    licenses=[
-                        License(**license)
-                        if "license" in license
-                        else LicenseExpression(**license)
-                        for license in model_info_component.get("licenses", [])
-                    ],
+                    bom_ref=model_info_component.bom_ref,
+                    type=model_info_component.type,
+                    name=model_info_component.name,
+                    version=model_info_component.version,
+                    description=model_info_component.description,
+                    hashes=[hash for hash in model_info_component.hashes],
+                    licenses=[license for license in model_info_component.licenses],
                 ),
                 supplier=Supplier(name="coevolution-project.eu"),
                 tools=[
@@ -200,11 +188,11 @@ class AIMBOMGenerator:
             external_references = [
                 ExternalReference(
                     type="bom",
-                    url=f"urn:cdx:{uuid_from_serial_number(report.get('serialNumber'))}/{report.get('version', 1)}",
-                    comment=report_to_comment.get(origin.value),
+                    url=f"urn:cdx:{uuid_from_serial_number(r.get('serialNumber'))}/{r.get('version', 1)}",
+                    comment=report_to_comment.get(o.value),
                 )
-                for origin, report in reports.items()
-                if report is not None
+                for o, r in reports.items()
+                if r is not None
             ]
 
             # Create the AIMBOM
@@ -238,7 +226,7 @@ class AIMBOMGenerator:
         # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.
         try:
             logger.debug("Validating AIMBOM")
-            validate_aimbom(jsonable_encoder(aimbom, exclude_none=True))
+            validate_report(jsonable_encoder(aimbom, exclude_none=True))
             logger.debug("AIMBOM validation successful")
         except ValueError as e:
             logger.error("AIMBOM validation failed: %s", str(e))

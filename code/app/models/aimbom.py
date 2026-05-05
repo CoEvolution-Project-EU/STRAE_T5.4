@@ -1,9 +1,18 @@
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, List, Literal
+from typing import List, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
-from pydantic.alias_generators import to_camel
+from pydantic import Field
+
+from app.models.cyclonedx import (
+    BomLinkDocument,
+    BomLinkElement,
+    CamelModel,
+    Hash,
+    License,
+    LicenseExpression,
+    SerialNumber,
+)
 
 
 # ============================================================
@@ -19,51 +28,6 @@ class ReportType(str, Enum):
     RISK_REPORT = "riskreport"
 
 
-# ============================================================
-# Base Pydantic model with camelCase aliasing
-# ============================================================
-class CamelModel(BaseModel):
-    """
-    Base model that automatically converts snake_case fields
-    to camelCase when serializing/deserializing.
-    """
-
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        validate_by_name=True,
-    )
-
-
-SerialNumber = Annotated[
-    str,
-    StringConstraints(
-        pattern=r"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-    ),
-]
-
-BomLinkDocument = Annotated[
-    str,
-    StringConstraints(
-        pattern=r"^urn:cdx:[0-9a-f]{8}-"
-        r"[0-9a-f]{4}-"
-        r"[0-9a-f]{4}-"
-        r"[0-9a-f]{4}-"
-        r"[0-9a-f]{12}/[1-9][0-9]*$"
-    ),
-]
-
-BomLinkElement = Annotated[
-    str,
-    StringConstraints(
-        pattern=r"^urn:cdx:[0-9a-f]{8}-"
-        r"[0-9a-f]{4}-"
-        r"[0-9a-f]{4}-"
-        r"[0-9a-f]{4}-"
-        r"[0-9a-f]{12}/[1-9][0-9]*#.+$"
-    ),
-]
-
-
 class Tool(CamelModel):
     vendor: str
     name: str
@@ -72,23 +36,6 @@ class Tool(CamelModel):
 
 class Supplier(CamelModel):
     name: str
-
-
-class Hash(CamelModel):
-    alg: Literal["SHA-256"]
-    content: str
-
-
-class LicenseID(CamelModel):
-    id: str
-
-
-class License(CamelModel):
-    license: LicenseID
-
-
-class LicenseExpression(CamelModel):
-    expression: str
 
 
 class Component(CamelModel):

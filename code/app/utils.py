@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+from app.models.aimbom import ReportType
+
 
 def utc_now_datetime() -> datetime:
     return datetime.now(timezone.utc)
@@ -17,11 +19,11 @@ def uuid_from_serial_number(serial_number: str) -> str:
 
 
 report_to_comment = {
-    "aimodelinfo": "Model Information",
-    "assessments": "Model Assessment Reports",
-    "datasets": "Dataset Information",
-    "defences": "Defence Report",
-    "euaiact": "Model Development Guidelines",
-    "gadgets": "Gadget List",
-    "riskreport": "Risk Assessment",
+    ReportType.AI_MODEL_INFO: "Model Information",
+    ReportType.ASSESSMENTS: "Model Assessment Reports",
+    ReportType.DATASETS: "Dataset Information",
+    ReportType.DEFENCES: "Defence Report",
+    ReportType.EU_AI_ACT: "Model Development Guidelines",
+    ReportType.GADGETS: "Gadget List",
+    ReportType.RISK_REPORT: "Risk Assessment",
 }

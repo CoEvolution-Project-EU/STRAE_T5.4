@@ -263,14 +263,14 @@
         ]
       },
       "pedigree": {
-            "ancestors": [
-                {
-                    "type": "machine-learning-model",
-                    "bom-ref": "model-base-perception-001",
-                    "name": "Base Perception Model",
-                    "version": "0.9"
-                }
-            ]
+        "ancestors": [
+            {
+                "type": "machine-learning-model",
+                "bom-ref": "model-base-perception-001",
+                "name": "Base Perception Model",
+                "version": "0.9"
+            }
+        ]
       },
       "hashes": [
         {
