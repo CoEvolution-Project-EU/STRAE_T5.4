@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, List, Literal
 
 from pydantic import BaseModel, ConfigDict, StringConstraints
 from pydantic.alias_generators import to_camel
@@ -16,6 +16,7 @@ class CamelModel(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         validate_by_name=True,
+        extra="forbid",
     )
 
 
@@ -64,3 +65,9 @@ class License(CamelModel):
 
 class LicenseExpression(CamelModel):
     expression: str
+
+
+class Signature(CamelModel):
+    algorithm: Literal["ES256"]
+    certificate_path: List[str]
+    value: str

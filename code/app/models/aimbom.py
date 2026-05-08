@@ -12,6 +12,7 @@ from app.models.cyclonedx import (
     License,
     LicenseExpression,
     SerialNumber,
+    Signature,
 )
 
 
@@ -64,12 +65,6 @@ class ExternalReference(CamelModel):
     type: Literal["bom"]
     url: BomLinkDocument | BomLinkElement
     comment: str
-
-
-class Signature(CamelModel):
-    algorithm: Literal["ES256"]
-    certificate_path: List[str]
-    value: str
 
 
 class AIMBOM(CamelModel):

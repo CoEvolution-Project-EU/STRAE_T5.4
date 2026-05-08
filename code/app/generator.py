@@ -141,6 +141,21 @@ class AIMBOMGenerator:
                     f"model_uuid={model_uuid}, model_version={model_version}"
                 )
 
+            try:
+                validate_report(report)
+            except ValueError as e:
+                logger.warning(
+                    "Invalid CycloneDX report %s for model_uuid=%s, model_version=%s: %s",
+                    report_type.value,
+                    model_uuid,
+                    model_version,
+                    str(e),
+                )
+                raise GeneratorGenerationError(
+                    f"Report {report_type.value} is invalid for "
+                    f"model_uuid={model_uuid}, model_version={model_version}: {str(e)}"
+                ) from e
+
             reports[report_type] = report
 
             logger.debug(
