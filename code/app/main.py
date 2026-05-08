@@ -28,7 +28,11 @@ async def lifespan(app: FastAPI):
     logger.info("Starting STR Assurance Engine API")
 
     if settings.ENVIRONMENT == Environment.prod:
-        app.state.storage = OrchestratorStorage()
+        try:
+            app.state.storage = OrchestratorStorage()
+        except Exception as e:
+            logger.critical("Failed to initialize OrchestratorStorage", exc_info=True)
+            raise RuntimeError("Failed to initialize OrchestratorStorage") from e
     else:
         minio = get_minio_client()
         for bucket in (settings.REPORTS_BUCKET, settings.AIMBOMS_BUCKET):
