@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal
 
 from pydantic import AnyUrl, Field
 
@@ -15,10 +15,33 @@ from app.models.cyclonedx import (
 )
 
 
+class Property(CamelModel):
+    name: str
+    value: str | None = None
+
+
+class ModelParameters(CamelModel):
+    approach: Dict | None = None
+    architecture_family: str | None = None
+    task: str | None = None
+    datasets: List[Dict] | None = None
+    model_architecture: str | None = None
+    inputs: List[Dict] | None = None
+    outputs: List[Dict] | None = None
+
+
+class ModelCard(CamelModel):
+    bom_ref: str = Field(..., min_length=1, alias="bom-ref")
+    model_parameters: ModelParameters | None = None
+    quantitative_analysis: Dict | None = None
+    considerations: Dict | None = None
+    properties: List[Property] | None = None
+
+
 class ExternalReference(CamelModel):
     url: AnyUrl | BomLinkDocument | BomLinkElement
     type: Literal["website", "documentation", "vcs"]  # Add more types as needed
-    comment: Optional[str] = None
+    comment: str | None = None
 
 
 class Ancestor(CamelModel):
@@ -38,11 +61,11 @@ class AIModelInfoComponent(CamelModel):
     name: str
     version: str
     description: str
-    hashes: List[Hash]
-    licenses: List[License | LicenseExpression]
-    pedigree: Pedigree
-    model_card: Dict  # TODO: Define a proper model for the model card
-    external_references: List[ExternalReference]
+    hashes: List[Hash] | None = None
+    licenses: List[License | LicenseExpression] | None = None
+    pedigree: Pedigree | None = None
+    model_card: ModelCard | None = None
+    external_references: List[ExternalReference] | None = None
 
 
 class AIModelInfoMetadata(CamelModel):
