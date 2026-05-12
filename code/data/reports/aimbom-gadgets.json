@@ -2,6 +2,7 @@
     "bomFormat": "CycloneDX",
     "specVersion": "1.7",
     "serialNumber": "urn:uuid:52c57fd2-b03a-44c1-b9c0-7c5f7d2a8666",
+    "version": 1,
     "components": [
         {
             "type": "application",

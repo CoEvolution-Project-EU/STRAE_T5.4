@@ -10,14 +10,10 @@ from app.models.cyclonedx import (
     Hash,
     License,
     LicenseExpression,
+    Property,
     SerialNumber,
     Signature,
 )
-
-
-class Property(CamelModel):
-    name: str
-    value: str | None = None
 
 
 class ModelParameters(CamelModel):

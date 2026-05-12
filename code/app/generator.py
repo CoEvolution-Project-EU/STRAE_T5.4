@@ -1,9 +1,9 @@
 import logging
 import uuid
-from typing import Dict
 
 from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
+from pydantic import ValidationError
 
 from app import signing
 from app.config import settings
@@ -16,7 +16,6 @@ from app.models.aimbom import (
     Supplier,
     Tool,
 )
-from app.models.aimodelinfo import AIModelInfo
 from app.storage import (
     StorageConnectionError,
     StorageError,
@@ -24,7 +23,13 @@ from app.storage import (
     StorageOperationError,
     get_storage,
 )
-from app.utils import report_to_comment, utc_now_datetime, uuid_from_serial_number
+from app.utils import (
+    REPORT_MODELS,
+    REPORT_TO_COMMENT,
+    ReportModel,
+    utc_now_datetime,
+    uuid_from_serial_number,
+)
 from app.validation import validate_report
 
 logger = logging.getLogger(__name__)
@@ -88,7 +93,7 @@ class AIMBOMGenerator:
             model_uuid,
             model_version,
         )
-        reports: dict[ReportType, Dict | None] = {
+        reports: dict[ReportType, ReportModel | None] = {
             ReportType.AI_MODEL_INFO: None,
             ReportType.ASSESSMENTS: None,
             ReportType.DATASETS: None,
@@ -124,8 +129,8 @@ class AIMBOMGenerator:
                 f"Required reports are missing for model_uuid={model_uuid}, model_version={model_version}: {str(e)}"
             ) from e
 
-        # TODO: Validate the retrieved reports against their respective schemas
-        # to ensure data integrity before processing.
+        # Validate and parse each retrieved report, ensuring they are compliant with the CycloneDX schema
+        # and our specific report models.
         for report_type in reports.keys():
             report = retrieved_reports.get(report_type.value)
 
@@ -142,7 +147,12 @@ class AIMBOMGenerator:
                 )
 
             try:
+                # Generic CycloneDX validation
                 validate_report(report)
+
+                # Schema-specific validation
+                model_cls = REPORT_MODELS[report_type]
+                validated_report = model_cls.model_validate(report)
             except ValueError as e:
                 logger.warning(
                     "Invalid CycloneDX report %s for model_uuid=%s, model_version=%s: %s",
@@ -155,8 +165,22 @@ class AIMBOMGenerator:
                     f"Report {report_type.value} is invalid for "
                     f"model_uuid={model_uuid}, model_version={model_version}: {str(e)}"
                 ) from e
+            except ValidationError as e:
+                logger.warning(
+                    "Schema validation failed for report %s "
+                    "for model_uuid=%s, model_version=%s: %s",
+                    report_type.value,
+                    model_uuid,
+                    model_version,
+                    str(e),
+                )
+                raise GeneratorGenerationError(
+                    f"Report {report_type.value} failed schema validation "
+                    f"for model_uuid={model_uuid}, "
+                    f"model_version={model_version}: {str(e)}"
+                ) from e
 
-            reports[report_type] = report
+            reports[report_type] = validated_report
 
             logger.debug(
                 "Retrieved report %s for model_uuid=%s, model_version=%s",
@@ -172,10 +196,13 @@ class AIMBOMGenerator:
         )
         return reports
 
-    def _create_aimbom_from_reports(self, reports: dict[ReportType, Dict]) -> AIMBOM:
+    def _create_aimbom_from_reports(
+        self, reports: dict[ReportType, ReportModel]
+    ) -> AIMBOM:
         logger.debug("Creating AIMBOM from reports")
         try:
-            model_info = AIModelInfo(**reports[ReportType.AI_MODEL_INFO])
+            # model_info = AIModelInfo(**reports[ReportType.AI_MODEL_INFO])
+            model_info = reports[ReportType.AI_MODEL_INFO]
             model_info_component = model_info.metadata.component
 
             metadata = Metadata(
@@ -203,8 +230,8 @@ class AIMBOMGenerator:
             external_references = [
                 ExternalReference(
                     type="bom",
-                    url=f"urn:cdx:{uuid_from_serial_number(r.get('serialNumber'))}/{r.get('version', 1)}",
-                    comment=report_to_comment.get(o.value),
+                    url=f"urn:cdx:{uuid_from_serial_number(r.serial_number)}/{r.version}",
+                    comment=REPORT_TO_COMMENT.get(o.value),
                 )
                 for o, r in reports.items()
                 if r is not None

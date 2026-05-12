@@ -71,3 +71,8 @@ class Signature(CamelModel):
     algorithm: Literal["ES256"]
     certificate_path: List[str]
     value: str
+
+
+class Property(CamelModel):
+    name: str
+    value: str | None = None
