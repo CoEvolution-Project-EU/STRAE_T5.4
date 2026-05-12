@@ -69,7 +69,7 @@ class LicenseExpression(CamelModel):
 
 class Signature(CamelModel):
     algorithm: Literal["ES256"]
-    certificate_path: List[str]
+    certificate_path: List[str] | None = None
     value: str
 
 

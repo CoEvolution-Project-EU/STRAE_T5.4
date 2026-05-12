@@ -87,7 +87,9 @@ class AIMBOMGenerator:
         )
         return aimbom
 
-    async def _retrieve_reports(self, model_uuid: str, model_version: str) -> dict:
+    async def _retrieve_reports(
+        self, model_uuid: str, model_version: str
+    ) -> dict[ReportType, ReportModel]:
         logger.debug(
             "Retrieving reports for model_uuid=%s, model_version=%s",
             model_uuid,
