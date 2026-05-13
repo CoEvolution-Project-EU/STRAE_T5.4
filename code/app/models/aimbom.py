@@ -1,9 +1,19 @@
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, List, Literal
+from typing import List, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
-from pydantic.alias_generators import to_camel
+from pydantic import Field
+
+from app.models.cyclonedx import (
+    BomLinkDocument,
+    BomLinkElement,
+    CamelModel,
+    Hash,
+    License,
+    LicenseExpression,
+    SerialNumber,
+    Signature,
+)
 
 
 # ============================================================
@@ -13,56 +23,10 @@ class ReportType(str, Enum):
     AI_MODEL_INFO = "aimodelinfo"
     ASSESSMENTS = "assessments"
     DATASETS = "datasets"
+    DEFENCES = "defences"
     EU_AI_ACT = "euaiact"
     GADGETS = "gadgets"
-
-
-# ============================================================
-# Base Pydantic model with camelCase aliasing
-# ============================================================
-class CamelModel(BaseModel):
-    """
-    Base model that automatically converts snake_case fields
-    to camelCase when serializing/deserializing.
-    """
-
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        validate_by_name=True,
-    )
-
-
-SerialNumber = Annotated[
-    str,
-    StringConstraints(
-        pattern=r"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-    ),
-]
-
-# ============================================================
-# External references
-# ============================================================
-BomLinkDocument = Annotated[
-    str,
-    StringConstraints(
-        pattern=r"^urn:cdx:[0-9a-f]{8}-"
-        r"[0-9a-f]{4}-"
-        r"[0-9a-f]{4}-"
-        r"[0-9a-f]{4}-"
-        r"[0-9a-f]{12}/[1-9][0-9]*$"
-    ),
-]
-
-BomLinkElement = Annotated[
-    str,
-    StringConstraints(
-        pattern=r"^urn:cdx:[0-9a-f]{8}-"
-        r"[0-9a-f]{4}-"
-        r"[0-9a-f]{4}-"
-        r"[0-9a-f]{4}-"
-        r"[0-9a-f]{12}/[1-9][0-9]*#.+$"
-    ),
-]
+    RISK_REPORT = "riskreport"
 
 
 class Tool(CamelModel):
@@ -75,11 +39,6 @@ class Supplier(CamelModel):
     name: str
 
 
-class Hash(CamelModel):
-    alg: Literal["SHA-256"]
-    content: str
-
-
 class Component(CamelModel):
     bom_ref: str = Field(..., min_length=1, alias="bom-ref")
     type: Literal["machine-learning-model"]
@@ -89,8 +48,10 @@ class Component(CamelModel):
         max_length=1024,
         description="Version of the component, must be at most 1024 characters",
     )
-    supplier: Supplier
+    description: str
+    # supplier: Supplier
     hashes: List[Hash]
+    licenses: List[License | LicenseExpression]
 
 
 class Metadata(CamelModel):
@@ -104,12 +65,6 @@ class ExternalReference(CamelModel):
     type: Literal["bom"]
     url: BomLinkDocument | BomLinkElement
     comment: str
-
-
-class Signature(CamelModel):
-    algorithm: Literal["ES256"]
-    certificate_path: List[str]
-    value: str
 
 
 class AIMBOM(CamelModel):

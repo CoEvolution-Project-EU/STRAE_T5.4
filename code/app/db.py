@@ -155,9 +155,6 @@ class MinioDB:
         return reports
 
 
-# MinioDB dependency
-# Use lru_cache to ensure a singleton MinioDB instance is used throughout the application
-# Officially recommended by FastAPI for shared resources. Is thread-safe.
 @lru_cache
 def get_minio_client() -> MinioDB:
     return MinioDB()

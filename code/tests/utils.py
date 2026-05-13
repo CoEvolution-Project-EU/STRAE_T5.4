@@ -36,7 +36,9 @@ def create_new_mock_minio():
     seed_report(db, "aimbom-aimodelinfo.json", "aimodelinfo.json")
     seed_report(db, "aimbom-assessments.json", "assessments.json")
     seed_report(db, "aimbom-datasets.json", "datasets.json")
+    seed_report(db, "aimbom-defences.json", "defences.json")
     seed_report(db, "aimbom-euaiact.json", "euaiact.json")
     seed_report(db, "aimbom-gadgets.json", "gadgets.json")
+    seed_report(db, "aimbom-riskreport.json", "riskreport.json")
 
     return db

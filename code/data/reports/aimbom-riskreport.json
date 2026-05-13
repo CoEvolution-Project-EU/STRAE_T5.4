@@ -1,0 +1,1553 @@
+{
+  "bomFormat" : "CycloneDX",
+  "specVersion" : "1.6",
+  "serialNumber" : "urn:uuid:689d20e1-38b1-4c07-bdcb-b5736440c2f7",
+  "version" : 1,
+  "metadata" : {
+    "timestamp" : "2026-03-23T15:30:47Z",
+    "tools" : 
+      {
+        "components": [
+          {
+            "authors" : [
+              {
+                "name": "SLC"
+              } 
+            ],
+            "type": "application",
+            "name" : "RAGRE",
+            "version" : "1.1.1"
+          }
+        ]
+      },
+    "component" : {
+      "name" : "AVIsense_model_scan_",
+      "version" : "pending",
+      "properties" : [
+        {
+          "name" : "ragre:ai-risk:score",
+          "value" : "pending"
+        }
+      ],
+      "type" : "machine-learning-model"
+    }
+  },
+  "components" : [
+    {
+      "name" : "vispy",
+      "version" : "0.7.0",
+      "cpe" : "cpe:2.3:a:python-vispy:python-vispy:0.7.0:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/vispy@0.7.0",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "0.0"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "b7823e32-75ab-4d46-8ec5-22757c72b0ca"
+    },
+    {
+      "name" : "tensorboardx",
+      "version" : "2.1",
+      "cpe" : "cpe:2.3:a:python-tensorboardx:python-tensorboardx:2.1:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/tensorboardx@2.1",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "0.0"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "31cb8f9c-001b-477a-924d-020575ff4754"
+    },
+    {
+      "name" : "tensorboard",
+      "version" : "2.4.0",
+      "cpe" : "cpe:2.3:a:python-tensorboard:python-tensorboard:2.4.0:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/tensorboard@2.4.0",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "0.0"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "d8963c16-5fbe-46c9-9075-fe9d836b12f7"
+    },
+    {
+      "name" : "strictyaml",
+      "version" : "1.4.4",
+      "cpe" : "cpe:2.3:a:python-strictyaml:python-strictyaml:1.4.4:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/strictyaml@1.4.4",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "0.0"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "8d527b4b-868f-4528-a5aa-519d0fbbdd80"
+    },
+    {
+      "name" : "scikit-learn",
+      "version" : "0.24.2",
+      "cpe" : "cpe:2.3:a:python-scikit-learn:python-scikit-learn:0.24.2:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/scikit-learn@0.24.2",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "3.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "30.0"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "GHSA-jxfp-4rvq-9h9m"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "GHSA-jw8x-6495-233v"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "PYSEC-2020-108"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "MAL-2023-2214"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "CVE-2020-28975"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "9ecf8969-755c-4d02-bcb3-3a6cbb9e7078"
+    },
+    {
+      "name" : "protobuf",
+      "version" : "3.20.1",
+      "cpe" : "cpe:2.3:a:google:protobuf-python:3.20.1:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/protobuf@3.20.1",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "GHSA-8gq9-2x98-w8hf"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "GHSA-8qvm-5x2c-j2w7"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "GHSA-7gcm-g887-7qv7"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "d070433a-a8dd-46ce-a828-ccd4379e9fc4"
+    },
+    {
+      "name" : "opencv-python",
+      "version" : "4.5.1.48",
+      "cpe" : "cpe:2.3:a:python-opencv-python:python-opencv-python:4.5.1.48:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/opencv-python@4.5.1.48",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "GHSA-qr4w-53vh-m672"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "PYSEC-2023-183"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "GHSA-jh2j-j4j9-crg3"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "PYSEC-2023-184"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "b47b749c-c68c-40b2-84cc-82c19ea2b8ce"
+    },
+    {
+      "name" : "opencv-contrib-python",
+      "version" : "4.5.1.48",
+      "cpe" : "cpe:2.3:a:python-opencv-contrib-python:python-opencv-contrib-python:4.5.1.48:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/opencv-contrib-python@4.5.1.48",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "GHSA-cxjf-x6jp-p7mc"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "PYSEC-2023-181"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "GHSA-w2pj-9cgh-mq2c"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "PYSEC-2023-182"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "a9768a05-1a72-4c89-9d1b-2231202eb077"
+    },
+    {
+      "name" : "nuscenes-devkit",
+      "version" : "1.1.9",
+      "cpe" : "cpe:2.3:a:python-nuscenes-devkit:python-nuscenes-devkit:1.1.9:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/nuscenes-devkit@1.1.9",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "0.0"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "e31fe803-66b0-4832-9716-7b8f752acd72"
+    },
+    {
+      "name" : "numpy",
+      "version" : "1.19.4",
+      "cpe" : "cpe:2.3:a:python-numpy:python-numpy:1.19.4:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/numpy@1.19.4",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "GHSA-fpfv-jqm9-f5jm"
+        },
+        {
+          "name" : "ragre:vulnerability:id",
+          "value" : "GHSA-6p56-wp2h-9hxr"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "f28ae030-e26a-41e6-bf16-bea72421d470"
+    },
+    {
+      "name" : "nose",
+      "version" : "1.3.7",
+      "cpe" : "cpe:2.3:a:python-nose:python-nose:1.3.7:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/nose@1.3.7",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "0.0"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "14b78718-b1b9-4611-8b6a-5c8358b1bf45"
+    },
+    {
+      "name" : "easydict",
+      "version" : "1.9",
+      "cpe" : "cpe:2.3:a:python-easydict:python-easydict:1.9:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/easydict@1.9",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "0.0"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "7044875f-99da-49ce-9e56-5f462a20fb77"
+    },
+    {
+      "name" : "cython",
+      "version" : "0.29.26",
+      "cpe" : "cpe:2.3:a:python-cython:python-cython:0.29.26:*:*:*:*:*:*:*",
+      "purl" : "pkg:pypi/cython@0.29.26",
+      "properties" : [
+        {
+          "name" : "ragre:component:custom",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:component:riskScore",
+          "value" : "0.0"
+        },
+        {
+          "name" : "ragre:component:riskScorePercentage",
+          "value" : "0.0"
+        }
+      ],
+      "type" : "library",
+      "bom-ref" : "c2634963-3f3b-4695-8c16-cbe1c184c7b3"
+    }
+  ],
+  "vulnerabilities" : [
+    {
+      "bom-ref" : "8e3e6b26-7ee2-44b3-a6af-afde57b1c7cc",
+      "id" : "GHSA-jxfp-4rvq-9h9m",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com"
+          },
+          "score" : 7.5,
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+        }
+      ],
+      "description" : "svm_predict_values in svm.cpp in Libsvm v324, as used in scikit-learn 0.23.2 and other products, allows attackers to cause a denial of service (segmentation fault) via a crafted model SVM (introduced via pickle, json, or any other model permanence standard) with a large value in the _n_support array. NOTE: the scikit-learn vendor's position is that the behavior can only occur if the library's API is violated by an application that changes a private attribute.",
+      "published" : "2022-05-24T17:34:40Z",
+      "updated" : "2024-10-23T18:41:35Z",
+      "affects" : [
+        {
+          "ref" : "9ecf8969-755c-4d02-bcb3-3a6cbb9e7078"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "3f6e6188-cd83-4d7f-8b07-4728d849c010",
+      "id" : "GHSA-jw8x-6495-233v",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com"
+          },
+          "score" : 5.3,
+          "vector" : "CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:N/A:N"
+        }
+      ],
+      "cwes" : [
+        921,
+        922
+      ],
+      "description" : "A sensitive data leakage vulnerability was identified in scikit-learn's TfidfVectorizer, specifically in versions up to and including 1.4.1.post1, which was fixed in version 1.5.0. The vulnerability arises from the unexpected storage of all tokens present in the training data within the `stop_words_` attribute, rather than only storing the subset of tokens required for the TF-IDF technique to function. This behavior leads to the potential leakage of sensitive information, as the `stop_words_` attribute could contain tokens that were meant to be discarded and not stored, such as passwords or keys. The impact of this vulnerability varies based on the nature of the data being processed by the vectorizer.",
+      "published" : "2024-06-06T21:30:37Z",
+      "updated" : "2024-10-25T16:47:33Z",
+      "affects" : [
+        {
+          "ref" : "9ecf8969-755c-4d02-bcb3-3a6cbb9e7078"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:weakness",
+          "value" : "{\"weaknessId\":\"CWE-921\",\"description\":\"The product stores sensitive information in a file system or device that does not have built-in access control.\"}"
+        },
+        {
+          "name" : "ragre:weakness",
+          "value" : "{\"weaknessId\":\"CWE-922\",\"description\":\"The product stores sensitive information without properly limiting read or write access by unauthorized actors.\"}"
+        },
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "cde6741f-f8ce-4b87-b4f2-94fd27693773",
+      "id" : "PYSEC-2020-108",
+      "source" : {
+        "name" : "OSV",
+        "url" : "https://osv.dev"
+      },
+      "published" : "2020-11-21T21:15:00Z",
+      "updated" : "2024-02-01T21:26:33Z",
+      "affects" : [
+        {
+          "ref" : "9ecf8969-755c-4d02-bcb3-3a6cbb9e7078"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "0ad50f52-8441-42b4-a8da-8e55b32ff1ba",
+      "id" : "MAL-2023-2214",
+      "source" : {
+        "name" : "OSV",
+        "url" : "https://osv.dev"
+      },
+      "published" : "2023-02-10T20:15:10Z",
+      "updated" : "2023-08-21T20:12:58Z",
+      "affects" : [
+        {
+          "ref" : "9ecf8969-755c-4d02-bcb3-3a6cbb9e7078"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "e1333d56-461b-47a0-b71d-1a9bd1b1a043",
+      "id" : "CVE-2020-28975",
+      "source" : {
+        "name" : "NVD",
+        "url" : "https://nvd.nist.gov/"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "NVD",
+            "url" : "https://nvd.nist.gov/"
+          },
+          "score" : 7.5,
+          "severity" : "high",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+        }
+      ],
+      "description" : "svm_predict_values in svm.cpp in Libsvm v324, as used in scikit-learn 0.23.2 and other products, allows attackers to cause a denial of service (segmentation fault) via a crafted model SVM (introduced via pickle, json, or any other model permanence standard) with a large value in the _n_support array. NOTE: the scikit-learn vendor's position is that the behavior can only occur if the library's API is violated by an application that changes a private attribute.",
+      "published" : "2020-11-21T21:15:10Z",
+      "updated" : "2024-11-21T05:23:25Z",
+      "affects" : [
+        {
+          "ref" : "9ecf8969-755c-4d02-bcb3-3a6cbb9e7078"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:epss:score",
+          "value" : "0.00815"
+        },
+        {
+          "name" : "ragre:epss:percentile",
+          "value" : "0.73951"
+        },
+        {
+          "name" : "ragre:epss:date",
+          "value" : "2026-02-21"
+        },
+        {
+          "name" : "ragre:cvss:v2:baseScore",
+          "value" : "5.0"
+        },
+        {
+          "name" : "ragre:cvss:v2:baseSeverity",
+          "value" : "MEDIUM"
+        },
+        {
+          "name" : "ragre:cvss:v2:exploitabilityScore",
+          "value" : "10.0"
+        },
+        {
+          "name" : "ragre:cvss:v2:impactScore",
+          "value" : "2.9"
+        },
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "ebcc0488-0a79-4244-9053-11650d1c7994",
+      "id" : "GHSA-8gq9-2x98-w8hf",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com"
+          },
+          "score" : 7.5,
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+        }
+      ],
+      "cwes" : [
+        1286,
+        119
+      ],
+      "description" : "### Summary A message parsing and memory management vulnerability in ProtocolBuffer’s C++ and Python implementations can trigger an out of memory (OOM) failure when processing a specially crafted message, which could lead to a denial of service (DoS) on services using the libraries. Reporter: [ClusterFuzz](https://google.github.io/clusterfuzz/) Affected versions: All versions of C++ Protobufs (including Python) prior to the versions listed below. ### Severity & Impact As scored by google **Medium 5.7** - [CVSS:3.1/AV:A/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H](https://www.first.org/cvss/calculator/3.1#CVSS:3.1/AV:A/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H) Asscored byt NIST **High 7.5** - [CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H](https://www.first.org/cvss/calculator/3.1#CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H) A small (~500 KB) malicious payload can be constructed which causes the running service to allocate more than 3GB of RAM. ### Proof of Concept For reproduction details, please refer to the unit test that identifies the specific inputs that exercise this parsing weakness. ### Mitigation / Patching Please update to the latest available versions of the following packages: - protobuf-cpp (3.18.3, 3.19.5, 3.20.2, 3.21.6) - protobuf-python (3.18.3, 3.19.5, 3.20.2, 4.21.6)",
+      "published" : "2022-09-23T20:31:15Z",
+      "updated" : "2024-07-05T21:23:58Z",
+      "affects" : [
+        {
+          "ref" : "d070433a-a8dd-46ce-a828-ccd4379e9fc4"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:weakness",
+          "value" : "{\"weaknessId\":\"CWE-1286\",\"description\":\"The product receives input that is expected to be well-formed - i.e., to comply with a certain syntax - but it does not validate or incorrectly validates that the input complies with the syntax.\"}"
+        },
+        {
+          "name" : "ragre:weakness",
+          "value" : "{\"weaknessId\":\"CWE-119\",\"description\":\"The product performs operations on a memory buffer, but it reads from or writes to a memory location outside the buffer's intended boundary. This may result in read or write operations on unexpected memory locations that could be linked to other variables, data structures, or internal program data.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-676\",\"name\":\"NoSQL Injection\",\"severity\":\"High\",\"description\":\"An adversary targets software that constructs NoSQL statements based on user input or with parameters vulnerable to operator replacement in order to achieve a variety of technical impacts such as escalating privileges, bypassing authentication, and/or executing code.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-66\",\"name\":\"SQL Injection\",\"severity\":\"High\",\"description\":\"This attack exploits target software that constructs SQL statements based on user input. An attacker crafts input strings so that when the target software constructs SQL statements based on the input, the resulting SQL statement performs actions other than those the application intended. SQL Injection results from failure of the application to appropriately validate input.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-10\",\"name\":\"Buffer Overflow via Environment Variables\",\"severity\":\"High\",\"description\":\"This attack pattern involves causing a buffer overflow through manipulation of environment variables. Once the adversary finds that they can modify an environment variable, they may try to overflow associated buffers. This attack leverages implicit trust often placed in environment variables.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-47\",\"name\":\"Buffer Overflow via Parameter Expansion\",\"severity\":\"High\",\"description\":\"In this attack, the target software is given input that the adversary knows will be modified and expanded in size during processing. This attack relies on the target software failing to anticipate that the expanded data may exceed some internal limit, thereby creating a buffer overflow.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-46\",\"name\":\"Overflow Variables and Tags\",\"severity\":\"High\",\"description\":\"This type of attack leverages the use of tags or variables from a formatted configuration data to cause buffer overflow. The adversary crafts a malicious HTML page or configuration file that includes oversized strings, thus causing an overflow.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-123\",\"name\":\"Buffer Manipulation\",\"severity\":\"Very_High\",\"description\":\"An adversary manipulates an application's interaction with a buffer in an attempt to read or modify data they shouldn't have access to. Buffer attacks are distinguished in that it is the buffer space itself that is the target of the attack rather than any code responsible for interpreting the content of the buffer. In virtually all buffer attacks the content that is placed in the buffer is immaterial. Instead, most buffer attacks involve retrieving or providing more input than can be stored in the allocated buffer, resulting in the reading or overwriting of other unintended program memory.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-9\",\"name\":\"Buffer Overflow in Local Command-Line Utilities\",\"severity\":\"High\",\"description\":\"This attack targets command-line utilities available in a number of shells. An adversary can leverage a vulnerability found in a command-line utility to escalate privilege to root.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-14\",\"name\":\"Client-side Injection-induced Buffer Overflow\",\"severity\":\"High\",\"description\":\"This type of attack exploits a buffer overflow vulnerability in targeted client software through injection of malicious content from a custom-built hostile service. This hostile service is created to deliver the correct content to the client software. For example, if the client-side application is a browser, the service will host a webpage that the browser loads.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-8\",\"name\":\"Buffer Overflow in an API Call\",\"severity\":\"High\",\"description\":\"This attack targets libraries or shared code modules which are vulnerable to buffer overflow attacks. An adversary who has knowledge of known vulnerable libraries or shared code can easily target software that makes use of these libraries. All clients that make use of the code library thus become vulnerable by association. This has a very broad effect on security across a system, usually affecting more than one software process.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-24\",\"name\":\"Filter Failure through Buffer Overflow\",\"severity\":\"High\",\"description\":\"In this attack, the idea is to cause an active filter to fail by causing an oversized transaction. An attacker may try to feed overly long input strings to the program in an attempt to overwhelm the filter (by causing a buffer overflow) and hoping that the filter does not fail securely (i.e. the user input is let into the system unfiltered).\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-42\",\"name\":\"MIME Conversion\",\"severity\":\"High\",\"description\":\"An attacker exploits a weakness in the MIME conversion routine to cause a buffer overflow and gain control over the mail server machine. The MIME system is designed to allow various different information formats to be interpreted and sent via e-mail. Attack points exist when data are converted to MIME compatible format and back.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-45\",\"name\":\"Buffer Overflow via Symbolic Links\",\"severity\":\"High\",\"description\":\"This type of attack leverages the use of symbolic links to cause buffer overflows. An adversary can try to create or manipulate a symbolic link file such that its contents result in out of bounds data. When the target software processes the symbolic link file, it could potentially overflow internal buffers with insufficient bounds checking.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-44\",\"name\":\"Overflow Binary Resource File\",\"severity\":\"Very_High\",\"description\":\"An attack of this type exploits a buffer overflow vulnerability in the handling of binary resources. Binary resources may include music files like MP3, image files like JPEG files, and any other binary file. These attacks may pass unnoticed to the client machine through normal usage of files, such as a browser loading a seemingly innocent JPEG file. This can allow the adversary access to the execution stack and execute arbitrary code in the target process.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-100\",\"name\":\"Overflow Buffers\",\"severity\":\"Very_High\",\"description\":\"Buffer Overflow attacks target improper or missing bounds checking on buffer operations, typically triggered by input injected by an adversary. As a consequence, an adversary is able to write past the boundaries of allocated buffer regions in memory, causing a program crash or potentially redirection of execution as per the adversaries' choice.\"}"
+        },
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "01b33250-c62d-470d-9980-2d28dc2ef923",
+      "id" : "GHSA-8qvm-5x2c-j2w7",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com"
+      },
+      "cwes" : [
+        674
+      ],
+      "description" : "### Summary Any project that uses Protobuf pure-Python backend to parse untrusted Protocol Buffers data containing an arbitrary number of **recursive groups**, **recursive messages** or **a series of [`SGROUP`](https://protobuf.dev/programming-guides/encoding/#groups) tags** can be corrupted by exceeding the Python recursion limit. Reporter: Alexis Challande, Trail of Bits Ecosystem Security Team [ecosystem@trailofbits.com](mailto:ecosystem@trailofbits.com) Affected versions: This issue only affects the [pure-Python implementation](https://github.com/protocolbuffers/protobuf/tree/main/python#implementation-backends) of protobuf-python backend. This is the implementation when `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python` environment variable is set or the default when protobuf is used from Bazel or pure-Python PyPi wheels. CPython PyPi wheels do not use pure-Python by default. This is a Python variant of a [previous issue affecting protobuf-java](https://github.com/protocolbuffers/protobuf/security/advisories/GHSA-735f-pc8j-v9w8). ### Severity This is a potential Denial of Service. Parsing nested protobuf data creates unbounded recursions that can be abused by an attacker. ### Proof of Concept For reproduction details, please refer to the unit tests [decoder_test.py](https://github.com/protocolbuffers/protobuf/blob/main/python/google/protobuf/internal/decoder_test.py#L87-L98) and [message_test](https://github.com/protocolbuffers/protobuf/blob/main/python/google/protobuf/internal/message_test.py#L1436-L1478) ### Remediation and Mitigation A mitigation is available now. Please update to the latest available versions of the following packages: * protobuf-python(4.25.8, 5.29.5, 6.31.1)",
+      "published" : "2025-06-16T16:02:58Z",
+      "updated" : "2025-06-16T16:03:02Z",
+      "affects" : [
+        {
+          "ref" : "d070433a-a8dd-46ce-a828-ccd4379e9fc4"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:weakness",
+          "value" : "{\"weaknessId\":\"CWE-674\",\"description\":\"The product does not properly control the amount of recursion that takes place, consuming excessive resources, such as allocated memory or the program stack.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-230\",\"name\":\"Serialized Data with Nested Payloads\",\"severity\":\"High\",\"description\":\"Applications often need to transform data in and out of a data format (e.g., XML and YAML) by using a parser. It may be possible for an adversary to inject data that may have an adverse effect on the parser when it is being processed. Many data format languages allow the definition of macro-like structures that can be used to simplify the creation of complex structures. By nesting these structures, causing the data to be repeatedly substituted, an adversary can cause the parser to consume more resources while processing, causing excessive memory consumption and CPU utilization.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-231\",\"name\":\"Oversized Serialized Data Payloads\",\"severity\":\"High\",\"description\":\"An adversary injects oversized serialized data payloads into a parser during data processing to produce adverse effects upon the parser such as exhausting system resources and arbitrary code execution.\"}"
+        },
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "a81aba39-b137-437f-b6cd-525c9705b5e1",
+      "id" : "GHSA-7gcm-g887-7qv7",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com"
+      },
+      "cwes" : [
+        674
+      ],
+      "description" : "A denial-of-service (DoS) vulnerability exists in google.protobuf.json_format.ParseDict() in Python, where the max_recursion_depth limit can be bypassed when parsing nested google.protobuf.Any messages. Due to missing recursion depth accounting inside the internal Any-handling logic, an attacker can supply deeply nested Any structures that bypass the intended recursion limit, eventually exhausting Python’s recursion stack and causing a RecursionError.",
+      "published" : "2026-01-23T15:31:35Z",
+      "updated" : "2026-02-05T15:47:46Z",
+      "affects" : [
+        {
+          "ref" : "d070433a-a8dd-46ce-a828-ccd4379e9fc4"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:weakness",
+          "value" : "{\"weaknessId\":\"CWE-674\",\"description\":\"The product does not properly control the amount of recursion that takes place, consuming excessive resources, such as allocated memory or the program stack.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-230\",\"name\":\"Serialized Data with Nested Payloads\",\"severity\":\"High\",\"description\":\"Applications often need to transform data in and out of a data format (e.g., XML and YAML) by using a parser. It may be possible for an adversary to inject data that may have an adverse effect on the parser when it is being processed. Many data format languages allow the definition of macro-like structures that can be used to simplify the creation of complex structures. By nesting these structures, causing the data to be repeatedly substituted, an adversary can cause the parser to consume more resources while processing, causing excessive memory consumption and CPU utilization.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-231\",\"name\":\"Oversized Serialized Data Payloads\",\"severity\":\"High\",\"description\":\"An adversary injects oversized serialized data payloads into a parser during data processing to produce adverse effects upon the parser such as exhausting system resources and arbitrary code execution.\"}"
+        },
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "6209880d-d857-4476-8957-805b38cf9d2d",
+      "id" : "GHSA-qr4w-53vh-m672",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com"
+          },
+          "score" : 8.8,
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H"
+        }
+      ],
+      "cwes" : [
+        787
+      ],
+      "description" : "opencv-python versions before v4.8.1.78 bundled libwebp binaries in wheels that are vulnerable to CVE-2023-4863. opencv-python v4.8.1.78 upgrades the bundled libwebp binary to v1.3.2.",
+      "published" : "2024-08-30T23:37:20Z",
+      "updated" : "2024-08-30T23:37:22Z",
+      "affects" : [
+        {
+          "ref" : "b47b749c-c68c-40b2-84cc-82c19ea2b8ce"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:weakness",
+          "value" : "{\"weaknessId\":\"CWE-787\",\"description\":\"The product writes data past the end, or before the beginning, of the intended buffer.\"}"
+        },
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "b7e4cfed-abf8-4f83-98a1-0eee107f64bb",
+      "id" : "PYSEC-2023-183",
+      "source" : {
+        "name" : "OSV",
+        "url" : "https://osv.dev"
+      },
+      "published" : "2023-09-29T21:31:40Z",
+      "updated" : "2026-02-04T03:38:11Z",
+      "affects" : [
+        {
+          "ref" : "b47b749c-c68c-40b2-84cc-82c19ea2b8ce"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "25821166-0827-4f57-bda3-2179d8e40200",
+      "id" : "GHSA-jh2j-j4j9-crg3",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com"
+          },
+          "score" : 8.8,
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H"
+        }
+      ],
+      "cwes" : [
+        787
+      ],
+      "description" : "opencv-python-headless versions before v4.8.1.78 bundled libwebp binaries in wheels that are vulnerable to CVE-2023-4863. opencv-python-headless v4.8.1.78 upgrades the bundled libwebp binary to v1.3.2.",
+      "published" : "2024-08-30T23:37:17Z",
+      "updated" : "2024-08-30T23:37:21Z",
+      "affects" : [
+        {
+          "ref" : "b47b749c-c68c-40b2-84cc-82c19ea2b8ce"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:weakness",
+          "value" : "{\"weaknessId\":\"CWE-787\",\"description\":\"The product writes data past the end, or before the beginning, of the intended buffer.\"}"
+        },
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "187aa7a0-68bb-4106-b84c-a7a5d1fa7a0a",
+      "id" : "PYSEC-2023-184",
+      "source" : {
+        "name" : "OSV",
+        "url" : "https://osv.dev"
+      },
+      "published" : "2023-09-29T21:31:48Z",
+      "updated" : "2026-02-04T02:57:14Z",
+      "affects" : [
+        {
+          "ref" : "b47b749c-c68c-40b2-84cc-82c19ea2b8ce"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "a4019752-f297-4be7-bdbe-9079c113122a",
+      "id" : "GHSA-cxjf-x6jp-p7mc",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com"
+          },
+          "score" : 8.8,
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H"
+        }
+      ],
+      "cwes" : [
+        787
+      ],
+      "description" : "opencv-contrib-python versions before v4.8.1.78 bundled libwebp binaries in wheels that are vulnerable to CVE-2023-4863. opencv-contrib-python v4.8.1.78 upgrades the bundled libwebp binary to v1.3.2.",
+      "published" : "2024-08-30T23:37:19Z",
+      "updated" : "2024-08-30T23:37:21Z",
+      "affects" : [
+        {
+          "ref" : "a9768a05-1a72-4c89-9d1b-2231202eb077"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:weakness",
+          "value" : "{\"weaknessId\":\"CWE-787\",\"description\":\"The product writes data past the end, or before the beginning, of the intended buffer.\"}"
+        },
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "d46885a7-9117-407f-a2e3-d7e969b7c407",
+      "id" : "PYSEC-2023-181",
+      "source" : {
+        "name" : "OSV",
+        "url" : "https://osv.dev"
+      },
+      "published" : "2023-09-29T21:31:46Z",
+      "updated" : "2026-02-04T04:14:03Z",
+      "affects" : [
+        {
+          "ref" : "a9768a05-1a72-4c89-9d1b-2231202eb077"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "b5ae71fd-3c3e-4bf5-96ef-ae28bce90632",
+      "id" : "GHSA-w2pj-9cgh-mq2c",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com"
+          },
+          "score" : 8.8,
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H"
+        }
+      ],
+      "cwes" : [
+        787
+      ],
+      "description" : "opencv-contrib-python-headless versions before v4.8.1.78 bundled libwebp binaries in wheels that are vulnerable to CVE-2023-4863. opencv-contrib-python-headless v4.8.1.78 upgrades the bundled libwebp binary to v1.3.2.",
+      "published" : "2024-08-30T23:37:14Z",
+      "updated" : "2024-08-30T23:37:16Z",
+      "affects" : [
+        {
+          "ref" : "a9768a05-1a72-4c89-9d1b-2231202eb077"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:weakness",
+          "value" : "{\"weaknessId\":\"CWE-787\",\"description\":\"The product writes data past the end, or before the beginning, of the intended buffer.\"}"
+        },
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "5f8c0f71-649f-4646-b4ee-39d09a923790",
+      "id" : "PYSEC-2023-182",
+      "source" : {
+        "name" : "OSV",
+        "url" : "https://osv.dev"
+      },
+      "published" : "2023-09-29T21:31:43Z",
+      "updated" : "2026-02-04T04:18:18Z",
+      "affects" : [
+        {
+          "ref" : "a9768a05-1a72-4c89-9d1b-2231202eb077"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "243c08b9-3e3f-4458-85b8-bb4d084bfc26",
+      "id" : "GHSA-fpfv-jqm9-f5jm",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com"
+          },
+          "score" : 5.3,
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+        }
+      ],
+      "cwes" : [
+        697
+      ],
+      "description" : "Incomplete string comparison in the numpy.core component in NumPy1.9.x, which allows attackers to fail the APIs via constructing specific string objects.",
+      "published" : "2021-12-18T00:00:41Z",
+      "updated" : "2023-01-27T05:07:10Z",
+      "affects" : [
+        {
+          "ref" : "f28ae030-e26a-41e6-bf16-bea72421d470"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:weakness",
+          "value" : "{\"weaknessId\":\"CWE-697\",\"description\":\"The product compares two entities in a security-relevant context, but the comparison is incorrect.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-10\",\"name\":\"Buffer Overflow via Environment Variables\",\"severity\":\"High\",\"description\":\"This attack pattern involves causing a buffer overflow through manipulation of environment variables. Once the adversary finds that they can modify an environment variable, they may try to overflow associated buffers. This attack leverages implicit trust often placed in environment variables.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-92\",\"name\":\"Forced Integer Overflow\",\"severity\":\"High\",\"description\":\"This attack forces an integer variable to go out of range. The integer variable is often used as an offset such as size of memory allocation or similarly. The attacker would typically control the value of such variable and try to get it out of range. For instance the integer in question is incremented past the maximum possible value, it may wrap to become a very small, or negative number, therefore providing a very incorrect value which can lead to unexpected behavior. At worst the attacker can execute arbitrary code.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-79\",\"name\":\"Using Slashes in Alternate Encoding\",\"severity\":\"High\",\"description\":\"This attack targets the encoding of the Slash characters. An adversary would try to exploit common filtering problems related to the use of the slashes characters to gain access to resources on the target host. Directory-driven systems, such as file systems and databases, typically use the slash character to indicate traversal between directories or other container components. For murky historical reasons, PCs (and, as a result, Microsoft OSs) choose to use a backslash, whereas the UNIX world typically makes use of the forward slash. The schizophrenic result is that many MS-based systems are required to understand both forms of the slash. This gives the adversary many opportunities to discover and abuse a number of common filtering problems. The goal of this pattern is to discover server software that only applies filters to one version, but not the other.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-80\",\"name\":\"Using UTF-8 Encoding to Bypass Validation Logic\",\"severity\":\"High\",\"description\":\"This attack is a specific variation on leveraging alternate encodings to bypass validation logic. This attack leverages the possibility to encode potentially harmful input in UTF-8 and submit it to applications not expecting or effective at validating this encoding standard making input filtering difficult. UTF-8 (8-bit UCS/Unicode Transformation Format) is a variable-length character encoding for Unicode. Legal UTF-8 characters are one to four bytes long. However, early version of the UTF-8 specification got some entries wrong (in some cases it permitted overlong characters). UTF-8 encoders are supposed to use the \\\"shortest possible\\\" encoding, but naive decoders may accept encodings that are longer than necessary. According to the RFC 3629, a particularly subtle form of this attack can be carried out against a parser which performs security-critical validity checks against the UTF-8 encoded form of its input, but interprets certain illegal octet sequences as characters.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-71\",\"name\":\"Using Unicode Encoding to Bypass Validation Logic\",\"severity\":\"High\",\"description\":\"An attacker may provide a Unicode string to a system component that is not Unicode aware and use that to circumvent the filter or cause the classifying mechanism to fail to properly understanding the request. That may allow the attacker to slip malicious data past the content filter and/or possibly cause the application to route the request incorrectly.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-88\",\"name\":\"OS Command Injection\",\"severity\":\"High\",\"description\":\"In this type of an attack, an adversary injects operating system commands into existing application functions. An application that uses untrusted input to build command strings is vulnerable. An adversary can leverage OS command injection in an application to elevate privileges, execute arbitrary commands and compromise the underlying operating system.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-73\",\"name\":\"User-Controlled Filename\",\"severity\":\"High\",\"description\":\"An attack of this type involves an adversary inserting malicious characters (such as a XSS redirection) into a filename, directly or indirectly that is then used by the target software to generate HTML text or other potentially executable content. Many websites rely on user-generated content and dynamically build resources like files, filenames, and URL links directly from user supplied data. In this attack pattern, the attacker uploads code that can execute in the client browser and/or redirect the client browser to a site that the attacker owns. All XSS attack payload variants can be used to pass and exploit these vulnerabilities.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-7\",\"name\":\"Blind SQL Injection\",\"severity\":\"High\",\"description\":\"Blind SQL Injection results from an insufficient mitigation for SQL Injection. Although suppressing database error messages are considered best practice, the suppression alone is not sufficient to prevent SQL Injection. Blind SQL Injection is a form of SQL Injection that overcomes the lack of error messages. Without the error messages that facilitate SQL Injection, the adversary constructs input strings that probe the target through simple Boolean SQL expressions. The adversary can determine if the syntax and structure of the injection was successful based on whether the query was executed or not. Applied iteratively, the adversary determines how and where the target is vulnerable to SQL Injection.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-78\",\"name\":\"Using Escaped Slashes in Alternate Encoding\",\"severity\":\"High\",\"description\":\"This attack targets the use of the backslash in alternate encoding. An adversary can provide a backslash as a leading character and causes a parser to believe that the next character is special. This is called an escape. By using that trick, the adversary tries to exploit alternate ways to encode the same character which leads to filter problems and opens avenues to attack.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-9\",\"name\":\"Buffer Overflow in Local Command-Line Utilities\",\"severity\":\"High\",\"description\":\"This attack targets command-line utilities available in a number of shells. An adversary can leverage a vulnerability found in a command-line utility to escalate privilege to root.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-8\",\"name\":\"Buffer Overflow in an API Call\",\"severity\":\"High\",\"description\":\"This attack targets libraries or shared code modules which are vulnerable to buffer overflow attacks. An adversary who has knowledge of known vulnerable libraries or shared code can easily target software that makes use of these libraries. All clients that make use of the code library thus become vulnerable by association. This has a very broad effect on security across a system, usually affecting more than one software process.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-67\",\"name\":\"String Format Overflow in syslog()\",\"severity\":\"Very_High\",\"description\":\"This attack targets applications and software that uses the syslog() function insecurely. If an application does not explicitely use a format string parameter in a call to syslog(), user input can be placed in the format string parameter leading to a format string injection attack. Adversaries can then inject malicious format string commands into the function call leading to a buffer overflow. There are many reported software vulnerabilities with the root cause being a misuse of the syslog() function.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-64\",\"name\":\"Using Slashes and URL Encoding Combined to Bypass Validation Logic\",\"severity\":\"High\",\"description\":\"This attack targets the encoding of the URL combined with the encoding of the slash characters. An attacker can take advantage of the multiple ways of encoding a URL and abuse the interpretation of the URL. A URL may contain special character that need special syntax handling in order to be interpreted. Special characters are represented using a percentage character followed by two digits representing the octet code of the original character (%HEX-CODE). For instance US-ASCII space character would be represented with %20. This is often referred as escaped ending or percent-encoding. Since the server decodes the URL from the requests, it may restrict the access to some URL paths by validating and filtering out the URL requests it received. An attacker will try to craft an URL with a sequence of special characters which once interpreted by the server will be equivalent to a forbidden URL. It can be difficult to protect against this attack since the URL can contain other format of encoding such as UTF-8 encoding, Unicode-encoding, etc.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-6\",\"name\":\"Argument Injection\",\"severity\":\"High\",\"description\":\"An attacker changes the behavior or state of a targeted application through injecting data or command syntax through the targets use of non-validated and non-filtered arguments of exposed services or methods.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-53\",\"name\":\"Postfix, Null Terminate, and Backslash\",\"severity\":\"High\",\"description\":\"If a string is passed through a filter of some kind, then a terminal NULL may not be valid. Using alternate representation of NULL allows an adversary to embed the NULL mid-string while postfixing the proper data so that the filter is avoided. One example is a filter that looks for a trailing slash character. If a string insertion is possible, but the slash must exist, an alternate encoding of NULL in mid-string may be used.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-52\",\"name\":\"Embedding NULL Bytes\",\"severity\":\"High\",\"description\":\"An adversary embeds one or more null bytes in input to the target software. This attack relies on the usage of a null-valued byte as a string terminator in many environments. The goal is for certain components of the target software to stop processing the input when it encounters the null byte(s).\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-47\",\"name\":\"Buffer Overflow via Parameter Expansion\",\"severity\":\"High\",\"description\":\"In this attack, the target software is given input that the adversary knows will be modified and expanded in size during processing. This attack relies on the target software failing to anticipate that the expanded data may exceed some internal limit, thereby creating a buffer overflow.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-46\",\"name\":\"Overflow Variables and Tags\",\"severity\":\"High\",\"description\":\"This type of attack leverages the use of tags or variables from a formatted configuration data to cause buffer overflow. The adversary crafts a malicious HTML page or configuration file that includes oversized strings, thus causing an overflow.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-45\",\"name\":\"Buffer Overflow via Symbolic Links\",\"severity\":\"High\",\"description\":\"This type of attack leverages the use of symbolic links to cause buffer overflows. An adversary can try to create or manipulate a symbolic link file such that its contents result in out of bounds data. When the target software processes the symbolic link file, it could potentially overflow internal buffers with insufficient bounds checking.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-44\",\"name\":\"Overflow Binary Resource File\",\"severity\":\"Very_High\",\"description\":\"An attack of this type exploits a buffer overflow vulnerability in the handling of binary resources. Binary resources may include music files like MP3, image files like JPEG files, and any other binary file. These attacks may pass unnoticed to the client machine through normal usage of files, such as a browser loading a seemingly innocent JPEG file. This can allow the adversary access to the execution stack and execute arbitrary code in the target process.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-43\",\"name\":\"Exploiting Multiple Input Interpretation Layers\",\"severity\":\"High\",\"description\":\"An attacker supplies the target software with input data that contains sequences of special characters designed to bypass input validation logic. This exploit relies on the target making multiples passes over the input data and processing a \\\"layer\\\" of special characters with each pass. In this manner, the attacker can disguise input that would otherwise be rejected as invalid by concealing it with layers of special/escape characters that are stripped off by subsequent processing steps. The goal is to first discover cases where the input validation layer executes before one or more parsing layers. That is, user input may go through the following logic in an application: <parser1> --> <input validator> --> <parser2>. In such cases, the attacker will need to provide input that will pass through the input validator, but after passing through parser2, will be converted into something that the input validator was supposed to stop.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-41\",\"name\":\"Using Meta-characters in E-mail Headers to Inject Malicious Payloads\",\"severity\":\"High\",\"description\":\"This type of attack involves an attacker leveraging meta-characters in email headers to inject improper behavior into email programs. Email software has become increasingly sophisticated and feature-rich. In addition, email applications are ubiquitous and connected directly to the Web making them ideal targets to launch and propagate attacks. As the user demand for new functionality in email applications grows, they become more like browsers with complex rendering and plug in routines. As more email functionality is included and abstracted from the user, this creates opportunities for attackers. Virtually all email applications do not list email header information by default, however the email header contains valuable attacker vectors for the attacker to exploit particularly if the behavior of the email client application is known. Meta-characters are hidden from the user, but can contain scripts, enumerations, probes, and other attacks against the user's system.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-3\",\"name\":\"Using Leading 'Ghost' Character Sequences to Bypass Input Filters\",\"severity\":\"Medium\",\"description\":\"Some APIs will strip certain leading characters from a string of parameters. An adversary can intentionally introduce leading \\\"ghost\\\" characters (extra characters that don't affect the validity of the request at the API layer) that enable the input to pass the filters and therefore process the adversary's input. This occurs when the targeted API will accept input data in several syntactic forms and interpret it in the equivalent semantic way, while the filter does not take into account the full spectrum of the syntactic forms acceptable to the targeted API.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-267\",\"name\":\"Leverage Alternate Encoding\",\"severity\":\"High\",\"description\":\"An adversary leverages the possibility to encode potentially harmful input or content used by applications such that the applications are ineffective at validating this encoding standard.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-24\",\"name\":\"Filter Failure through Buffer Overflow\",\"severity\":\"High\",\"description\":\"In this attack, the idea is to cause an active filter to fail by causing an oversized transaction. An attacker may try to feed overly long input strings to the program in an attempt to overwhelm the filter (by causing a buffer overflow) and hoping that the filter does not fail securely (i.e. the user input is let into the system unfiltered).\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-182\",\"name\":\"Flash Injection\",\"severity\":\"Medium\",\"description\":\"An attacker tricks a victim to execute malicious flash content that executes commands or makes flash calls specified by the attacker. One example of this attack is cross-site flashing, an attacker controlled parameter to a reference call loads from content specified by the attacker.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-15\",\"name\":\"Command Delimiters\",\"severity\":\"High\",\"description\":\"An attack of this type exploits a programs' vulnerabilities that allows an attacker's commands to be concatenated onto a legitimate command with the intent of targeting other resources such as the file system or database. The system that uses a filter or denylist input validation, as opposed to allowlist validation is vulnerable to an attacker who predicts delimiters (or combinations of delimiters) not present in the filter or denylist. As with other injection attacks, the attacker uses the command delimiter payload as an entry point to tunnel through the application and activate additional attacks through SQL queries, shell commands, network scanning, and so on.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-14\",\"name\":\"Client-side Injection-induced Buffer Overflow\",\"severity\":\"High\",\"description\":\"This type of attack exploits a buffer overflow vulnerability in targeted client software through injection of malicious content from a custom-built hostile service. This hostile service is created to deliver the correct content to the client software. For example, if the client-side application is a browser, the service will host a webpage that the browser loads.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-120\",\"name\":\"Double Encoding\",\"severity\":\"Medium\",\"description\":\"The adversary utilizes a repeating of the encoding process for a set of characters (that is, character encoding a character encoding of a character) to obfuscate the payload of a particular request. This may allow the adversary to bypass filters that attempt to detect illegal characters or strings, such as those that might be used in traversal or injection attacks. Filters may be able to catch illegal encoded strings, but may not catch doubly encoded strings. For example, a dot (.), often used in path traversal attacks and therefore often blocked by filters, could be URL encoded as %2E. However, many filters recognize this encoding and would still block the request. In a double encoding, the % in the above URL encoding would be encoded again as %25, resulting in %252E which some filters might not catch, but which could still be interpreted as a dot (.) by interpreters on the target.\"}"
+        },
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:mitigation",
+          "value" : "{\"mitigationId\":\"T1027\",\"name\":\"Obfuscated Files or Information Mitigation\",\"description\":\"Ensure logging and detection mechanisms analyze commands after being processed/interpreted, rather than the raw input. Consider utilizing the Antimalware Scan Interface (AMSI) on Windows 10 for this functionality. (Citation: Microsoft AMSI June 2015)\\n\\nMitigation of compressed and encrypted files sent over the network and through email may not be advised since it may impact normal operations.\",\"externalId\":\"course-of-action--a09375e5-63d2-4b65-8b0d-1cfe3e6304ca\",\"type\":\"Enterprise\",\"version\":\"1.0\",\"library\":\"MITRE\"}"
+        },
+        {
+          "name" : "ragre:mitigation",
+          "value" : "{\"mitigationId\":\"M1049\",\"name\":\"Antivirus/Antimalware\",\"description\":\"Use signatures or heuristics to detect malicious software.\",\"externalId\":\"course-of-action--a6a47a06-08fc-4ec4-bdc3-20373375ebb9\",\"type\":\"Enterprise\",\"version\":\"1.1\",\"library\":\"MITRE\"}"
+        },
+        {
+          "name" : "ragre:mitigation",
+          "value" : "{\"mitigationId\":\"M1017\",\"name\":\"User Training\",\"description\":\"Train users to be aware of access or manipulation attempts by an adversary to reduce the risk of successful spearphishing, social engineering, and other techniques that involve user interaction.\",\"externalId\":\"course-of-action--2a4f6c11-a4a7-4cb9-b0ef-6ae1bb3a718a\",\"type\":\"Enterprise\",\"version\":\"1.2\",\"library\":\"MITRE\"}"
+        },
+        {
+          "name" : "ragre:mitigation",
+          "value" : "{\"mitigationId\":\"M1040\",\"name\":\"Behavior Prevention on Endpoint\",\"description\":\"Use capabilities to prevent suspicious behavior patterns from occurring on endpoint systems. This could include suspicious process, file, API call, etc. behavior.\",\"externalId\":\"course-of-action--90f39ee1-d5a3-4aaa-9f28-3b42815b0d46\",\"type\":\"Enterprise\",\"version\":\"1.0\",\"library\":\"MITRE\"}"
+        },
+        {
+          "name" : "ragre:mitigation",
+          "value" : "{\"mitigationId\":\"M1047\",\"name\":\"Audit\",\"description\":\"Perform audits or scans of systems, permissions, insecure software, insecure configurations, etc. to identify potential weaknesses.\",\"externalId\":\"course-of-action--cc2399fd-3cd3-4319-8d0a-fbd6420cdaf8\",\"type\":\"Enterprise\",\"version\":\"1.2\",\"library\":\"MITRE\"}"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "c5e3860d-6eb7-4cc6-9f3d-5f2c172bd060",
+      "id" : "GHSA-6p56-wp2h-9hxr",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com"
+          },
+          "score" : 5.3,
+          "vector" : "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:H"
+        }
+      ],
+      "cwes" : [
+        120
+      ],
+      "description" : "A Buffer Overflow vulnerability exists in NumPy 1.9.x in the PyArray_NewFromDescr_int function of ctors.c when specifying arrays of large dimensions (over 32) from Python code, which could let a malicious user cause a Denial of Service. NOTE: The vendor does not agree this is a vulnerability; In (very limited) circumstances a user may be able provoke the buffer overflow, the user is most likely already privileged to at least provoke denial of service by exhausting memory. Triggering this further requires the use of uncommon API (complicated structured dtypes), which is very unlikely to be available to an unprivileged user.",
+      "published" : "2022-01-07T00:09:39Z",
+      "updated" : "2024-09-26T14:21:10Z",
+      "affects" : [
+        {
+          "ref" : "f28ae030-e26a-41e6-bf16-bea72421d470"
+        }
+      ],
+      "properties" : [
+        {
+          "name" : "ragre:weakness",
+          "value" : "{\"weaknessId\":\"CWE-120\",\"description\":\"The product copies an input buffer to an output buffer without verifying that the size of the input buffer is less than the size of the output buffer.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-10\",\"name\":\"Buffer Overflow via Environment Variables\",\"severity\":\"High\",\"description\":\"This attack pattern involves causing a buffer overflow through manipulation of environment variables. Once the adversary finds that they can modify an environment variable, they may try to overflow associated buffers. This attack leverages implicit trust often placed in environment variables.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-46\",\"name\":\"Overflow Variables and Tags\",\"severity\":\"High\",\"description\":\"This type of attack leverages the use of tags or variables from a formatted configuration data to cause buffer overflow. The adversary crafts a malicious HTML page or configuration file that includes oversized strings, thus causing an overflow.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-47\",\"name\":\"Buffer Overflow via Parameter Expansion\",\"severity\":\"High\",\"description\":\"In this attack, the target software is given input that the adversary knows will be modified and expanded in size during processing. This attack relies on the target software failing to anticipate that the expanded data may exceed some internal limit, thereby creating a buffer overflow.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-14\",\"name\":\"Client-side Injection-induced Buffer Overflow\",\"severity\":\"High\",\"description\":\"This type of attack exploits a buffer overflow vulnerability in targeted client software through injection of malicious content from a custom-built hostile service. This hostile service is created to deliver the correct content to the client software. For example, if the client-side application is a browser, the service will host a webpage that the browser loads.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-8\",\"name\":\"Buffer Overflow in an API Call\",\"severity\":\"High\",\"description\":\"This attack targets libraries or shared code modules which are vulnerable to buffer overflow attacks. An adversary who has knowledge of known vulnerable libraries or shared code can easily target software that makes use of these libraries. All clients that make use of the code library thus become vulnerable by association. This has a very broad effect on security across a system, usually affecting more than one software process.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-44\",\"name\":\"Overflow Binary Resource File\",\"severity\":\"Very_High\",\"description\":\"An attack of this type exploits a buffer overflow vulnerability in the handling of binary resources. Binary resources may include music files like MP3, image files like JPEG files, and any other binary file. These attacks may pass unnoticed to the client machine through normal usage of files, such as a browser loading a seemingly innocent JPEG file. This can allow the adversary access to the execution stack and execute arbitrary code in the target process.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-45\",\"name\":\"Buffer Overflow via Symbolic Links\",\"severity\":\"High\",\"description\":\"This type of attack leverages the use of symbolic links to cause buffer overflows. An adversary can try to create or manipulate a symbolic link file such that its contents result in out of bounds data. When the target software processes the symbolic link file, it could potentially overflow internal buffers with insufficient bounds checking.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-24\",\"name\":\"Filter Failure through Buffer Overflow\",\"severity\":\"High\",\"description\":\"In this attack, the idea is to cause an active filter to fail by causing an oversized transaction. An attacker may try to feed overly long input strings to the program in an attempt to overwhelm the filter (by causing a buffer overflow) and hoping that the filter does not fail securely (i.e. the user input is let into the system unfiltered).\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-9\",\"name\":\"Buffer Overflow in Local Command-Line Utilities\",\"severity\":\"High\",\"description\":\"This attack targets command-line utilities available in a number of shells. An adversary can leverage a vulnerability found in a command-line utility to escalate privilege to root.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-92\",\"name\":\"Forced Integer Overflow\",\"severity\":\"High\",\"description\":\"This attack forces an integer variable to go out of range. The integer variable is often used as an offset such as size of memory allocation or similarly. The attacker would typically control the value of such variable and try to get it out of range. For instance the integer in question is incremented past the maximum possible value, it may wrap to become a very small, or negative number, therefore providing a very incorrect value which can lead to unexpected behavior. At worst the attacker can execute arbitrary code.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-67\",\"name\":\"String Format Overflow in syslog()\",\"severity\":\"Very_High\",\"description\":\"This attack targets applications and software that uses the syslog() function insecurely. If an application does not explicitely use a format string parameter in a call to syslog(), user input can be placed in the format string parameter leading to a format string injection attack. Adversaries can then inject malicious format string commands into the function call leading to a buffer overflow. There are many reported software vulnerabilities with the root cause being a misuse of the syslog() function.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-42\",\"name\":\"MIME Conversion\",\"severity\":\"High\",\"description\":\"An attacker exploits a weakness in the MIME conversion routine to cause a buffer overflow and gain control over the mail server machine. The MIME system is designed to allow various different information formats to be interpreted and sent via e-mail. Attack points exist when data are converted to MIME compatible format and back.\"}"
+        },
+        {
+          "name" : "ragre:threat",
+          "value" : "{\"threatId\":\"CAPEC-100\",\"name\":\"Overflow Buffers\",\"severity\":\"Very_High\",\"description\":\"Buffer Overflow attacks target improper or missing bounds checking on buffer operations, typically triggered by input injected by an adversary. As a consequence, an adversary is able to write past the boundaries of allocated buffer regions in memory, causing a program crash or potentially redirection of execution as per the adversaries' choice.\"}"
+        },
+        {
+          "name" : "ragre:exploit:githubReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:metasploitReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:nucleiReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:exploitDbReported",
+          "value" : "false"
+        },
+        {
+          "name" : "ragre:exploit:vulnCheckReported",
+          "value" : "false"
+        }
+      ]
+    }
+  ],
+  "signature": {
+      "algorithm": "ES256",
+      "value": "MEYCIQD1OqRRFKwKx+AJsRN3BkwI+kniEBPc7Bzvwf+kjdzZigIhAMDKEXKVShQZuxm/IzXUcFBoZXU/wtXr4qOV6c7kGdXZ",
+      "certificatePath": [
+          "MIIDizCCAzCgAwIBAgIUQoC/z4LURlXxDRypetEwBZIG4vIwCgYIKoZIzj0EAwMw\ncTELMAkGA1UEBhMCSVQxGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNV\nBAUTCzA3OTQ1MjExMDA2MTEwLwYDVQQDDChNSURQS0kgU0hBUkVEIElORk9DRVJU\nIE9QRVJBVE9SIEVDRFNBIENMMB4XDTI1MTEyODE1MjE0NFoXDTI4MTEyNzE1MjE0\nM1owgYsxCzAJBgNVBAYTAklUMQ4wDAYDVQQIEwVJdGFseTEPMA0GA1UEBxMGTWls\nYW5vMREwDwYDVQQKEwhJbmZvQ2VydDEMMAoGA1UECxMDSW9UMRUwEwYDVQQDEwxT\nQ0hST0VESU5HRVIxIzAhBgkqhkiG9w0BCQEWFHRlYW0uaW90QGluZm9jZXJ0Lml0\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQhPYvbbg1ra1KQEIUMt/pqM5p+TT\nmjP6QeCmXnNRTFcdp/O9jDMgGI4aOXFdfCO7KDrwClpqH8NuwaSIfr84QaOCAYkw\nggGFMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUZ6L872McRRUKoDkQgSy6bH4b\nL1IwgaYGCCsGAQUFBwEBBIGZMIGWMFkGCCsGAQUFBzAChk1odHRwOi8vbWlkcGtp\nLXN0YWdlLmluZm9jZXJ0LmRpZ2l0YWwvaW90L2NlcnRzL0lORk9DRVJULU9QRVJB\nVE9SLUVDRFNBLUNMLmNydDA5BggrBgEFBQcwAYYtaHR0cDovL21pZHBraS1vY3Nw\nLXN0YWdlLmluZm9jZXJ0LmRpZ2l0YWwvaW90MB0GA1UdJQQWMBQGCCsGAQUFBwMC\nBggrBgEFBQcDATBdBgNVHR8EVjBUMFKgUKBOhkxodHRwOi8vbWlkcGtpLXN0YWdl\nLmluZm9jZXJ0LmRpZ2l0YWwvaW90L2NybC9pbmZvY2VydC9wZXJzb24vZWNkc2Ev\nQ1JMMDEuY3JsMB0GA1UdDgQWBBRaxnxHvnz2FkEEarTXFJEEMiiuLTAOBgNVHQ8B\nAf8EBAMCBaAwCgYIKoZIzj0EAwMDSQAwRgIhAI9BjuQH4Om0bSZkWwi8bqCKO1Nt\n7HYjNOoyezYCaCQAAiEAtnhzPkmCcV0diFhy60J4NiMX1iCsjZrs7AKCzIq14Eg=",
+          "MIIDcTCCAvegAwIBAgIUdcFHVfj9rf0E6AYnoU6/7wkqhB4wCgYIKoZIzj0EAwMw\nXzELMAkGA1UEBhMCSVQxGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNV\nBAUTCzA3OTQ1MjExMDA2MR8wHQYDVQQDDBZNSURQS0kgU0hBUkVEIEVDRFNBIENM\nMB4XDTIzMDcxMTEwMzY0MFoXDTM4MDcxMTExMzY0MFowcTELMAkGA1UEBhMCSVQx\nGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNVBAUTCzA3OTQ1MjExMDA2\nMTEwLwYDVQQDDChNSURQS0kgU0hBUkVEIElORk9DRVJUIE9QRVJBVE9SIEVDRFNB\nIENMMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdJHP+4XWXCFdflKIHnBkjJuO\n2wEHk1LAY7WXA6uungRFG9tiMlODsDPsBUTrarNUnn8uYJ9Wds2/Lon297ahRaOC\nAX0wggF5MBIGA1UdEwEB/wQIMAYBAf8CAQAwgaIGCCsGAQUFBwEBBIGVMIGSMDkG\nCCsGAQUFBzABhi1odHRwOi8vbWlkcGtpLW9jc3Atc3RhZ2UuaW5mb2NlcnQuZGln\naXRhbC9pb3QwVQYIKwYBBQUHMAKGSWh0dHA6Ly9taWRwa2ktc3RhZ2UuaW5mb2Nl\ncnQuZGlnaXRhbC9pb3QvY2VydHMvTUlEUEtJLVNIQVJFRC1FQ0RTQS1DTC5jcnQw\nEwYDVR0gBAwwCjAIBgYrBgEEAgIwWQYDVR0fBFIwUDBOoEygSoZIaHR0cDovL21p\nZHBraS1zdGFnZS5pbmZvY2VydC5kaWdpdGFsL2lvdC9jcmwvbWlkcGtpLXNoYXJl\nZC9lY2RzYS9DUkwuY3JsMA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUZ6L872Mc\nRRUKoDkQgSy6bH4bL1IwHwYDVR0jBBgwFoAUGk8WJyhk6NACBbytREKZaD9Oybww\nCgYIKoZIzj0EAwMDaAAwZQIxAO2YA/HCiC5EFmswdEqdm7UE+fQ+Sa6xLKUAplHg\n3lp5i4CR2ODaQKQltmd6okKBngIwDalDXGkzOBDl3BckN0uZQOv0iff1jxc5XKbz\nFUpnTJevICxBKZVZZaRCliA9peDr",
+          "MIIC2TCCAl6gAwIBAgIUfn1VXwMKUMO2SnIyAN4Xe8sp1CgwCgYIKoZIzj0EAwMw\nWzELMAkGA1UEBhMCSVQxGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNV\nBAUTCzA3OTQ1MjExMDA2MRswGQYDVQQDDBJTUyBNSURQS0kgRUNEU0EgQ0wwHhcN\nMjIwMTIxMTQwODMwWhcNNDcwMTIxMTUwODMwWjBfMQswCQYDVQQGEwJJVDEZMBcG\nA1UECgwQSW9UIEluZm9DZXJ0IFNwQTEUMBIGA1UEBRMLMDc5NDUyMTEwMDYxHzAd\nBgNVBAMMFk1JRFBLSSBTSEFSRUQgRUNEU0EgQ0wwdjAQBgcqhkjOPQIBBgUrgQQA\nIgNiAAROsE9xJCGLgaJYW+/dWe+EIPCtLZBCilebEWKlXazMsA0oe/7775Nm/da7\nGtP5zVO0eSiGKYYGTsklsqCudHd7g7HMZWcry6AKBgRDCzs/ndo7zyZwmmPbJl82\nWqHE5I+jgd4wgdswDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYD\nVR0OBBYEFBpPFicoZOjQAgW8rURCmWg/Tsm8MIGYBgNVHSMEgZAwgY2AFJWpq43E\n89Jq07h3djFKj3lU/utToV+kXTBbMQswCQYDVQQGEwJJVDEZMBcGA1UECgwQSW9U\nIEluZm9DZXJ0IFNwQTEUMBIGA1UEBRMLMDc5NDUyMTEwMDYxGzAZBgNVBAMMElNT\nIE1JRFBLSSBFQ0RTQSBDTIIUe7gn0G+7rEWyZZc4BUUOrPJcSp4wCgYIKoZIzj0E\nAwMDaQAwZgIxAJPFeb+RGWj7tty0FRUSPgLSNXv0A/arbU23BUw8SU6QRnvVTIOY\n9SvPBAX9s+P1pAIxAKj0r28gk9w0WQroRzbHG0A9Rc1HhTlPyVMZ+m8vO5XkFgsT\ngvtVUjds83EjPUzT4g=="
+      ]
+  }
+}
