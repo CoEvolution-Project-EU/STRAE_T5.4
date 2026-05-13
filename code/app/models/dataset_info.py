@@ -51,5 +51,5 @@ class DatasetInfo(CamelModel):
         1, ge=1, description="Document version, defaults to 1, must be >= 1"
     )
     metadata: Metadata
-    components: List[Component]
+    components: List[Component] | None = None
     signature: Signature

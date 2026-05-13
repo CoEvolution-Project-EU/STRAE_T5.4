@@ -23,5 +23,5 @@ class GadgetInfo(CamelModel):
     version: int = Field(
         1, ge=1, description="Document version, defaults to 1, must be >= 1"
     )
-    components: List[Component]
+    components: List[Component] | None = None
     signature: Signature

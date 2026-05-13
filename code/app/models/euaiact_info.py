@@ -12,6 +12,6 @@ class EUAIActInfo(CamelModel):
     version: int = Field(
         1, ge=1, description="Document version, defaults to 1, must be >= 1"
     )
-    properties: List[Property]
+    properties: List[Property] | None = None
     dependencies: List[Dict] | None = None
     signature: Signature

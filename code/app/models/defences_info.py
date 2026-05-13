@@ -6,6 +6,7 @@ from app.models.cyclonedx import (
     BomLinkDocument,
     BomLinkElement,
     CamelModel,
+    ComponentTypes,
     Property,
     SerialNumber,
     Signature,
@@ -19,21 +20,7 @@ class ExternalReference(CamelModel):
 
 
 class Component(CamelModel):
-    type: Literal[
-        "application",
-        "framework",
-        "library",
-        "container",
-        "platform",
-        "operating-system",
-        "device",
-        "device-driver",
-        "firmware",
-        "file",
-        "machine-learning-model",
-        "data",
-        "cryptographic-asset",
-    ]
+    type: ComponentTypes
     name: str
     version: str | None = None
     supplier: Dict | None = None
@@ -49,5 +36,5 @@ class DefencesInfo(CamelModel):
     version: int = Field(
         1, ge=1, description="Document version, defaults to 1, must be >= 1"
     )
-    components: List[Component]
+    components: List[Component] | None = None
     signature: Signature

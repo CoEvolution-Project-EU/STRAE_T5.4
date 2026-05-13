@@ -76,3 +76,20 @@ class Signature(CamelModel):
 class Property(CamelModel):
     name: str
     value: str | None = None
+
+
+ComponentTypes = Literal[
+    "application",
+    "framework",
+    "library",
+    "container",
+    "platform",
+    "operating-system",
+    "device",
+    "device-driver",
+    "firmware",
+    "file",
+    "machine-learning-model",
+    "data",
+    "cryptographic-asset",
+]
