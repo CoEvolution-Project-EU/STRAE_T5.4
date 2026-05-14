@@ -24,7 +24,7 @@ class StorageOperationError(StorageError):
 
 class StorageInterface(Protocol):
     async def get_reports_for_model(
-        self, model_uuid: str, model_version: str
+        self, model_uuid: str, model_version: str, report_urls: list[str] | None
     ) -> Dict: ...
 
     async def save_aimbom(
@@ -36,7 +36,9 @@ class MinioStorage(StorageInterface):
     def __init__(self, minio: MinioDB):
         self.minio = minio
 
-    async def get_reports_for_model(self, model_uuid: str, model_version: str) -> Dict:
+    async def get_reports_for_model(
+        self, model_uuid: str, model_version: str, report_urls: list[str] | None
+    ) -> Dict:
         try:
             return await asyncify(self.minio.get_reports_for_model)(
                 bucket_name=settings.REPORTS_BUCKET,
@@ -70,7 +72,9 @@ class OrchestratorStorage(StorageInterface):
             timeout=10.0,
         )
 
-    async def get_reports_for_model(self, model_uuid: str, model_version: str) -> Dict:
+    async def get_reports_for_model(
+        self, model_uuid: str, model_version: str, report_urls: list[str] | None
+    ) -> Dict:
         try:
             response = await self.client.get(
                 "/orch/get-reports",
