@@ -64,7 +64,10 @@ class AIMBOMGenerator:
         self.storage = storage
 
     async def generate(
-        self, model_uuid: str, model_version: str, report_urls: list[str] | None
+        self,
+        model_uuid: str,
+        model_version: str,
+        reports_metadata: dict[str, dict] | None,
     ) -> AIMBOM:
         logger.debug(
             "Starting generation pipeline model_uuid=%s, model_version=%s",
@@ -78,7 +81,9 @@ class AIMBOMGenerator:
         # new AIMBOM with the new reports that includes the deprecated one.
         # 2 -> If it doesn't exist, we proceed with the generation as normal.
 
-        reports = await self._retrieve_reports(model_uuid, model_version, report_urls)
+        reports = await self._retrieve_reports(
+            model_uuid, model_version, reports_metadata
+        )
         aimbom = self._create_aimbom_from_reports(reports)
         await self._save_aimbom_to_bucket(model_uuid, model_version, aimbom)
 
@@ -90,7 +95,10 @@ class AIMBOMGenerator:
         return aimbom
 
     async def _retrieve_reports(
-        self, model_uuid: str, model_version: str, report_urls: list[str] | None
+        self,
+        model_uuid: str,
+        model_version: str,
+        reports_metadata: dict[str, dict] | None,
     ) -> dict[ReportType, ReportModel]:
         logger.debug(
             "Retrieving reports for model_uuid=%s, model_version=%s",
@@ -111,7 +119,7 @@ class AIMBOMGenerator:
         # if we have new reports for the same model_uuid and model_version.
         try:
             retrieved_reports = await self.storage.get_reports_for_model(
-                model_uuid, model_version, report_urls
+                model_uuid, model_version, reports_metadata
             )
         except StorageConnectionError as e:
             logger.error(

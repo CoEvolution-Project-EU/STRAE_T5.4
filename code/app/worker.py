@@ -4,8 +4,14 @@ import logging
 
 from aiokafka import AIOKafkaConsumer
 
+from app.config import settings
 from app.generator import AIMBOMGenerator
+from app.logging import setup_logging
 from app.storage import OrchestratorStorage
+
+# Configure logging
+log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)
+setup_logging(log_level)
 
 logger = logging.getLogger(__name__)
 
@@ -31,18 +37,16 @@ async def main():
         async for message in consumer:
             event = message.value
 
-            print(event)
-
-            # logger.info(
-            #     "New requirements file received: %s",
-            #     event,
-            # )
+            logger.info(
+                "Received AIMBOM generation request for model %s version %s",
+                event["model_uuid"],
+                event["version"],
+            )
 
             try:
-                # await generator.generate(
-                #     "123e4567-e89b-12d3-a456-426614174000",
-                #     "v1.0",
-                # )
+                await generator.generate(
+                    event["model_uuid"], event["version"], event["reports"]
+                )
 
                 await consumer.commit()
 

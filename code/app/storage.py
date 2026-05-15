@@ -1,3 +1,5 @@
+import json
+import logging
 from typing import Dict, Protocol
 
 import httpx
@@ -8,6 +10,8 @@ from fastapi.encoders import jsonable_encoder
 from app.config import settings
 from app.db import MinioConnectionError, MinioDB, MinioOperationError
 from app.models.aimbom import AIMBOM
+
+logger = logging.getLogger(__name__)
 
 
 class StorageError(Exception):
@@ -24,7 +28,10 @@ class StorageOperationError(StorageError):
 
 class StorageInterface(Protocol):
     async def get_reports_for_model(
-        self, model_uuid: str, model_version: str, report_urls: list[str] | None
+        self,
+        model_uuid: str,
+        model_version: str,
+        reports_metadata: dict[str, dict] | None,
     ) -> Dict: ...
 
     async def save_aimbom(
@@ -37,7 +44,10 @@ class MinioStorage(StorageInterface):
         self.minio = minio
 
     async def get_reports_for_model(
-        self, model_uuid: str, model_version: str, report_urls: list[str] | None
+        self,
+        model_uuid: str,
+        model_version: str,
+        reports_metadata: dict[str, dict] | None,
     ) -> Dict:
         try:
             return await asyncify(self.minio.get_reports_for_model)(
@@ -68,48 +78,145 @@ class MinioStorage(StorageInterface):
 class OrchestratorStorage(StorageInterface):
     def __init__(self):
         self.client = httpx.AsyncClient(
-            base_url=settings.ORCHESTRATOR_URL,
+            base_url="https://aegis.coevolution-project.eu/api/v1/",
             timeout=10.0,
         )
 
-    async def get_reports_for_model(
-        self, model_uuid: str, model_version: str, report_urls: list[str] | None
-    ) -> Dict:
-        try:
-            response = await self.client.get(
-                "/orch/get-reports",
-                params={"model_uuid": model_uuid, "model_version": model_version},
-            )
-            response.raise_for_status()
+        token = "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICIxckUtem5VbU9MT3JpYkZxT3ViQmk1WmxxWnhoelZVVVJLV1F1TEFPNHlRIn0.eyJleHAiOjE3Nzg4NTk1MjYsImlhdCI6MTc3ODg1NTkyNiwianRpIjoiNmJjYjMyNmQtZGFhYi00ZDRlLTg4OGMtNDQ4OGRhMjNhMDU5IiwiaXNzIjoiaHR0cHM6Ly9hZWdpcy5jb2V2b2x1dGlvbi1wcm9qZWN0LmV1L3JlYWxtcy9jb2V2b2x1dGlvbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiJmOWE4M2E5MC1iYmE0LTRlMmQtOWQ2ZC1hMTdlNmEwMjc1Y2UiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJjb2V2b2x1dGlvbiIsInNpZCI6Ijc0ZDJmNDcxLThjZTMtNGJiOC1hYjk4LWQzZjAxNmUwNzIwZSIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cDovL2xvY2FsaG9zdDo0MjAwIl0sInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJkZWZhdWx0LXJvbGVzLWNvZXZvbHV0aW9uIiwib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoicHJvZmlsZSBlbWFpbCIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6ImNvZXZvbHV0aW9uIGNvZXZvbHV0aW9uIiwicHJlZmVycmVkX3VzZXJuYW1lIjoiY29ldm9sdXRpb25fdXNlciIsImdpdmVuX25hbWUiOiJjb2V2b2x1dGlvbiIsImZhbWlseV9uYW1lIjoiY29ldm9sdXRpb24iLCJlbWFpbCI6ImMua3JvdXRpQGFlZ2lzcmVzZWFyY2guZXUifQ.VasjUH0kyNwUG7rGqYIazjvbM_LvCWz7UGvA_RVK5wGbCdi035UTMI2js5FTyo0eBARFNMvfPRnc21RdtcA3qo1jisLdsXgpTSqY_1kIEe8ZEVvG4-rYM_l81I0nI9vpt1QRrMmL1Rl98BecPQfK4AhYAez2NHBIoMMXG1PH5kjkj6AQw5V1IeYYtqWfhAQ990u9OQVHnsFy2O-6UDWr5cPFuJCx4Tylhy55SC4yd5kBJH4JlnOlEC9cwhsw7cOHbUAEER1OdPnQCmTsx6GhW078mIK1E-14sbPWH7uh1m4q7V6zrbHbGbeRfvacEJQXZNQCKjXDeAzzktqU-unnXA"
 
-            return response.json()
+        self.client.headers.update({"Authorization": f"Bearer {token}"})
+
+    async def get_reports_for_model(
+        self,
+        model_uuid: str,
+        model_version: str,
+        reports_metadata: dict[str, dict] | None,
+    ) -> Dict:
+        reports = {}
+
+        try:
+            # TODO: Retrieve reports concurrently
+            for report_type, metadata in reports_metadata.items():
+                print(f"Report metadata for {report_type}: {metadata}")
+
+                response = await self.client.get(
+                    metadata["download_url"],
+                )
+                response.raise_for_status()
+
+                reports[metadata["filename"].split("-")[-1].replace(".json", "")] = (
+                    response.json()
+                )
+            return reports
         except httpx.RequestError as e:
+            logger.error(
+                "Connection error while retrieving reports",
+                exc_info=True,
+            )
+
             raise StorageConnectionError(str(e)) from e
+
         except httpx.HTTPStatusError as e:
+            logger.error(
+                "HTTP error while retrieving reports status_code=%s",
+                e.response.status_code,
+                exc_info=True,
+            )
+
             raise StorageOperationError(
                 f"Orchestrator returned {e.response.status_code}"
             ) from e
+
+        except Exception as e:
+            logger.error(
+                "Unexpected error while retrieving reports",
+                exc_info=True,
+            )
+
+            raise StorageOperationError(str(e)) from e
 
     async def save_aimbom(
-        self, model_uuid: str, model_version: str, aimbom: AIMBOM
+        self,
+        model_uuid: str,
+        model_version: str,
+        aimbom: AIMBOM,
     ) -> None:
+
         try:
-            response = await self.client.post(
-                "/orch/aimbom",
-                json={
-                    "model_uuid": model_uuid,
-                    "model_version": model_version,
-                    "aimbom": jsonable_encoder(aimbom, exclude_none=True),
-                },
+            logger.info(
+                "Uploading AIMBOM for model_uuid=%s model_version=%s",
+                model_uuid,
+                model_version,
             )
+
+            # Convert AIMBOM to JSON bytes
+            aimbom_json = json.dumps(
+                jsonable_encoder(aimbom, exclude_none=True),
+                indent=2,
+            )
+
+            filename = f"aimbom-{model_uuid}-{model_version}.json"
+
+            files = [
+                (
+                    "files",
+                    (
+                        filename,
+                        aimbom_json.encode("utf-8"),
+                        "application/json",
+                    ),
+                )
+            ]
+
+            data = {
+                "pool": "SAP",
+                "bucket": "ai-mbom",
+                "model_uuid": model_uuid,
+                "version": model_version,
+                "tags": "aimbom,generated",
+            }
+
+            response = await self.client.post(
+                "/files/upload",
+                files=files,
+                data=data,
+            )
+
             response.raise_for_status()
 
+            logger.info(
+                "AIMBOM uploaded successfully model_uuid=%s model_version=%s",
+                model_uuid,
+                model_version,
+            )
+
         except httpx.RequestError as e:
+            logger.error(
+                "Connection error while uploading AIMBOM",
+                exc_info=True,
+            )
+
             raise StorageConnectionError(str(e)) from e
+
         except httpx.HTTPStatusError as e:
+            logger.error(
+                "Upload failed with status_code=%s response=%s",
+                e.response.status_code,
+                e.response.text,
+                exc_info=True,
+            )
+
             raise StorageOperationError(
                 f"Orchestrator returned {e.response.status_code}"
             ) from e
+
+        except Exception as e:
+            logger.error(
+                "Unexpected error while uploading AIMBOM",
+                exc_info=True,
+            )
+
+            raise StorageOperationError(str(e)) from e
 
     async def close(self):
         await self.client.aclose()
