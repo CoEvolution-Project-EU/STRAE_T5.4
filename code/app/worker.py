@@ -12,13 +12,12 @@ logger = logging.getLogger(__name__)
 
 async def main():
     storage = OrchestratorStorage()
-
     generator = AIMBOMGenerator(storage)
 
     consumer = AIOKafkaConsumer(
-        "requirements-uploaded",
+        "strae",
         bootstrap_servers=["147.102.19.168:30004"],
-        group_id="my-partner-group",
+        group_id="strae",
         auto_offset_reset="latest",
         value_deserializer=lambda m: json.loads(m.decode("utf-8")),
         enable_auto_commit=False,
@@ -26,20 +25,24 @@ async def main():
 
     await consumer.start()
 
+    print("Worker started, waiting for messages...")
+
     try:
         async for message in consumer:
             event = message.value
 
-            logger.info(
-                "New requirements file received: %s",
-                event["requirements_url"],
-            )
+            print(event)
+
+            # logger.info(
+            #     "New requirements file received: %s",
+            #     event,
+            # )
 
             try:
-                await generator.generate(
-                    "123e4567-e89b-12d3-a456-426614174000",
-                    "v1.0",
-                )
+                # await generator.generate(
+                #     "123e4567-e89b-12d3-a456-426614174000",
+                #     "v1.0",
+                # )
 
                 await consumer.commit()
 
