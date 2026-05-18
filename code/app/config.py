@@ -16,11 +16,11 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    KAFKA_TOPIC: str
-    KAFKA_BOOTSTRAP_SERVERS: str
-    KAFKA_GROUP_ID: str
+    KAFKA_TOPIC: str = "strae"
+    KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
+    KAFKA_GROUP_ID: str = "strae"
 
-    ORCHESTRATOR_BASE_URL: str
+    ORCHESTRATOR_BASE_URL: str = "https://aegis.coevolution-project.eu/api/v1/"
 
     # MinIO configuration (from .env)
     MINIO_ENDPOINT: str = "minio:9000"
