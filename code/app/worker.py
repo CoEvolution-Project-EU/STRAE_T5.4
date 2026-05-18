@@ -4,8 +4,10 @@ import logging
 import signal
 from contextlib import suppress
 
+import httpx
 from aiokafka import AIOKafkaConsumer
 
+from app.auth import OrchestratorAuth
 from app.config import settings
 from app.generator import (
     AIMBOMGenerator,
@@ -138,7 +140,11 @@ async def main():
     consumer = None
 
     try:
-        storage = OrchestratorStorage()
+        client = httpx.AsyncClient(
+            base_url=settings.ORCHESTRATOR_API_BASE_URL,
+        )
+        auth = OrchestratorAuth()
+        storage = OrchestratorStorage(client=client, auth=auth)
 
         generator = AIMBOMGenerator(storage)
 

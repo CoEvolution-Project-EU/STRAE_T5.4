@@ -7,6 +7,7 @@ from asyncer import asyncify
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 
+from app.auth import OrchestratorAuth
 from app.config import settings
 from app.db import MinioConnectionError, MinioDB, MinioOperationError
 from app.models.aimbom import AIMBOM
@@ -24,6 +25,10 @@ class StorageConnectionError(StorageError):
 
 class StorageOperationError(StorageError):
     """Generic failure during storage operation."""
+
+
+class StorageAuthError(StorageError):
+    """Authentication failure."""
 
 
 class StorageInterface(Protocol):
@@ -76,15 +81,13 @@ class MinioStorage(StorageInterface):
 
 
 class OrchestratorStorage(StorageInterface):
-    def __init__(self):
-        self.client = httpx.AsyncClient(
-            base_url=settings.ORCHESTRATOR_BASE_URL,
-            timeout=10.0,
-        )
-
-        token = "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICIxckUtem5VbU9MT3JpYkZxT3ViQmk1WmxxWnhoelZVVVJLV1F1TEFPNHlRIn0.eyJleHAiOjE3NzkwOTkzMzMsImlhdCI6MTc3OTA5NTczMywianRpIjoiY2YyOTIwZDAtM2EwOC00MWI2LTlkZWYtOWQxNDRkNTY2OTY1IiwiaXNzIjoiaHR0cHM6Ly9hZWdpcy5jb2V2b2x1dGlvbi1wcm9qZWN0LmV1L3JlYWxtcy9jb2V2b2x1dGlvbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiJmOWE4M2E5MC1iYmE0LTRlMmQtOWQ2ZC1hMTdlNmEwMjc1Y2UiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJjb2V2b2x1dGlvbiIsInNpZCI6IjgzYTQzYWQ4LTA3YWYtNDU0ZC1iM2E5LWY5ODk4ODMzNDRlYyIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cDovL2xvY2FsaG9zdDo0MjAwIl0sInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJkZWZhdWx0LXJvbGVzLWNvZXZvbHV0aW9uIiwib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoicHJvZmlsZSBlbWFpbCIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6ImNvZXZvbHV0aW9uIGNvZXZvbHV0aW9uIiwicHJlZmVycmVkX3VzZXJuYW1lIjoiY29ldm9sdXRpb25fdXNlciIsImdpdmVuX25hbWUiOiJjb2V2b2x1dGlvbiIsImZhbWlseV9uYW1lIjoiY29ldm9sdXRpb24iLCJlbWFpbCI6ImMua3JvdXRpQGFlZ2lzcmVzZWFyY2guZXUifQ.QRu-sC0IzO_ER6n0F402cy6K1qwU8dnklklt9PdUVpx87oEfFuuP7QDmtuMPLRSHgxbsxhui6e2kSvxr8xRfpcYFhBmUqEXgOlkVmtX4O7VjY_iSKbd1uRwYVGhu9_7Enwd5qY7LJXu0R-yHp3pDUCSJ8Du5o50hpLTIQ48A144Ui8H1gXNRW01s8xmQ3fJfAlwpsdUItbnJpIdKmbsn3VIsLXkVeOySJPOrqjXgbPaAtxK6SKDi_AlHrqK0wFkC4msX5LYo9P6ScUNWNGP_8J4TpkfcoZJwahmircXg2MetJe1TYEOKyiTP34TCteDpZSakLb9n9-UJWjQJHn2rHA"
-
-        self.client.headers.update({"Authorization": f"Bearer {token}"})
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        auth: OrchestratorAuth,
+    ):
+        self.client = client
+        self.auth = auth
 
     async def get_reports_for_model(
         self,
@@ -149,6 +152,16 @@ class OrchestratorStorage(StorageInterface):
     ) -> None:
 
         try:
+            token = await self.auth.get_token()
+            headers = {"Authorization": f"Bearer {token}"}
+        except Exception as e:
+            logger.error(
+                "Authentication error while saving AIMBOM",
+                exc_info=True,
+            )
+            raise StorageAuthError("Failed to authenticate with orchestrator") from e
+
+        try:
             logger.info(
                 "Uploading AIMBOM for model_uuid=%s model_version=%s",
                 model_uuid,
@@ -158,7 +171,6 @@ class OrchestratorStorage(StorageInterface):
             # Convert AIMBOM to JSON bytes
             aimbom_json = json.dumps(
                 jsonable_encoder(aimbom, exclude_none=True),
-                indent=2,
             )
 
             filename = f"aimbom-{model_uuid}-{model_version}.json"
@@ -184,6 +196,7 @@ class OrchestratorStorage(StorageInterface):
 
             response = await self.client.post(
                 "/files/upload",
+                headers=headers,
                 files=files,
                 data=data,
             )
