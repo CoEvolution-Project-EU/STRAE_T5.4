@@ -16,7 +16,11 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    ORCHESTRATOR_URL: str = "http://orchestrator:8000"
+    KAFKA_TOPIC: str
+    KAFKA_BOOTSTRAP_SERVERS: str
+    KAFKA_GROUP_ID: str
+
+    ORCHESTRATOR_BASE_URL: str
 
     # MinIO configuration (from .env)
     MINIO_ENDPOINT: str = "minio:9000"
