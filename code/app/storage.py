@@ -187,8 +187,8 @@ class OrchestratorStorage(StorageInterface):
             ]
 
             data = {
-                "pool": "SAP",
-                "bucket": "ai-mbom",
+                "pool": settings.POOL_NAME,
+                "bucket": settings.BUCKET_NAME,
                 "model_uuid": model_uuid,
                 "version": model_version,
                 # "tags": "aimbom,generated",

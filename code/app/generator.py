@@ -225,8 +225,8 @@ class AIMBOMGenerator:
                     name=model_info_component.name,
                     version=model_info_component.version,
                     description=model_info_component.description,
-                    hashes=[hash for hash in model_info_component.hashes],
-                    licenses=[license for license in model_info_component.licenses],
+                    hashes=model_info_component.hashes,
+                    licenses=model_info_component.licenses,
                 ),
                 supplier=Supplier(name="coevolution-project.eu"),
                 tools=[

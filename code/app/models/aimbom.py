@@ -50,8 +50,8 @@ class Component(CamelModel):
     )
     description: str
     # supplier: Supplier
-    hashes: List[Hash]
-    licenses: List[License | LicenseExpression]
+    hashes: List[Hash] | None = None
+    licenses: List[License | LicenseExpression] | None = None
 
 
 class Metadata(CamelModel):

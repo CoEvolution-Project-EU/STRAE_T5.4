@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     ORCHESTRATOR_USERNAME: str = "strae-orchestrator"
     ORCHESTRATOR_PASSWORD: str = "strae-orchestrator-password"
 
+    POOL_NAME: str = "SAP"
+    BUCKET_NAME: str = "ai-mbom"
+
     # MinIO configuration (from .env)
     MINIO_ENDPOINT: str = "minio:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"
