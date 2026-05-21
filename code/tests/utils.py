@@ -33,12 +33,12 @@ def create_empty_mock_minio():
 def create_new_mock_minio():
     db = create_empty_mock_minio()
 
-    seed_report(db, "aimbom-aimodelinfo.json", "aimodelinfo.json")
-    seed_report(db, "aimbom-assessments.json", "assessments.json")
-    seed_report(db, "aimbom-datasets.json", "datasets.json")
-    seed_report(db, "aimbom-defences.json", "defences.json")
-    seed_report(db, "aimbom-euaiact.json", "euaiact.json")
-    seed_report(db, "aimbom-gadgets.json", "gadgets.json")
-    seed_report(db, "aimbom-riskreport.json", "riskreport.json")
+    seed_report(db, "aimbom-aimodelinfo.json", "aimodelinfo_report.json")
+    seed_report(db, "aimbom-assessments.json", "assessment_report.json")
+    seed_report(db, "aimbom-datasets.json", "datasets_report.json")
+    seed_report(db, "aimbom-defences.json", "defence_report.json")
+    seed_report(db, "aimbom-euaiact.json", "euaiact_report.json")
+    seed_report(db, "aimbom-gadgets.json", "gadgets_report.json")
+    seed_report(db, "aimbom-riskreport.json", "risk_report.json")
 
     return db

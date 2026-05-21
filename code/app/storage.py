@@ -113,9 +113,7 @@ class OrchestratorStorage(StorageInterface):
                 )
                 response.raise_for_status()
 
-                reports[metadata["filename"].split("-")[-1].replace(".json", "")] = (
-                    response.json()
-                )
+                reports[report_type] = response.json()
             return reports
         except httpx.RequestError as e:
             logger.error(
