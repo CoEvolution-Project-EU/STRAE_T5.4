@@ -27,7 +27,7 @@ async def test_generate_success():
 
     generator = AIMBOMGenerator(storage)
 
-    aimbom = await generator.generate(model_uuid, model_version)
+    aimbom = await generator.generate(model_uuid, model_version, None)
 
     assert aimbom.serial_number.startswith("urn:uuid:")
 
@@ -43,7 +43,7 @@ async def test_generate_missing_reports():
     generator = AIMBOMGenerator(storage)
 
     with pytest.raises(GeneratorMissingReportError):
-        await generator.generate(model_uuid, model_version)
+        await generator.generate(model_uuid, model_version, None)
 
 
 @pytest.mark.anyio
@@ -58,7 +58,7 @@ async def test_minio_connection_failure():
     generator = AIMBOMGenerator(storage)
 
     with pytest.raises(GeneratorStorageError):
-        await generator.generate(model_uuid, model_version)
+        await generator.generate(model_uuid, model_version, None)
 
 
 # Update this test when we have report validation logic implemented

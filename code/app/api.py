@@ -99,7 +99,7 @@ async def generate_aimbom(
     )
 
     try:
-        aimbom = await generator.generate(model_uuid, model_version)
+        aimbom = await generator.generate(model_uuid, model_version, None)
     except GeneratorMissingReportError as e:
         logger.warning("Missing reports for model_uuid=%s: %s", model_uuid, e)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))

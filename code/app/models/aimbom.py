@@ -20,13 +20,13 @@ from app.models.cyclonedx import (
 # Enums
 # ============================================================
 class ReportType(str, Enum):
-    AI_MODEL_INFO = "aimodelinfo"
-    ASSESSMENTS = "assessments"
-    DATASETS = "datasets"
-    DEFENCES = "defences"
-    EU_AI_ACT = "euaiact"
-    GADGETS = "gadgets"
-    RISK_REPORT = "riskreport"
+    AI_MODEL_INFO = "aimodelinfo_report"
+    ASSESSMENTS = "assessment_report"
+    DATASETS = "datasets_report"
+    DEFENCES = "defence_report"
+    EU_AI_ACT = "euaiact_report"
+    GADGETS = "gadgets_report"
+    RISK_REPORT = "risk_report"
 
 
 class Tool(CamelModel):
@@ -50,8 +50,8 @@ class Component(CamelModel):
     )
     description: str
     # supplier: Supplier
-    hashes: List[Hash]
-    licenses: List[License | LicenseExpression]
+    hashes: List[Hash] | None = None
+    licenses: List[License | LicenseExpression] | None = None
 
 
 class Metadata(CamelModel):

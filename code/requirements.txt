@@ -1,3 +1,4 @@
+aiokafka==0.14.0
 asyncer==0.0.17
 fastapi==0.116.0
 fastapi-cli==0.0.8
