@@ -12,7 +12,6 @@ from app.models.aimbom import (
     Component,
     ExternalReference,
     Metadata,
-    ReportType,
     Supplier,
     Tool,
 )
@@ -26,7 +25,10 @@ from app.storage import (
 from app.utils import (
     REPORT_MODELS,
     REPORT_TO_COMMENT,
+    AIMBOMTier,
+    ReportComment,
     ReportModel,
+    ReportType,
     utc_now_datetime,
     uuid_from_serial_number,
 )
@@ -290,9 +292,52 @@ class AIMBOMGenerator:
 
         return aimbom
 
+    def _create_tier2_aimbom(self, aimbom: AIMBOM) -> AIMBOM:
+        # Tier 2: Remove AI Model & Dataset Info from AIMBOM external references
+        return aimbom.model_copy(
+            update={
+                "external_references": [
+                    ref
+                    for ref in aimbom.external_references
+                    if ref.comment
+                    not in {ReportComment.AI_MODEL_INFO, ReportComment.DATASETS}
+                ]
+            }
+        )
+
+    def _create_tier1_aimbom(self, aimbom: AIMBOM) -> AIMBOM:
+        # Tier 1: Remove all AIMBOM external references except Model Development Guidelines
+        return aimbom.model_copy(
+            update={
+                "external_references": [
+                    ref
+                    for ref in aimbom.external_references
+                    if ref.comment in {ReportComment.EU_AI_ACT}
+                ]
+            }
+        )
+
     async def _save_aimbom_to_bucket(
         self, model_uuid: str, model_version: str, aimbom: AIMBOM
     ):
+        logger.debug(
+            "Creating tiered AIMBOM for model_uuid=%s, model_version=%s, serial_number=%s",
+            model_uuid,
+            model_version,
+            aimbom.serial_number,
+        )
+        try:
+            tiered_aimbom = {
+                AIMBOMTier.Tier_1: self._create_tier1_aimbom(aimbom),
+                AIMBOMTier.Tier_2: self._create_tier2_aimbom(aimbom),
+                AIMBOMTier.Tier_3: aimbom,
+            }
+        except Exception as e:
+            logger.error("Error creating tiered AIMBOM", exc_info=True)
+            raise GeneratorGenerationError(
+                f"Failed to create tiered AIMBOM: {str(e)}"
+            ) from e
+
         logger.debug(
             "Saving AIMBOM to bucket for model_uuid=%s, model_version=%s, serial_number=%s",
             model_uuid,
@@ -303,7 +348,7 @@ class AIMBOMGenerator:
             await self.storage.save_aimbom(
                 model_uuid=model_uuid,
                 model_version=model_version,
-                aimbom=aimbom,
+                tiered_aimbom=tiered_aimbom,
             )
             logger.debug("AIMBOM saved successfully")
         except StorageError as e:
