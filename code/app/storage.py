@@ -11,7 +11,7 @@ from app.auth import OrchestratorAuth
 from app.config import settings
 from app.db import MinioConnectionError, MinioDB, MinioOperationError
 from app.models.aimbom import AIMBOM
-from app.utils import AIMBOMTier
+from app.utils import AIMBOMTier, uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ class MinioStorage(StorageInterface):
 
                 await asyncify(self.minio.upload_json)(
                     bucket_name=settings.AIMBOMS_BUCKET,
-                    object_name=f"{model_uuid}/{model_version}/{aimbom.serial_number}-{tier.value}.json",
+                    object_name=f"{model_uuid}/{model_version}/{uuid_from_serial_number(aimbom.serial_number)}-{tier.value}.json",
                     data=jsonable_encoder(aimbom, exclude_none=True),
                 )
         except MinioConnectionError as e:
