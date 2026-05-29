@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Dict, List, Literal
 
 from pydantic import AnyUrl, Field
@@ -20,13 +21,19 @@ class ExternalReference(CamelModel):
 
 
 class Component(CamelModel):
+    bom_ref: str = Field(..., min_length=1, alias="bom-ref")
     type: ComponentTypes
     name: str
+    group: str | None = None
     version: str | None = None
     supplier: Dict | None = None
     description: str | None = None
     properties: List[Property] | None = None
     external_references: List[ExternalReference] | None = None
+
+
+class Metadata(CamelModel):
+    timestamp: datetime
 
 
 class DefencesInfo(CamelModel):
@@ -36,5 +43,6 @@ class DefencesInfo(CamelModel):
     version: int = Field(
         1, ge=1, description="Document version, defaults to 1, must be >= 1"
     )
+    metadata: Metadata
     components: List[Component] | None = None
     signature: Signature
