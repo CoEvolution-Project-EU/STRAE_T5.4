@@ -11,6 +11,7 @@ from app.auth import OrchestratorAuth
 from app.config import settings
 from app.db import MinioConnectionError, MinioDB, MinioOperationError
 from app.models.aimbom import AIMBOM
+from app.models.requests import ReportsMetadata
 from app.utils import AIMBOMTier, uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ class MinioStorage(StorageInterface):
         self,
         model_uuid: str,
         model_version: str,
-        reports_metadata: dict[str, dict] | None,
+        reports_metadata: ReportsMetadata | None,
     ) -> Dict:
         try:
             return await asyncify(self.minio.get_reports_for_model)(
@@ -109,7 +110,7 @@ class OrchestratorStorage(StorageInterface):
         self,
         model_uuid: str,
         model_version: str,
-        reports_metadata: dict[str, dict] | None,
+        reports_metadata: ReportsMetadata | None,
     ) -> Dict:
         logger.info(
             "Retrieving reports for model_uuid=%s model_version=%s",
@@ -121,7 +122,7 @@ class OrchestratorStorage(StorageInterface):
 
         try:
             # TODO: Retrieve reports concurrently
-            for report_type, metadata in reports_metadata.items():
+            for report_type, metadata in reports_metadata.model_dump().items():
                 print(f"Report metadata for {report_type}: {metadata}")
 
                 response = await self.client.get(

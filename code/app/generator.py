@@ -15,6 +15,7 @@ from app.models.aimbom import (
     Supplier,
     Tool,
 )
+from app.models.requests import ReportsMetadata
 from app.storage import (
     StorageConnectionError,
     StorageError,
@@ -69,7 +70,7 @@ class AIMBOMGenerator:
         self,
         model_uuid: str,
         model_version: str,
-        reports_metadata: dict[str, dict] | None,
+        reports_metadata: ReportsMetadata | None,
     ) -> AIMBOM:
         logger.debug(
             "Starting generation pipeline model_uuid=%s, model_version=%s",
@@ -100,7 +101,7 @@ class AIMBOMGenerator:
         self,
         model_uuid: str,
         model_version: str,
-        reports_metadata: dict[str, dict] | None,
+        reports_metadata: ReportsMetadata | None,
     ) -> dict[ReportType, ReportModel]:
         logger.debug(
             "Retrieving reports for model_uuid=%s, model_version=%s",

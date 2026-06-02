@@ -4,7 +4,7 @@ from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app import signing
-from app.config import settings
+from app.config import Environment, settings
 from app.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
@@ -12,6 +12,7 @@ from app.generator import (
     GeneratorStorageError,
     get_generator,
 )
+from app.models.requests import ReportsMetadata
 from app.models.responses import (
     AIMBOMGeneratedResponse,
     SignedReportResponse,
@@ -29,10 +30,15 @@ router = APIRouter(
 @router.get("/status", response_model=StatusResponse, status_code=status.HTTP_200_OK)
 def get_status():
     """
-    Health check endpoint for the STRAE API.
+    Retrieve the operational status of the STR Assurance Engine API.
 
-    Returns:
-        StatusResponse - A response indicating the operational status and version information.
+    This endpoint can be used for health checks, service monitoring, and
+    deployment validation. A successful response indicates that the API is
+    running and able to process requests.
+
+    **Response**
+
+    Returns the current service status and API version.
     """
 
     return StatusResponse(status="operational", version=settings.VERSION)
@@ -45,13 +51,18 @@ def get_status():
 )
 def sign_report(report: Dict):
     """
-    Sign the given report using the configured signing key.
+    Digitally sign a report using the configured signing certificate and private key.
 
-    Args:
-        report (Dict) - The report to be signed.
+    This endpoint applies a cryptographic signature to the provided report,
+    allowing consumers to verify its authenticity and integrity.
 
-    Returns:
-        SignedReportResponse - The signed report payload wrapped in a response model.
+    **Request Body**
+
+    - `report`: A JSON report to be signed.
+
+    **Response**
+
+    Returns the signed report together with a confirmation message.
     """
 
     logger.info("Report signing requested")
@@ -79,18 +90,46 @@ def sign_report(report: Dict):
 async def generate_aimbom(
     model_uuid: str,
     model_version: str,
+    reports_metadata: ReportsMetadata | None = None,
     generator: AIMBOMGenerator = Depends(get_generator),
 ):
     """
-    Generate an AIMBOM for the given model ID by aggregating reports from MinIO.
+    Generate an AIMBOM for a specific AI model version.
 
-    Args:
-        model_uuid (str) - The ID of the model for which to generate the AIMBOM.
-        model_version (str) - The version of the model for which to generate the AIMBOM.
+    This endpoint aggregates the provided security reports and generates
+    an AI Model Bill of Materials (AIMBOM).
 
-    Returns:
-        AIMBOMGeneratedResponse - A response containing the details of the generated AIMBOM.
+    **Environment-specific behavior**
+
+    - **Production**: `reports_metadata` is required and is used to retrieve
+    the reports from the Orchestrator.
+    - **Development/Test**: `reports_metadata` is optional and reports are
+    retrieved directly from the local storage backend.
+
+    **Path Parameters**
+
+    - `model_uuid`: Unique identifier of the AI model.
+    - `model_version`: Version of the AI model.
+
+    **Request Body**
+
+    - `reports_metadata`: Metadata describing the reports that should be
+    included in the generated AIMBOM.
+
+    **Response**
+
+    Returns the serial number and metadata of the generated AIMBOM.
     """
+
+    # In production, we require the client to provide the reports metadata to get the download URLs for the reports.
+    # In development/testing, we can allow it to be optional as the generator fetches the metadata from MinIO directly.
+    # TODO: We might want to unify this behavior in the future by always requiring the metadata and having the client
+    # provide the download URLs for all environments, but for now this allows us to keep the development experience simpler.
+    if settings.ENVIRONMENT == Environment.prod and reports_metadata is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Request Body (reports_metadata) is required in production",
+        )
 
     logger.info(
         "AIMBOM generation requested for model_uuid=%s, model_version=%s",
@@ -99,7 +138,7 @@ async def generate_aimbom(
     )
 
     try:
-        aimbom = await generator.generate(model_uuid, model_version, None)
+        aimbom = await generator.generate(model_uuid, model_version, reports_metadata)
     except GeneratorMissingReportError as e:
         logger.warning("Missing reports for model_uuid=%s: %s", model_uuid, e)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
