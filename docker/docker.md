@@ -22,7 +22,7 @@ cd STRAE_T5.4/docker
 
 ```bash
 cp .env.example .env
-# edit .env with your preferred settings. 
+# Edit .env with your preferred settings. 
 # Review and update the variables relevant to the profile you intend to run.
 ```
 
@@ -47,10 +47,10 @@ This project uses **Docker Compose profiles** to distinguish between different d
 * **`kafka` profile**
 
   * Runs the background Kafka worker (`app.worker`)
-  * Consumes and processes messages from configured Kafka topics
-  * Intended to be used alongside the `prod` profile in deployments that require asynchronous processing
+  * Consumes and processes AIMBOM generation messages from configured Kafka topics
+  * Can be used alongside the `prod` profile in deployments that require asynchronous processing of AIMBOM generation messages
 
-The `prod` profile is planned to work with the **CoEvolution Knowledge Base**.
+The `kafka` and `prod` profiles are planned to work with the **CoEvolution Knowledge Base**.
 
 #### Option A: Select profile via `.env` (recommended)
 
@@ -76,10 +76,10 @@ COMPOSE_PROFILES=prod
 docker compose up --build
 ```
 
-To run the Kafka worker together with the production API:
+To run the Kafka worker:
 
 ```env
-COMPOSE_PROFILES=prod,kafka
+COMPOSE_PROFILES=kafka
 ```
 
 ```bash
@@ -104,12 +104,6 @@ Kafka worker only:
 
 ```bash
 docker compose --profile kafka up --build
-```
-
-Production API and Kafka worker:
-
-```bash
-docker compose --profile prod --profile kafka up --build
 ```
 
 ### 4. Dev Profile
