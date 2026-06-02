@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Type, Union
 
-from app.models.aimbom import ReportType
 from app.models.aimodel_info import AIModelInfo
 from app.models.assessment_info import AssessmentInfo
 from app.models.cyclonedx import CamelModel
@@ -27,14 +27,40 @@ def uuid_from_serial_number(serial_number: str) -> str:
     raise ValueError(f"Invalid serial number format: {serial_number}")
 
 
+class AIMBOMTier(str, Enum):
+    Tier_1 = "tier-1"
+    Tier_2 = "tier-2"
+    Tier_3 = "tier-3"
+
+
+class ReportType(str, Enum):
+    AI_MODEL_INFO = "aimodelinfo_report"
+    ASSESSMENTS = "assessment_report"
+    DATASETS = "datasets_report"
+    DEFENCES = "defence_report"
+    EU_AI_ACT = "euaiact_report"
+    GADGETS = "gadgets_report"
+    RISK_REPORT = "risk_report"
+
+
+class ReportComment(str, Enum):
+    AI_MODEL_INFO = "Model Information"
+    ASSESSMENTS = "Model Assessment Reports"
+    DATASETS = "Dataset Information"
+    DEFENCES = "Defence Report"
+    EU_AI_ACT = "Model Development Guidelines"
+    GADGETS = "Gadget List"
+    RISK_REPORT = "Risk Assessment"
+
+
 REPORT_TO_COMMENT = {
-    ReportType.AI_MODEL_INFO: "Model Information",
-    ReportType.ASSESSMENTS: "Model Assessment Reports",
-    ReportType.DATASETS: "Dataset Information",
-    ReportType.DEFENCES: "Defence Report",
-    ReportType.EU_AI_ACT: "Model Development Guidelines",
-    ReportType.GADGETS: "Gadget List",
-    ReportType.RISK_REPORT: "Risk Assessment",
+    ReportType.AI_MODEL_INFO: ReportComment.AI_MODEL_INFO,
+    ReportType.ASSESSMENTS: ReportComment.ASSESSMENTS,
+    ReportType.DATASETS: ReportComment.DATASETS,
+    ReportType.DEFENCES: ReportComment.DEFENCES,
+    ReportType.EU_AI_ACT: ReportComment.EU_AI_ACT,
+    ReportType.GADGETS: ReportComment.GADGETS,
+    ReportType.RISK_REPORT: ReportComment.RISK_REPORT,
 }
 
 REPORT_MODELS: dict[ReportType, Type[CamelModel]] = {

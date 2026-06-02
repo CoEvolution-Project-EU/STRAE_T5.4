@@ -1,5 +1,4 @@
 from datetime import datetime
-from enum import Enum
 from typing import List, Literal
 
 from pydantic import Field
@@ -14,19 +13,6 @@ from app.models.cyclonedx import (
     SerialNumber,
     Signature,
 )
-
-
-# ============================================================
-# Enums
-# ============================================================
-class ReportType(str, Enum):
-    AI_MODEL_INFO = "aimodelinfo_report"
-    ASSESSMENTS = "assessment_report"
-    DATASETS = "datasets_report"
-    DEFENCES = "defence_report"
-    EU_AI_ACT = "euaiact_report"
-    GADGETS = "gadgets_report"
-    RISK_REPORT = "risk_report"
 
 
 class Tool(CamelModel):

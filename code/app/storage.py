@@ -11,6 +11,7 @@ from app.auth import OrchestratorAuth
 from app.config import settings
 from app.db import MinioConnectionError, MinioDB, MinioOperationError
 from app.models.aimbom import AIMBOM
+from app.utils import AIMBOMTier, uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,10 @@ class StorageInterface(Protocol):
     ) -> Dict: ...
 
     async def save_aimbom(
-        self, model_uuid: str, model_version: str, aimbom: AIMBOM
+        self,
+        model_uuid: str,
+        model_version: str,
+        tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
     ) -> None: ...
 
 
@@ -66,14 +70,26 @@ class MinioStorage(StorageInterface):
             raise StorageOperationError(str(e)) from e
 
     async def save_aimbom(
-        self, model_uuid: str, model_version: str, aimbom: AIMBOM
+        self,
+        model_uuid: str,
+        model_version: str,
+        tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
     ) -> None:
         try:
-            await asyncify(self.minio.upload_json)(
-                bucket_name=settings.AIMBOMS_BUCKET,
-                object_name=f"{model_uuid}/{model_version}/{aimbom.serial_number}.json",
-                data=jsonable_encoder(aimbom, exclude_none=True),
-            )
+            for tier, aimbom in tiered_aimbom.items():
+                logger.debug(
+                    "Saving AIMBOM tier %s to bucket for model_uuid=%s, model_version=%s, serial_number=%s",
+                    tier.value,
+                    model_uuid,
+                    model_version,
+                    aimbom.serial_number,
+                )
+
+                await asyncify(self.minio.upload_json)(
+                    bucket_name=settings.AIMBOMS_BUCKET,
+                    object_name=f"{model_uuid}/{model_version}/{uuid_from_serial_number(aimbom.serial_number)}-{tier.value}.json",
+                    data=jsonable_encoder(aimbom, exclude_none=True),
+                )
         except MinioConnectionError as e:
             raise StorageConnectionError(str(e)) from e
         except MinioOperationError as e:
@@ -146,7 +162,7 @@ class OrchestratorStorage(StorageInterface):
         self,
         model_uuid: str,
         model_version: str,
-        aimbom: AIMBOM,
+        tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
     ) -> None:
 
         try:
@@ -160,30 +176,6 @@ class OrchestratorStorage(StorageInterface):
             raise StorageAuthError("Failed to authenticate with orchestrator") from e
 
         try:
-            logger.info(
-                "Uploading AIMBOM for model_uuid=%s model_version=%s",
-                model_uuid,
-                model_version,
-            )
-
-            # Convert AIMBOM to JSON bytes
-            aimbom_json = json.dumps(
-                jsonable_encoder(aimbom, exclude_none=True),
-            )
-
-            filename = f"aimbom-{model_uuid}-{model_version}.json"
-
-            files = [
-                (
-                    "files",
-                    (
-                        filename,
-                        aimbom_json.encode("utf-8"),
-                        "application/vnd.cyclonedx+json",
-                    ),
-                )
-            ]
-
             data = {
                 "pool": settings.POOL_NAME,
                 "bucket": settings.BUCKET_NAME,
@@ -192,20 +184,47 @@ class OrchestratorStorage(StorageInterface):
                 # "tags": "aimbom,generated",
             }
 
-            response = await self.client.post(
-                "/files/upload",
-                headers=headers,
-                files=files,
-                data=data,
-            )
+            for tier, aimbom in tiered_aimbom.items():
+                logger.info(
+                    "Uploading AIMBOM tier %s for model_uuid=%s model_version=%s",
+                    tier.value,
+                    model_uuid,
+                    model_version,
+                )
 
-            response.raise_for_status()
+                # Convert AIMBOM to JSON bytes
+                aimbom_json = json.dumps(
+                    jsonable_encoder(aimbom, exclude_none=True),
+                )
 
-            logger.info(
-                "AIMBOM uploaded successfully model_uuid=%s model_version=%s",
-                model_uuid,
-                model_version,
-            )
+                filename = f"aimbom-{model_uuid}-{model_version}-{tier.value}.json"
+
+                files = [
+                    (
+                        "files",
+                        (
+                            filename,
+                            aimbom_json.encode("utf-8"),
+                            "application/vnd.cyclonedx+json",
+                        ),
+                    )
+                ]
+
+                response = await self.client.post(
+                    "/files/upload",
+                    headers=headers,
+                    files=files,
+                    data=data,
+                )
+
+                response.raise_for_status()
+
+                logger.info(
+                    "AIMBOM tier %s uploaded successfully model_uuid=%s model_version=%s",
+                    tier.value,
+                    model_uuid,
+                    model_version,
+                )
 
         except httpx.RequestError as e:
             logger.error(
