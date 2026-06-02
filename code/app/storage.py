@@ -51,6 +51,15 @@ class StorageInterface(Protocol):
 
 class MinioStorage(StorageInterface):
     def __init__(self, minio: MinioDB):
+        """Initialize MinIO-backed storage adapter.
+
+        Args:
+            minio: A `MinioDB` client used for direct MinIO operations.
+
+        Returns:
+            None
+        """
+
         self.minio = minio
 
     async def get_reports_for_model(
@@ -59,6 +68,17 @@ class MinioStorage(StorageInterface):
         model_version: str,
         reports_metadata: ReportsMetadata | None,
     ) -> Dict:
+        """Retrieve reports for a given model/version from MinIO.
+
+        Args:
+            model_uuid: Model UUID used as object prefix.
+            model_version: Model version used as object prefix.
+            reports_metadata: Not used for MinIO backend; present for API compatibility.
+
+        Returns:
+            Mapping of report name to parsed report JSON.
+        """
+
         try:
             return await asyncify(self.minio.get_reports_for_model)(
                 bucket_name=settings.REPORTS_BUCKET,
@@ -76,6 +96,21 @@ class MinioStorage(StorageInterface):
         model_version: str,
         tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
     ) -> None:
+        """Save tiered AIMBOM JSON documents into MinIO.
+
+        Args:
+            model_uuid: Model UUID to associate with uploaded objects.
+            model_version: Model version to associate with uploaded objects.
+            tiered_aimbom: Mapping of `AIMBOMTier` to `AIMBOM` instances.
+
+        Returns:
+            None
+
+        Raises:
+            StorageConnectionError: When MinIO is unreachable.
+            StorageOperationError: When MinIO operations fail.
+        """
+
         try:
             for tier, aimbom in tiered_aimbom.items():
                 logger.debug(
@@ -103,6 +138,16 @@ class OrchestratorStorage(StorageInterface):
         client: httpx.AsyncClient,
         auth: OrchestratorAuth,
     ):
+        """Initialize orchestrator-backed storage adapter.
+
+        Args:
+            client: An `httpx.AsyncClient` configured to talk to the orchestrator API.
+            auth: An `OrchestratorAuth` instance used to obtain auth tokens.
+
+        Returns:
+            None
+        """
+
         self.client = client
         self.auth = auth
 
@@ -112,6 +157,21 @@ class OrchestratorStorage(StorageInterface):
         model_version: str,
         reports_metadata: ReportsMetadata | None,
     ) -> Dict:
+        """Retrieve reports from the orchestrator using provided metadata.
+
+        Args:
+            model_uuid: Model UUID used for logging/context only.
+            model_version: Model version used for logging/context only.
+            reports_metadata: A `ReportsMetadata` instance containing download URLs.
+
+        Returns:
+            Mapping of report type keys to parsed JSON report objects.
+
+        Raises:
+            StorageConnectionError: On connection issues.
+            StorageOperationError: On non-2xx HTTP responses or unexpected errors.
+        """
+
         logger.info(
             "Retrieving reports for model_uuid=%s model_version=%s",
             model_uuid,
@@ -165,6 +225,21 @@ class OrchestratorStorage(StorageInterface):
         model_version: str,
         tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
     ) -> None:
+        """Upload tiered AIMBOMs to the orchestrator file upload endpoint.
+
+        Args:
+            model_uuid: Model UUID to associate with uploaded files.
+            model_version: Model version to associate with uploaded files.
+            tiered_aimbom: Mapping of `AIMBOMTier` to `AIMBOM` instances.
+
+        Returns:
+            None
+
+        Raises:
+            StorageAuthError: If authentication with orchestrator fails.
+            StorageConnectionError: On connection issues.
+            StorageOperationError: On HTTP errors from orchestrator.
+        """
 
         try:
             token = await self.auth.get_token()
@@ -256,8 +331,23 @@ class OrchestratorStorage(StorageInterface):
             raise StorageOperationError(str(e)) from e
 
     async def close(self):
+        """Close the underlying HTTP client connection.
+
+        Ensures the `httpx.AsyncClient` is closed when the storage adapter is
+        being shut down.
+        """
+
         await self.client.aclose()
 
 
 async def get_storage(request: Request) -> StorageInterface:
+    """FastAPI dependency to retrieve the configured storage implementation.
+
+    Args:
+        request: FastAPI `Request` whose `app.state.storage` contains the implementation.
+
+    Returns:
+        The configured `StorageInterface` instance stored on the application.
+    """
+
     return request.app.state.storage

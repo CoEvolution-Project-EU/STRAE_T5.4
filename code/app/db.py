@@ -32,6 +32,12 @@ class MinioOperationError(MinioError):
 
 class MinioDB:
     def __init__(self):
+        """Initialize the MinIO client wrapper.
+
+        Creates a `Minio` client using settings from the configuration. Raises
+        `MinioConnectionError` if initialization fails.
+        """
+
         try:
             self.client = Minio(
                 endpoint=settings.MINIO_ENDPOINT,
@@ -45,6 +51,15 @@ class MinioDB:
         logger.info("MinIO client initialized")
 
     def create_bucket(self, bucket_name: str) -> None:
+        """Ensure a MinIO bucket exists, creating it if necessary.
+
+        Args:
+            bucket_name: The name of the bucket to ensure exists.
+
+        Returns:
+            None
+        """
+
         try:
             if not self.client.bucket_exists(bucket_name):
                 self.client.make_bucket(bucket_name)
@@ -66,6 +81,17 @@ class MinioDB:
         object_name: str,
         data: Dict,
     ) -> None:
+        """Upload a JSON-serializable object to MinIO as application/json.
+
+        Args:
+            bucket_name: Target bucket.
+            object_name: Object key path in the bucket.
+            data: JSON-serializable payload to store.
+
+        Returns:
+            None
+        """
+
         json_bytes = json.dumps(data).encode("utf-8")
         json_stream = BytesIO(json_bytes)
 
@@ -89,6 +115,16 @@ class MinioDB:
     def list_objects_in_bucket(
         self, bucket_name: str, prefix: str = ""
     ) -> list[Object]:
+        """List objects in a bucket optionally filtered by prefix.
+
+        Args:
+            bucket_name: Target bucket name.
+            prefix: Optional prefix to filter objects.
+
+        Returns:
+            A list of `minio.datatypes.Object` instances.
+        """
+
         try:
             return list(
                 self.client.list_objects(
@@ -111,6 +147,22 @@ class MinioDB:
         bucket_name: str,
         object_name: str,
     ) -> Dict:
+        """Retrieve a JSON object from MinIO and parse it.
+
+        Args:
+            bucket_name: The bucket containing the object.
+            object_name: The object key to retrieve.
+
+        Returns:
+            The parsed JSON payload as a `dict`.
+
+        Raises:
+            MinioOperationError: On S3 errors.
+            MinioConnectionError: On transport/connection errors.
+
+        Ensures the response stream is properly closed after reading.
+        """
+
         response = None
         try:
             try:
@@ -135,6 +187,20 @@ class MinioDB:
     def get_reports_for_model(
         self, bucket_name: str, model_uuid: str, model_version: str
     ) -> Dict:
+        """Retrieve all report JSON files for a given model/version prefix.
+
+        Args:
+            bucket_name: Bucket to scan for reports.
+            model_uuid: Model UUID used as prefix.
+            model_version: Model version used as prefix.
+
+        Returns:
+            Mapping of object basename (without .json) to parsed JSON content.
+
+        Raises:
+            MinioOperationError: If no reports are found or S3 operations fail.
+        """
+
         reports = {}
         prefix = f"{model_uuid}/{model_version}/"
 
@@ -157,4 +223,10 @@ class MinioDB:
 
 @lru_cache
 def get_minio_client() -> MinioDB:
+    """Return a cached `MinioDB` instance for the application.
+
+    Returns:
+        A `MinioDB` instance.
+    """
+
     return MinioDB()

@@ -40,6 +40,16 @@ async def save_report(
 def store_report(
     model_uuid: str, model_version: str, report_name: str, report: Dict, minio: MinioDB
 ) -> None:
+    """Persist a report to MinIO used by the development API.
+
+    Args:
+        model_uuid: Model UUID to use as object prefix.
+        model_version: Model version to use as object prefix.
+        report_name: The name of the report file (without extension).
+        report: The JSON-compatible report payload.
+        minio: The `MinioDB` client to use for uploading.
+    """
+
     try:
         minio.upload_json(
             bucket_name=settings.REPORTS_BUCKET,
