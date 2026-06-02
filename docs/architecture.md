@@ -1,6 +1,6 @@
 # STR Assurance Engine - Architecture
 
-## Architetcure
+## Architecture
 
 ![STRAE Architecture](graphics/strae_arch.png)
 
@@ -18,7 +18,25 @@ The AIMBOM generation process is responsible for transforming validated reports 
 |----------|--------|-------------|-------|--------|
 | `/api/status` | GET | Health check endpoint for the STRAE API | - | Health Status & Version information |
 | `/api/sign` | POST | Sign the given report | Report payload (JSON format) | Signed report |
-| `/api/generate` | POST | Generate an AIMBOM for the given model UUID and version by aggregating reports from MinIO | model_uuid, model_version | Confirmation Message & Unique AIMBOM identifier |
+| `/api/generate` | POST | Generate an AIMBOM for the given model UUID and version by aggregating reports from MinIO | model_uuid, model_version, reports_metadata | Confirmation Message & Unique AIMBOM identifier |
+
+## Kafka worker
+
+The Kafka worker is responsible for enabling asynchronous AIMBOM generation within the STR Assurance Engine. It decouples request submission from processing by consuming generation tasks from a Kafka topic and executing them independently of the API layer.
+
+The worker subscribes to a configured Kafka topic and listens for messages containing AIMBOM generation requests. Each message includes a target model identifier, version, and associated report references. Upon receiving a valid event, the worker retrieves the required data through the Orchestrator API, triggers the AIMBOM generation pipeline, and persists the resulting AIMBOM to the Security Assurance Pool.
+
+If processing succeeds, the Kafka offset is committed. In case of recoverable errors (such as missing reports or transient storage issues), the worker may delay or skip committing offsets to allow for retries, depending on the failure type. Invalid or malformed messages are safely discarded to prevent blocking the queue.
+
+The worker is designed to run as a long-lived background service and does not expose any HTTP endpoints.
+
+### Kafka Worker Processing Flow
+- Consume message from Kafka topic
+- Validate payload (model_uuid, version, reports)
+- Retrieve required reports via Orchestrator API
+- Execute AIMBOM generation
+- Store generated AIMBOM in the Security Assurance Pool
+- Commit Kafka offset on success or controlled failure
 
 ## Technological Tools
 
