@@ -1,0 +1,36 @@
+{
+  "bomFormat" : "CycloneDX",
+  "specVersion" : "1.7",
+  "serialNumber" : "urn:uuid:0680d443-854c-49f6-ab4e-a0b560219a3a",
+  "metadata" : {
+    "timestamp" : "2026-05-22T10:02:16.338752600Z"
+  },
+  "components" : [ {
+    "type" : "library",
+    "bom-ref" : "ce6b36f8-ae19-4529-b112-b07564abcdf6",
+    "group" : "DEF-002",
+    "name" : "Input Purification and Reconstruction",
+    "description" : "Online or preprocessing transformations that project suspicious inputs back toward the training data manifold before inference. Covers DU-AP (deep unrolled, perception-aware purification for LiDAR range images) as well as autoencoder-based reconstruction, Defense-GAN-style approaches, and diffusion-based purification."
+  }, {
+    "type" : "library",
+    "bom-ref" : "8e5ec321-89fa-4363-96da-1f9f578c145f",
+    "group" : "DEF-003",
+    "name" : "Poisoning and Backdoor Defences",
+    "description" : "Methods for detecting and mitigating poisoning and backdoor attacks affecting training data or model weights. Includes PGRL (prototype-guided robust learning with Label Consistency Verification), k-NN Label Consistency Filtering, statistical detectors for forgetting attacks, and PEFTGuard for weight-based backdoor detection in fine-tuned models from untrusted sources."
+  }, {
+    "type" : "library",
+    "bom-ref" : "234dda6d-3cd6-4e54-b82d-0bc803249a29",
+    "group" : "DEF-005",
+    "name" : "Robust Federated Learning Aggregation",
+    "description" : "Server-side aggregation strategies that mitigate poisoning attacks in federated learning. Groups SecureFL's Loss-Based Clustering and FedGreed mechanisms, CoEvoNEAT's coevolutionary robustness against label-flipping, and centralized context-aware FL with norm-based outlier detection, reputation scoring, and automatic switching to robust aggregators such as Trimmed Mean."
+  } ],
+  "signature": {
+        "algorithm": "ES256",
+        "value": "MEYCIQD1OqRRFKwKx+AJsRN3BkwI+kniEBPc7Bzvwf+kjdzZigIhAMDKEXKVShQZuxm/IzXUcFBoZXU/wtXr4qOV6c7kGdXZ",
+        "certificatePath": [
+            "MIIDizCCAzCgAwIBAgIUQoC/z4LURlXxDRypetEwBZIG4vIwCgYIKoZIzj0EAwMw\ncTELMAkGA1UEBhMCSVQxGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNV\nBAUTCzA3OTQ1MjExMDA2MTEwLwYDVQQDDChNSURQS0kgU0hBUkVEIElORk9DRVJU\nIE9QRVJBVE9SIEVDRFNBIENMMB4XDTI1MTEyODE1MjE0NFoXDTI4MTEyNzE1MjE0\nM1owgYsxCzAJBgNVBAYTAklUMQ4wDAYDVQQIEwVJdGFseTEPMA0GA1UEBxMGTWls\nYW5vMREwDwYDVQQKEwhJbmZvQ2VydDEMMAoGA1UECxMDSW9UMRUwEwYDVQQDEwxT\nQ0hST0VESU5HRVIxIzAhBgkqhkiG9w0BCQEWFHRlYW0uaW90QGluZm9jZXJ0Lml0\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQhPYvbbg1ra1KQEIUMt/pqM5p+TT\nmjP6QeCmXnNRTFcdp/O9jDMgGI4aOXFdfCO7KDrwClpqH8NuwaSIfr84QaOCAYkw\nggGFMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUZ6L872McRRUKoDkQgSy6bH4b\nL1IwgaYGCCsGAQUFBwEBBIGZMIGWMFkGCCsGAQUFBzAChk1odHRwOi8vbWlkcGtp\nLXN0YWdlLmluZm9jZXJ0LmRpZ2l0YWwvaW90L2NlcnRzL0lORk9DRVJULU9QRVJB\nVE9SLUVDRFNBLUNMLmNydDA5BggrBgEFBQcwAYYtaHR0cDovL21pZHBraS1vY3Nw\nLXN0YWdlLmluZm9jZXJ0LmRpZ2l0YWwvaW90MB0GA1UdJQQWMBQGCCsGAQUFBwMC\nBggrBgEFBQcDATBdBgNVHR8EVjBUMFKgUKBOhkxodHRwOi8vbWlkcGtpLXN0YWdl\nLmluZm9jZXJ0LmRpZ2l0YWwvaW90L2NybC9pbmZvY2VydC9wZXJzb24vZWNkc2Ev\nQ1JMMDEuY3JsMB0GA1UdDgQWBBRaxnxHvnz2FkEEarTXFJEEMiiuLTAOBgNVHQ8B\nAf8EBAMCBaAwCgYIKoZIzj0EAwMDSQAwRgIhAI9BjuQH4Om0bSZkWwi8bqCKO1Nt\n7HYjNOoyezYCaCQAAiEAtnhzPkmCcV0diFhy60J4NiMX1iCsjZrs7AKCzIq14Eg=",
+            "MIIDcTCCAvegAwIBAgIUdcFHVfj9rf0E6AYnoU6/7wkqhB4wCgYIKoZIzj0EAwMw\nXzELMAkGA1UEBhMCSVQxGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNV\nBAUTCzA3OTQ1MjExMDA2MR8wHQYDVQQDDBZNSURQS0kgU0hBUkVEIEVDRFNBIENM\nMB4XDTIzMDcxMTEwMzY0MFoXDTM4MDcxMTExMzY0MFowcTELMAkGA1UEBhMCSVQx\nGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNVBAUTCzA3OTQ1MjExMDA2\nMTEwLwYDVQQDDChNSURQS0kgU0hBUkVEIElORk9DRVJUIE9QRVJBVE9SIEVDRFNB\nIENMMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdJHP+4XWXCFdflKIHnBkjJuO\n2wEHk1LAY7WXA6uungRFG9tiMlODsDPsBUTrarNUnn8uYJ9Wds2/Lon297ahRaOC\nAX0wggF5MBIGA1UdEwEB/wQIMAYBAf8CAQAwgaIGCCsGAQUFBwEBBIGVMIGSMDkG\nCCsGAQUFBzABhi1odHRwOi8vbWlkcGtpLW9jc3Atc3RhZ2UuaW5mb2NlcnQuZGln\naXRhbC9pb3QwVQYIKwYBBQUHMAKGSWh0dHA6Ly9taWRwa2ktc3RhZ2UuaW5mb2Nl\ncnQuZGlnaXRhbC9pb3QvY2VydHMvTUlEUEtJLVNIQVJFRC1FQ0RTQS1DTC5jcnQw\nEwYDVR0gBAwwCjAIBgYrBgEEAgIwWQYDVR0fBFIwUDBOoEygSoZIaHR0cDovL21p\nZHBraS1zdGFnZS5pbmZvY2VydC5kaWdpdGFsL2lvdC9jcmwvbWlkcGtpLXNoYXJl\nZC9lY2RzYS9DUkwuY3JsMA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUZ6L872Mc\nRRUKoDkQgSy6bH4bL1IwHwYDVR0jBBgwFoAUGk8WJyhk6NACBbytREKZaD9Oybww\nCgYIKoZIzj0EAwMDaAAwZQIxAO2YA/HCiC5EFmswdEqdm7UE+fQ+Sa6xLKUAplHg\n3lp5i4CR2ODaQKQltmd6okKBngIwDalDXGkzOBDl3BckN0uZQOv0iff1jxc5XKbz\nFUpnTJevICxBKZVZZaRCliA9peDr",
+            "MIIC2TCCAl6gAwIBAgIUfn1VXwMKUMO2SnIyAN4Xe8sp1CgwCgYIKoZIzj0EAwMw\nWzELMAkGA1UEBhMCSVQxGTAXBgNVBAoMEElvVCBJbmZvQ2VydCBTcEExFDASBgNV\nBAUTCzA3OTQ1MjExMDA2MRswGQYDVQQDDBJTUyBNSURQS0kgRUNEU0EgQ0wwHhcN\nMjIwMTIxMTQwODMwWhcNNDcwMTIxMTUwODMwWjBfMQswCQYDVQQGEwJJVDEZMBcG\nA1UECgwQSW9UIEluZm9DZXJ0IFNwQTEUMBIGA1UEBRMLMDc5NDUyMTEwMDYxHzAd\nBgNVBAMMFk1JRFBLSSBTSEFSRUQgRUNEU0EgQ0wwdjAQBgcqhkjOPQIBBgUrgQQA\nIgNiAAROsE9xJCGLgaJYW+/dWe+EIPCtLZBCilebEWKlXazMsA0oe/7775Nm/da7\nGtP5zVO0eSiGKYYGTsklsqCudHd7g7HMZWcry6AKBgRDCzs/ndo7zyZwmmPbJl82\nWqHE5I+jgd4wgdswDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYD\nVR0OBBYEFBpPFicoZOjQAgW8rURCmWg/Tsm8MIGYBgNVHSMEgZAwgY2AFJWpq43E\n89Jq07h3djFKj3lU/utToV+kXTBbMQswCQYDVQQGEwJJVDEZMBcGA1UECgwQSW9U\nIEluZm9DZXJ0IFNwQTEUMBIGA1UEBRMLMDc5NDUyMTEwMDYxGzAZBgNVBAMMElNT\nIE1JRFBLSSBFQ0RTQSBDTIIUe7gn0G+7rEWyZZc4BUUOrPJcSp4wCgYIKoZIzj0E\nAwMDaQAwZgIxAJPFeb+RGWj7tty0FRUSPgLSNXv0A/arbU23BUw8SU6QRnvVTIOY\n9SvPBAX9s+P1pAIxAKj0r28gk9w0WQroRzbHG0A9Rc1HhTlPyVMZ+m8vO5XkFgsT\ngvtVUjds83EjPUzT4g=="
+        ]
+    }
+}

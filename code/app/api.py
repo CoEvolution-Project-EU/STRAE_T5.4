@@ -8,8 +8,8 @@ from app.config import settings
 from app.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
-    GeneratorMinioError,
     GeneratorMissingReportError,
+    GeneratorStorageError,
     get_generator,
 )
 from app.models.responses import (
@@ -76,7 +76,7 @@ def sign_report(report: Dict):
     response_model=AIMBOMGeneratedResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def generate_aimbom(
+async def generate_aimbom(
     model_uuid: str,
     model_version: str,
     generator: AIMBOMGenerator = Depends(get_generator),
@@ -99,16 +99,12 @@ def generate_aimbom(
     )
 
     try:
-        # TODO: Use asyncer to run the generation to avoid blocking the event loop,
-        # especially if MinIO operations are slow.
-        # TODO: Maybe implement caching of generated AIMBOMs to avoid regenerating
-        # for the same model_uuid & model_version if reports haven't changed.
-        aimbom = generator.generate(model_uuid, model_version)
+        aimbom = await generator.generate(model_uuid, model_version, None)
     except GeneratorMissingReportError as e:
         logger.warning("Missing reports for model_uuid=%s: %s", model_uuid, e)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
-    except GeneratorMinioError as e:
-        logger.error("MinIO error for model_uuid=%s", model_uuid, exc_info=True)
+    except GeneratorStorageError as e:
+        logger.error("Storage error for model_uuid=%s", model_uuid, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
         )

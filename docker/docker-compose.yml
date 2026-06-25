@@ -14,7 +14,6 @@ services:
     profiles:
       - prod
     restart: unless-stopped
-    networks: [strae-net]
 
   api-dev:
     build:
@@ -36,6 +35,19 @@ services:
       - dev
     restart: unless-stopped
     networks: [strae-net]
+
+  kafka-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - .env
+    environment:
+      - ENVIRONMENT=prod
+    command: python -m app.worker
+    profiles:
+      - kafka
+    restart: unless-stopped
 
   minio:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z

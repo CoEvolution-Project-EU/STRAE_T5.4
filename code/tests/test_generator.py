@@ -4,9 +4,10 @@ import pytest
 from app.db import MinioConnectionError, MinioDB
 from app.generator import (
     AIMBOMGenerator,
-    GeneratorMinioError,
     GeneratorMissingReportError,
+    GeneratorStorageError,
 )
+from app.storage import MinioStorage
 
 from tests.utils import (
     MODEL_UUID,
@@ -16,42 +17,48 @@ from tests.utils import (
 )
 
 
-def test_generate_success():
+@pytest.mark.anyio
+async def test_generate_success():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
 
     minio = create_new_mock_minio()
+    storage = MinioStorage(minio)
 
-    generator = AIMBOMGenerator(minio)
+    generator = AIMBOMGenerator(storage)
 
-    aimbom = generator.generate(model_uuid, model_version)
+    aimbom = await generator.generate(model_uuid, model_version, None)
 
     assert aimbom.serial_number.startswith("urn:uuid:")
 
 
-def test_generate_missing_reports():
+@pytest.mark.anyio
+async def test_generate_missing_reports():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
 
     minio = create_empty_mock_minio()
+    storage = MinioStorage(minio)
 
-    generator = AIMBOMGenerator(minio)
+    generator = AIMBOMGenerator(storage)
 
     with pytest.raises(GeneratorMissingReportError):
-        generator.generate(model_uuid, model_version)
+        await generator.generate(model_uuid, model_version, None)
 
 
-def test_minio_connection_failure():
+@pytest.mark.anyio
+async def test_minio_connection_failure():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
 
     minio = MagicMock(spec=MinioDB)
     minio.get_reports_for_model.side_effect = MinioConnectionError("MinIO down")
+    storage = MinioStorage(minio)
 
-    generator = AIMBOMGenerator(minio)
+    generator = AIMBOMGenerator(storage)
 
-    with pytest.raises(GeneratorMinioError):
-        generator.generate(model_uuid, model_version)
+    with pytest.raises(GeneratorStorageError):
+        await generator.generate(model_uuid, model_version, None)
 
 
 # Update this test when we have report validation logic implemented

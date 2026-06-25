@@ -76,14 +76,14 @@ def get_validator() -> Draft7Validator:
     return validator
 
 
-def validate_aimbom(aimbom_dict: dict) -> None:
-    logger.debug("Starting AIMBOM validation")
+def validate_report(report_dict: dict) -> None:
+    logger.debug("Starting CycloneDX validation")
     validator = get_validator()
-    errors = sorted(validator.iter_errors(aimbom_dict), key=lambda e: e.path)
+    errors = sorted(validator.iter_errors(report_dict), key=lambda e: e.path)
 
     if errors:
         messages = [f"{list(error.path)}: {error.message}" for error in errors]
-        logger.warning("AIMBOM validation failed with %d errors", len(errors))
+        logger.warning("CycloneDX validation failed with %d errors", len(errors))
         raise ValueError("CycloneDX validation failed:\n" + "\n".join(messages))
     else:
-        logger.debug("AIMBOM validation successful")
+        logger.debug("CycloneDX validation successful")

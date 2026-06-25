@@ -19,7 +19,7 @@ router = APIRouter(
     response_model=ReportSavedResponse,
     status_code=status.HTTP_200_OK,
 )
-def save_report(
+async def save_report(
     model_uuid: str,
     model_version: str,
     report_name: str,

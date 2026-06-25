@@ -16,11 +16,27 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # Kafka configuration (from .env)
+    KAFKA_TOPIC: str = "strae"
+    KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
+    KAFKA_GROUP_ID: str = "strae"
+
+    ORCHESTRATOR_API_BASE_URL: str = "https://aegis.coevolution-project.eu/api/v1/"
+
+    KEYCLOAK_BASE_URL: str = "https://aegis.coevolution-project.eu/"
+    KEYCLOAK_REALM: str = "coevolution"
+    KEYCLOAK_CLIENT_ID: str = "strae"
+    ORCHESTRATOR_USERNAME: str = "strae-orchestrator"
+    ORCHESTRATOR_PASSWORD: str = "strae-orchestrator-password"
+
+    POOL_NAME: str = "SAP"
+    BUCKET_NAME: str = "ai-mbom"
+
     # MinIO configuration (from .env)
-    MINIO_ENDPOINT: str
-    MINIO_ACCESS_KEY: str
-    MINIO_SECRET_KEY: str
-    MINIO_SECURE: bool
+    MINIO_ENDPOINT: str = "minio:9000"
+    MINIO_ACCESS_KEY: str = "minioadmin"
+    MINIO_SECRET_KEY: str = "minioadmin"
+    MINIO_SECURE: bool = False
 
     # Hardcoded in the docker-compose file, based on docker profile.
     # Default to "dev" when running without docker, for tests.
