@@ -15,6 +15,7 @@ from app.models.aimbom import (
     Supplier,
     Tool,
 )
+from app.models.requests import ReportsMetadata
 from app.storage import (
     StorageConnectionError,
     StorageError,
@@ -63,14 +64,39 @@ class GeneratorGenerationError(GeneratorError):
 
 class AIMBOMGenerator:
     def __init__(self, storage: StorageInterface):
+        """Initialize the AIMBOM generator.
+
+        Args:
+            storage: A `StorageInterface` implementation used to retrieve
+                reports and persist generated AIMBOMs.
+
+        Returns:
+            None
+        """
+
         self.storage = storage
 
     async def generate(
         self,
         model_uuid: str,
         model_version: str,
-        reports_metadata: dict[str, dict] | None,
+        reports_metadata: ReportsMetadata | None,
     ) -> AIMBOM:
+        """Run the full AIMBOM generation pipeline.
+
+        This retrieves reports for the given model, constructs an AIMBOM from
+        those reports, signs and validates it, and persists tiered AIMBOMs to
+        the configured storage backend.
+
+        Args:
+            model_uuid: Unique identifier of the AI model.
+            model_version: Version string of the AI model.
+            reports_metadata: Optional metadata used to fetch reports from an
+                external orchestrator.
+
+        Returns:
+            The generated `AIMBOM` instance.
+        """
         logger.debug(
             "Starting generation pipeline model_uuid=%s, model_version=%s",
             model_uuid,
@@ -100,8 +126,22 @@ class AIMBOMGenerator:
         self,
         model_uuid: str,
         model_version: str,
-        reports_metadata: dict[str, dict] | None,
+        reports_metadata: ReportsMetadata | None,
     ) -> dict[ReportType, ReportModel]:
+        """Retrieve and validate the set of required reports for a model.
+
+        Args:
+            model_uuid: Model UUID to fetch reports for.
+            model_version: Model version to fetch reports for.
+            reports_metadata: Optional metadata used by orchestrator-backed storage.
+
+        Returns:
+            A mapping of `ReportType` to validated report model instances.
+
+        Raises:
+            GeneratorMissingReportError: When required reports are missing.
+            GeneratorStorageError: When storage operations fail.
+        """
         logger.debug(
             "Retrieving reports for model_uuid=%s, model_version=%s",
             model_uuid,
@@ -213,6 +253,17 @@ class AIMBOMGenerator:
     def _create_aimbom_from_reports(
         self, reports: dict[ReportType, ReportModel]
     ) -> AIMBOM:
+        """Construct an `AIMBOM` object from validated reports.
+
+        Args:
+            reports: Mapping of `ReportType` to validated report model instances.
+
+        Returns:
+            A signed and validated `AIMBOM` instance.
+
+        Raises:
+            GeneratorGenerationError: If signing or validation fails.
+        """
         logger.debug("Creating AIMBOM from reports")
         try:
             # model_info = AIModelInfo(**reports[ReportType.AI_MODEL_INFO])
@@ -293,6 +344,10 @@ class AIMBOMGenerator:
         return aimbom
 
     def _create_tier2_aimbom(self, aimbom: AIMBOM) -> AIMBOM:
+        """Create a Tier 2 AIMBOM by removing model & dataset external refs.
+
+        Returns a new `AIMBOM` instance suitable for Tier 2 disclosure.
+        """
         # Tier 2: Remove AI Model & Dataset Info from AIMBOM external references
         return aimbom.model_copy(
             update={
@@ -306,6 +361,10 @@ class AIMBOMGenerator:
         )
 
     def _create_tier1_aimbom(self, aimbom: AIMBOM) -> AIMBOM:
+        """Create a Tier 1 AIMBOM keeping only development-guideline refs.
+
+        Returns a new `AIMBOM` instance suitable for Tier 1 disclosure.
+        """
         # Tier 1: Remove all AIMBOM external references except Model Development Guidelines
         return aimbom.model_copy(
             update={
@@ -320,6 +379,19 @@ class AIMBOMGenerator:
     async def _save_aimbom_to_bucket(
         self, model_uuid: str, model_version: str, aimbom: AIMBOM
     ):
+        """Persist tiered AIMBOMs to the configured storage backend.
+
+        Args:
+            model_uuid: Model UUID to associate with stored AIMBOMs.
+            model_version: Model version to associate with stored AIMBOMs.
+            aimbom: The full Tier 3 `AIMBOM` to derive tiered variants from.
+
+        Returns:
+            None
+
+        Raises:
+            GeneratorStorageError: If storage operations fail.
+        """
         logger.debug(
             "Creating tiered AIMBOM for model_uuid=%s, model_version=%s, serial_number=%s",
             model_uuid,
@@ -362,4 +434,13 @@ class AIMBOMGenerator:
 async def get_generator(
     storage: StorageInterface = Depends(get_storage),
 ) -> AIMBOMGenerator:
+    """FastAPI dependency that constructs an `AIMBOMGenerator`.
+
+    Args:
+        storage: Injected `StorageInterface` dependency.
+
+    Returns:
+        An `AIMBOMGenerator` instance ready for use by request handlers.
+    """
+
     return AIMBOMGenerator(storage)

@@ -12,11 +12,22 @@ logger = logging.getLogger(__name__)
 
 class OrchestratorAuth:
     def __init__(self):
+        """Simple Keycloak token manager for orchestrator API calls.
+
+        Manages an access token and expiry time with an asyncio lock to
+        prevent concurrent refreshes.
+        """
+
         self._token = None
         self._expires_at = None
         self._lock = asyncio.Lock()
 
     async def get_token(self) -> str:
+        """Return a valid access token, refreshing if necessary.
+
+        Uses an internal lock to ensure only one refresh occurs concurrently.
+        """
+
         async with self._lock:
             if self._is_token_valid():
                 return self._token
@@ -26,6 +37,8 @@ class OrchestratorAuth:
             return self._token
 
     def _is_token_valid(self) -> bool:
+        """Return True if there is a non-expired token available."""
+
         return (
             self._token is not None
             and self._expires_at is not None
@@ -33,6 +46,11 @@ class OrchestratorAuth:
         )
 
     async def _authenticate(self):
+        """Authenticate with Keycloak and cache the access token.
+
+        Exchanges username/password for a token and computes an expiry time.
+        """
+
         logger.info("Authenticating with orchestrator")
 
         async with httpx.AsyncClient(base_url=settings.KEYCLOAK_BASE_URL) as client:

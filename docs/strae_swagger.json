@@ -12,7 +12,7 @@
           "api"
         ],
         "summary": "Get Status",
-        "description": "Health check endpoint for the STRAE API.\n\nReturns:\n    StatusResponse - A response indicating the operational status and version information.",
+        "description": "Retrieve the operational status of the STR Assurance Engine API.\n\nThis endpoint can be used for health checks, service monitoring, and\ndeployment validation. A successful response indicates that the API is\nrunning and able to process requests.\n\n**Response**\n\nReturns the current service status and API version.",
         "operationId": "get_status_api_status_get",
         "responses": {
           "200": {
@@ -34,7 +34,7 @@
           "api"
         ],
         "summary": "Sign Report",
-        "description": "Sign the given report using the configured signing key.\n\nArgs:\n    report (Dict) - The report to be signed.\n\nReturns:\n    SignedReportResponse - The signed report payload wrapped in a response model.",
+        "description": "Digitally sign a report using the configured signing certificate and private key.\n\nThis endpoint applies a cryptographic signature to the provided report,\nallowing consumers to verify its authenticity and integrity.\n\n**Request Body**\n\n- `report`: A JSON report to be signed.\n\n**Response**\n\nReturns the signed report together with a confirmation message.",
         "operationId": "sign_report_api_sign_post",
         "requestBody": {
           "content": {
@@ -78,7 +78,7 @@
           "api"
         ],
         "summary": "Generate Aimbom",
-        "description": "Generate an AIMBOM for the given model ID by aggregating reports from MinIO.\n\nArgs:\n    model_uuid (str) - The ID of the model for which to generate the AIMBOM.\n    model_version (str) - The version of the model for which to generate the AIMBOM.\n\nReturns:\n    AIMBOMGeneratedResponse - A response containing the details of the generated AIMBOM.",
+        "description": "Generate an AIMBOM for a specific AI model version.\n\nThis endpoint aggregates the provided security reports and generates\nan AI Model Bill of Materials (AIMBOM).\n\n**Environment-specific behavior**\n\n- **Production**: `reports_metadata` is required and is used to retrieve\nthe reports from the Orchestrator.\n- **Development/Test**: `reports_metadata` is optional and reports are\nretrieved directly from the local storage backend.\n\n**Path Parameters**\n\n- `model_uuid`: Unique identifier of the AI model.\n- `model_version`: Version of the AI model.\n\n**Request Body**\n\n- `reports_metadata`: Metadata describing the reports that should be\nincluded in the generated AIMBOM.\n\n**Response**\n\nReturns the serial number and metadata of the generated AIMBOM.",
         "operationId": "generate_aimbom_api_generate__model_uuid___model_version__post",
         "parameters": [
           {
@@ -100,6 +100,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReportsMetadata"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Reports Metadata"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Successful Response",
@@ -170,6 +187,76 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ReportDetails": {
+        "properties": {
+          "_id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "download_url": {
+            "type": "string",
+            "title": "Download Url"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "_id",
+          "bucket",
+          "filename",
+          "download_url",
+          "createdAt"
+        ],
+        "title": "ReportDetails"
+      },
+      "ReportsMetadata": {
+        "properties": {
+          "risk_report": {
+            "$ref": "#/components/schemas/ReportDetails"
+          },
+          "assessment_report": {
+            "$ref": "#/components/schemas/ReportDetails"
+          },
+          "defence_report": {
+            "$ref": "#/components/schemas/ReportDetails"
+          },
+          "gadgets_report": {
+            "$ref": "#/components/schemas/ReportDetails"
+          },
+          "aimodelinfo_report": {
+            "$ref": "#/components/schemas/ReportDetails"
+          },
+          "euaiact_report": {
+            "$ref": "#/components/schemas/ReportDetails"
+          },
+          "datasets_report": {
+            "$ref": "#/components/schemas/ReportDetails"
+          }
+        },
+        "type": "object",
+        "required": [
+          "risk_report",
+          "assessment_report",
+          "defence_report",
+          "gadgets_report",
+          "aimodelinfo_report",
+          "euaiact_report",
+          "datasets_report"
+        ],
+        "title": "ReportsMetadata"
       },
       "SignedReportResponse": {
         "properties": {

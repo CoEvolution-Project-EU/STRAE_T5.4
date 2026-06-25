@@ -33,6 +33,12 @@ shutdown_event = asyncio.Event()
 
 
 def _handle_shutdown_signal():
+    """Handle termination signals by initiating a clean shutdown.
+
+    Sets the module-level `shutdown_event` so running loops can exit
+    gracefully.
+    """
+
     logger.info("Shutdown signal received")
     shutdown_event.set()
 
@@ -41,6 +47,15 @@ async def consume_messages(
     consumer: AIOKafkaConsumer,
     generator: AIMBOMGenerator,
 ):
+    """Consume Kafka messages and dispatch AIMBOM generation tasks.
+
+    Args:
+        consumer: An `AIOKafkaConsumer` instance to read events from Kafka.
+        generator: An `AIMBOMGenerator` used to process generation requests.
+
+    Returns:
+        None
+    """
     async for message in consumer:
         if shutdown_event.is_set():
             logger.info("Shutdown requested, stopping consumer loop")
@@ -133,6 +148,11 @@ async def consume_messages(
 
 
 async def main():
+    """Entrypoint for the Kafka worker process.
+
+    Sets up the orchestrator storage client, AIMBOM generator and Kafka
+    consumer, runs the consume loop and performs clean shutdown on exit.
+    """
 
     logger.info("Starting STRAE Kafka worker")
 
