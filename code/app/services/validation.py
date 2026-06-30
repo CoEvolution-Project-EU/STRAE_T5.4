@@ -9,7 +9,7 @@ from referencing import Registry, Resource
 
 logger = logging.getLogger(__name__)
 
-SCHEMAS_DIR = Path(__file__).parent / "schemas"
+SCHEMAS_DIR = Path(__file__).parent.parent / "schemas"
 
 CDX_SCHEMA_PATH = SCHEMAS_DIR / "bom-1.7.schema.json"
 SPDX_SCHEMA_PATH = SCHEMAS_DIR / "spdx.schema.json"

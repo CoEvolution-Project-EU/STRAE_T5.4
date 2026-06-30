@@ -7,7 +7,7 @@ from typing import Dict
 from minio import Minio, S3Error
 from minio.datatypes import Object
 
-from app.config import settings
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

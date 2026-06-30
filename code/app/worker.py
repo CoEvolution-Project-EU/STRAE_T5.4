@@ -7,16 +7,16 @@ from contextlib import suppress
 import httpx
 from aiokafka import AIOKafkaConsumer
 
-from app.auth import OrchestratorAuth
-from app.config import settings
-from app.generator import (
+from app.core.auth import OrchestratorAuth
+from app.core.config import settings
+from app.core.logging import setup_logging
+from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
     GeneratorMissingReportError,
     GeneratorStorageError,
 )
-from app.logging import setup_logging
-from app.storage import OrchestratorStorage
+from app.services.storage import OrchestratorStorage
 
 # Configure logging
 log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)

@@ -1,13 +1,13 @@
 from unittest.mock import MagicMock
 
 import pytest
-from app.db import MinioConnectionError, MinioDB
-from app.generator import (
+from app.db.db import MinioConnectionError, MinioDB
+from app.services.generator import (
     AIMBOMGenerator,
     GeneratorMissingReportError,
     GeneratorStorageError,
 )
-from app.storage import MinioStorage
+from app.services.storage import MinioStorage
 
 from tests.utils import (
     MODEL_UUID,

@@ -5,18 +5,18 @@ import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import router as api_router
-from app.auth import OrchestratorAuth
-from app.config import Environment, settings
-from app.db import get_minio_client
-from app.dev import router as dev_router
-from app.logging import setup_logging
-from app.middleware import (
+from app.core.auth import OrchestratorAuth
+from app.core.config import Environment, settings
+from app.core.logging import setup_logging
+from app.core.middleware import (
     ConcurrencyLimitMiddleware,
     RateLimitMiddleware,
     RequestSizeLimitMiddleware,
 )
-from app.storage import MinioStorage, OrchestratorStorage
+from app.db.db import get_minio_client
+from app.routers.api import router as api_router
+from app.routers.dev import router as dev_router
+from app.services.storage import MinioStorage, OrchestratorStorage
 
 # Configure logging
 log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)

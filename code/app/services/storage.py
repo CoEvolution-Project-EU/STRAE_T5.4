@@ -7,12 +7,12 @@ from asyncer import asyncify
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 
-from app.auth import OrchestratorAuth
-from app.config import settings
-from app.db import MinioConnectionError, MinioDB, MinioOperationError
+from app.core.auth import OrchestratorAuth
+from app.core.config import settings
+from app.db.db import MinioConnectionError, MinioDB, MinioOperationError
 from app.models.aimbom import AIMBOM
 from app.models.requests import ReportsMetadata
-from app.utils import AIMBOMTier, uuid_from_serial_number
+from app.utils.utils import AIMBOMTier, uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
 

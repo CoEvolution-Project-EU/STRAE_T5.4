@@ -3,20 +3,20 @@ from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app import signing
-from app.config import Environment, settings
-from app.generator import (
-    AIMBOMGenerator,
-    GeneratorGenerationError,
-    GeneratorMissingReportError,
-    GeneratorStorageError,
-    get_generator,
-)
+from app.core.config import Environment, settings
 from app.models.requests import ReportsMetadata
 from app.models.responses import (
     AIMBOMGeneratedResponse,
     SignedReportResponse,
     StatusResponse,
+)
+from app.services import signing
+from app.services.generator import (
+    AIMBOMGenerator,
+    GeneratorGenerationError,
+    GeneratorMissingReportError,
+    GeneratorStorageError,
+    get_generator,
 )
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,5 @@
 import pytest
-from app.validation import validate_report
+from app.services.validation import validate_report
 
 from tests.utils import AIMBOMS_DIR, load_json
 

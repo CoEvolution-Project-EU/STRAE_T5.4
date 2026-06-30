@@ -1,4 +1,4 @@
-from app.db import MinioOperationError
+from app.db.db import MinioOperationError
 
 
 class MockMinioObjectInfo:

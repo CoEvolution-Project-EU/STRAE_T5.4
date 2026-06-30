@@ -5,8 +5,7 @@ from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
-from app import signing
-from app.config import settings
+from app.core.config import settings
 from app.models.aimbom import (
     AIMBOM,
     Component,
@@ -16,14 +15,16 @@ from app.models.aimbom import (
     Tool,
 )
 from app.models.requests import ReportsMetadata
-from app.storage import (
+from app.services import signing
+from app.services.storage import (
     StorageConnectionError,
     StorageError,
     StorageInterface,
     StorageOperationError,
     get_storage,
 )
-from app.utils import (
+from app.services.validation import validate_report
+from app.utils.utils import (
     REPORT_MODELS,
     REPORT_TO_COMMENT,
     AIMBOMTier,
@@ -33,7 +34,6 @@ from app.utils import (
     utc_now_datetime,
     uuid_from_serial_number,
 )
-from app.validation import validate_report
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 import pytest
 from app.main import app
-from app.storage import MinioStorage, get_storage
+from app.services.storage import MinioStorage, get_storage
 from httpx import ASGITransport, AsyncClient
 
 from tests.utils import MODEL_UUID, MODEL_VERSION, create_new_mock_minio
