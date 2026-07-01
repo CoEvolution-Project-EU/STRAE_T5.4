@@ -13,7 +13,7 @@ from app.core.middleware import (
     RateLimitMiddleware,
     RequestSizeLimitMiddleware,
 )
-from app.db.db import get_minio_client
+from app.db.minio_db import get_minio_client
 from app.routers.api import router as api_router
 from app.routers.dev import router as dev_router
 from app.services.storage import MinioStorage, OrchestratorStorage

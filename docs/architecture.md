@@ -18,7 +18,7 @@ The AIMBOM generation process is responsible for transforming validated reports 
 |----------|--------|-------------|-------|--------|
 | `/api/status` | GET | Health check endpoint for the STRAE API | - | Health Status & Version information |
 | `/api/sign` | POST | Sign the given report | Report payload (JSON format) | Signed report |
-| `/api/generate` | POST | Generate an AIMBOM for the given model UUID and version by aggregating reports from MinIO | model_uuid, model_version, reports_metadata | Confirmation Message & Unique AIMBOM identifier |
+| `/api/generate` | POST | Generate an AIMBOM for the given model UUID and version by aggregating reports from MinIO | model_uuid, model_version, generation_metadata | Confirmation Message & Unique AIMBOM identifier |
 
 ## Kafka worker
 

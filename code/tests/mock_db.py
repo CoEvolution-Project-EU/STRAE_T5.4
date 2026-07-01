@@ -1,4 +1,5 @@
-from app.db.db import MinioOperationError
+from app.db.minio_db import MinioOperationError
+from app.models.requests import GenerationMetadata
 
 
 class MockMinioObjectInfo:
@@ -36,9 +37,13 @@ class MockMinioDB:
             raise MinioOperationError(f"{object_name} not found") from e
 
     def get_reports_for_model(
-        self, bucket_name: str, model_uuid: str, model_version: str
+        self,
+        model_uuid: str,
+        model_version: str,
+        generation_metadata: GenerationMetadata,
     ):
         reports = {}
+        bucket_name = "reports"
 
         prefix = f"{model_uuid}/{model_version}/"
 

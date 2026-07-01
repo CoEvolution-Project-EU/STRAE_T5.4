@@ -42,3 +42,29 @@ def create_new_mock_minio():
     seed_report(db, "aimbom-riskreport.json", "risk_report.json")
 
     return db
+
+
+def get_generation_metadata():
+    return {
+        "risk_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report.json",
+        },
+        "assessment_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/assessment_report.json",
+        },
+        "defence_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/defence_report.json",
+        },
+        "gadgets_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/gadgets_report.json",
+        },
+        "aimodelinfo_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/aimodelinfo_report.json",
+        },
+        "euaiact_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/euaiact_report.json",
+        },
+        "datasets_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/datasets_report.json",
+        },
+    }

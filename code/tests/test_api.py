@@ -3,7 +3,12 @@ from app.main import app
 from app.services.storage import MinioStorage, get_storage
 from httpx import ASGITransport, AsyncClient
 
-from tests.utils import MODEL_UUID, MODEL_VERSION, create_new_mock_minio
+from tests.utils import (
+    MODEL_UUID,
+    MODEL_VERSION,
+    create_new_mock_minio,
+    get_generation_metadata,
+)
 
 
 @pytest.fixture
@@ -61,7 +66,10 @@ async def test_generate_aimbom_success():
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
-        response = await ac.post(f"/api/generate/{model_uuid}/{model_version}")
+        response = await ac.post(
+            f"/api/generate/{model_uuid}/{model_version}",
+            json=get_generation_metadata(),
+        )
 
     assert response.status_code == 201
     data = response.json()
@@ -77,5 +85,8 @@ async def test_generate_aimbom_no_reports():
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
-        response = await ac.post(f"/api/generate/{model_uuid}/{model_version}")
+        response = await ac.post(
+            f"/api/generate/{model_uuid}/{model_version}",
+            json=get_generation_metadata(),
+        )
     assert response.status_code == 409

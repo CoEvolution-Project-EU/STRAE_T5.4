@@ -34,7 +34,7 @@
           "api"
         ],
         "summary": "Sign Report",
-        "description": "Digitally sign a report using the configured signing certificate and private key.\n\nThis endpoint applies a cryptographic signature to the provided report,\nallowing consumers to verify its authenticity and integrity.\n\n**Request Body**\n\n- `report`: A JSON report to be signed.\n\n**Response**\n\nReturns the signed report together with a confirmation message.",
+        "description": "Digitally sign a report using the configured signing certificate and private key.\n\nThis endpoint applies a cryptographic signature to the provided report,\nallowing consumers to verify its authenticity and integrity.\n\n**Request Body**\n\n`report`: A JSON report to be signed.\n\n**Response**\n\nReturns the signed report together with a confirmation message.",
         "operationId": "sign_report_api_sign_post",
         "requestBody": {
           "content": {
@@ -78,8 +78,75 @@
           "api"
         ],
         "summary": "Generate Aimbom",
-        "description": "Generate an AIMBOM for a specific AI model version.\n\nThis endpoint aggregates the provided security reports and generates\nan AI Model Bill of Materials (AIMBOM).\n\n**Environment-specific behavior**\n\n- **Production**: `reports_metadata` is required and is used to retrieve\nthe reports from the Orchestrator.\n- **Development/Test**: `reports_metadata` is optional and reports are\nretrieved directly from the local storage backend.\n\n**Path Parameters**\n\n- `model_uuid`: Unique identifier of the AI model.\n- `model_version`: Version of the AI model.\n\n**Request Body**\n\n- `reports_metadata`: Metadata describing the reports that should be\nincluded in the generated AIMBOM.\n\n**Response**\n\nReturns the serial number and metadata of the generated AIMBOM.",
+        "description": "Generate an AIMBOM for a specific AI model version.\n\nThis endpoint aggregates the provided security reports and generates\nan AI Model Bill of Materials (AIMBOM).\n\n**Path Parameters**\n\n`model_uuid`: Unique identifier of the AI model.\n\n`model_version`: Version of the AI model.\n\n**Request Body**\n\n`generation_metadata`: Metadata describing the reports that should be\nincluded in the generated AIMBOM.\n\n**Response**\n\nReturns the serial number and metadata of the generated AIMBOM.",
         "operationId": "generate_aimbom_api_generate__model_uuid___model_version__post",
+        "parameters": [
+          {
+            "name": "model_uuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Unique identifier of the AI model",
+              "title": "Model Uuid"
+            },
+            "description": "Unique identifier of the AI model",
+            "example": "e6a0d3f2-085a-4a32-8844-454666b293b1"
+          },
+          {
+            "name": "model_version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Version of the AI model",
+              "title": "Model Version"
+            },
+            "description": "Version of the AI model",
+            "example": "v1.0"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationMetadata"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIMBOMGeneratedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dev/{model_uuid}/{model_version}/reports/{report_name}": {
+      "post": {
+        "tags": [
+          "dev"
+        ],
+        "summary": "Save Report",
+        "operationId": "save_report_dev__model_uuid___model_version__reports__report_name__post",
         "parameters": [
           {
             "name": "model_uuid",
@@ -98,32 +165,36 @@
               "type": "string",
               "title": "Model Version"
             }
+          },
+          {
+            "name": "report_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Name"
+            }
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/ReportsMetadata"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Reports Metadata"
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Report"
               }
             }
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AIMBOMGeneratedResponse"
+                  "$ref": "#/components/schemas/ReportSavedResponse"
                 }
               }
             }
@@ -175,54 +246,7 @@
         ],
         "title": "AIMBOMGeneratedResponse"
       },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
-      },
-      "ReportDetails": {
-        "properties": {
-          "_id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "bucket": {
-            "type": "string",
-            "title": "Bucket"
-          },
-          "filename": {
-            "type": "string",
-            "title": "Filename"
-          },
-          "download_url": {
-            "type": "string",
-            "title": "Download Url"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Createdat"
-          }
-        },
-        "type": "object",
-        "required": [
-          "_id",
-          "bucket",
-          "filename",
-          "download_url",
-          "createdAt"
-        ],
-        "title": "ReportDetails"
-      },
-      "ReportsMetadata": {
+      "GenerationMetadata": {
         "properties": {
           "risk_report": {
             "$ref": "#/components/schemas/ReportDetails"
@@ -256,7 +280,140 @@
           "euaiact_report",
           "datasets_report"
         ],
-        "title": "ReportsMetadata"
+        "title": "GenerationMetadata",
+        "examples": [
+          {
+            "aimodelinfo_report": {
+              "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/aimodelinfo_report.json"
+            },
+            "assessment_report": {
+              "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report.json"
+            },
+            "datasets_report": {
+              "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/datasets_report.json"
+            },
+            "defence_report": {
+              "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/defence_report.json"
+            },
+            "euaiact_report": {
+              "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/euaiact_report.json"
+            },
+            "gadgets_report": {
+              "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/gadgets_report.json"
+            },
+            "risk_report": {
+              "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report.json"
+            }
+          }
+        ]
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ReportDetails": {
+        "properties": {
+          "_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "bucket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bucket"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "download_url": {
+            "type": "string",
+            "title": "Download Url"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "download_url"
+        ],
+        "title": "ReportDetails"
+      },
+      "ReportSavedResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "report_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Report Name"
+          },
+          "model_uuid": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Model Uuid"
+          },
+          "model_version": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Model Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail",
+          "id",
+          "report_name",
+          "model_uuid",
+          "model_version"
+        ],
+        "title": "ReportSavedResponse"
       },
       "SignedReportResponse": {
         "properties": {

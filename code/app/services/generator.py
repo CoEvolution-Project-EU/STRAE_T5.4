@@ -14,7 +14,7 @@ from app.models.aimbom import (
     Supplier,
     Tool,
 )
-from app.models.requests import ReportsMetadata
+from app.models.requests import GenerationMetadata
 from app.services import signing
 from app.services.storage import (
     StorageConnectionError,
@@ -80,7 +80,7 @@ class AIMBOMGenerator:
         self,
         model_uuid: str,
         model_version: str,
-        reports_metadata: ReportsMetadata | None,
+        generation_metadata: GenerationMetadata | None,
     ) -> AIMBOM:
         """Run the full AIMBOM generation pipeline.
 
@@ -91,7 +91,7 @@ class AIMBOMGenerator:
         Args:
             model_uuid: Unique identifier of the AI model.
             model_version: Version string of the AI model.
-            reports_metadata: Optional metadata used to fetch reports from an
+            generation_metadata: Optional metadata used to fetch reports from an
                 external orchestrator.
 
         Returns:
@@ -110,7 +110,7 @@ class AIMBOMGenerator:
         # 2 -> If it doesn't exist, we proceed with the generation as normal.
 
         reports = await self._retrieve_reports(
-            model_uuid, model_version, reports_metadata
+            model_uuid, model_version, generation_metadata
         )
         aimbom = self._create_aimbom_from_reports(reports)
         await self._save_aimbom_to_bucket(model_uuid, model_version, aimbom)
@@ -126,14 +126,14 @@ class AIMBOMGenerator:
         self,
         model_uuid: str,
         model_version: str,
-        reports_metadata: ReportsMetadata | None,
+        generation_metadata: GenerationMetadata | None,
     ) -> dict[ReportType, ReportModel]:
         """Retrieve and validate the set of required reports for a model.
 
         Args:
             model_uuid: Model UUID to fetch reports for.
             model_version: Model version to fetch reports for.
-            reports_metadata: Optional metadata used by orchestrator-backed storage.
+            generation_metadata: Optional metadata used by orchestrator-backed storage.
 
         Returns:
             A mapping of `ReportType` to validated report model instances.
@@ -161,7 +161,7 @@ class AIMBOMGenerator:
         # if we have new reports for the same model_uuid and model_version.
         try:
             retrieved_reports = await self.storage.get_reports_for_model(
-                model_uuid, model_version, reports_metadata
+                model_uuid, model_version, generation_metadata
             )
         except StorageConnectionError as e:
             logger.error(

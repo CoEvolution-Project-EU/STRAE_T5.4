@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 
 from app.core.config import settings
-from app.db.db import MinioDB, MinioError, get_minio_client
+from app.db.minio_db import MinioDB, MinioError, get_minio_client
 from app.models.responses import ReportSavedResponse
 
 # !This router is excluded from production and should only be used for development!

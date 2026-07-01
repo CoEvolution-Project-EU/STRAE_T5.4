@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
-from app.db.db import MinioConnectionError, MinioDB
+from app.db.minio_db import MinioConnectionError, MinioDB
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorMissingReportError,

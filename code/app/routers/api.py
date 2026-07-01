@@ -1,10 +1,10 @@
 import logging
-from typing import Dict
+from typing import Annotated, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 
-from app.core.config import Environment, settings
-from app.models.requests import ReportsMetadata
+from app.core.config import settings
+from app.models.requests import GenerationMetadata
 from app.models.responses import (
     AIMBOMGeneratedResponse,
     SignedReportResponse,
@@ -58,7 +58,7 @@ def sign_report(report: Dict):
 
     **Request Body**
 
-    - `report`: A JSON report to be signed.
+    `report`: A JSON report to be signed.
 
     **Response**
 
@@ -88,9 +88,18 @@ def sign_report(report: Dict):
     status_code=status.HTTP_201_CREATED,
 )
 async def generate_aimbom(
-    model_uuid: str,
-    model_version: str,
-    reports_metadata: ReportsMetadata | None = None,
+    model_uuid: Annotated[
+        str,
+        Path(
+            description="Unique identifier of the AI model",
+            example="e6a0d3f2-085a-4a32-8844-454666b293b1",
+        ),
+    ],
+    model_version: Annotated[
+        str,
+        Path(description="Version of the AI model", example="v1.0"),
+    ],
+    generation_metadata: GenerationMetadata,
     generator: AIMBOMGenerator = Depends(get_generator),
 ):
     """
@@ -99,37 +108,21 @@ async def generate_aimbom(
     This endpoint aggregates the provided security reports and generates
     an AI Model Bill of Materials (AIMBOM).
 
-    **Environment-specific behavior**
-
-    - **Production**: `reports_metadata` is required and is used to retrieve
-    the reports from the Orchestrator.
-    - **Development/Test**: `reports_metadata` is optional and reports are
-    retrieved directly from the local storage backend.
-
     **Path Parameters**
 
-    - `model_uuid`: Unique identifier of the AI model.
-    - `model_version`: Version of the AI model.
+    `model_uuid`: Unique identifier of the AI model.
+
+    `model_version`: Version of the AI model.
 
     **Request Body**
 
-    - `reports_metadata`: Metadata describing the reports that should be
+    `generation_metadata`: Metadata describing the reports that should be
     included in the generated AIMBOM.
 
     **Response**
 
     Returns the serial number and metadata of the generated AIMBOM.
     """
-
-    # In production, we require the client to provide the reports metadata to get the download URLs for the reports.
-    # In development/testing, we can allow it to be optional as the generator fetches the metadata from MinIO directly.
-    # TODO: We might want to unify this behavior in the future by always requiring the metadata and having the client
-    # provide the download URLs for all environments, but for now this allows us to keep the development experience simpler.
-    if settings.ENVIRONMENT == Environment.prod and reports_metadata is None:
-        raise HTTPException(
-            status_code=422,
-            detail="Request Body (reports_metadata) is required in production",
-        )
 
     logger.info(
         "AIMBOM generation requested for model_uuid=%s, model_version=%s",
@@ -138,7 +131,9 @@ async def generate_aimbom(
     )
 
     try:
-        aimbom = await generator.generate(model_uuid, model_version, reports_metadata)
+        aimbom = await generator.generate(
+            model_uuid, model_version, generation_metadata
+        )
     except GeneratorMissingReportError as e:
         logger.warning("Missing reports for model_uuid=%s: %s", model_uuid, e)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))

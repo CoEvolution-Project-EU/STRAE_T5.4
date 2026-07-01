@@ -9,9 +9,9 @@ from fastapi.encoders import jsonable_encoder
 
 from app.core.auth import OrchestratorAuth
 from app.core.config import settings
-from app.db.db import MinioConnectionError, MinioDB, MinioOperationError
+from app.db.minio_db import MinioConnectionError, MinioDB, MinioOperationError
 from app.models.aimbom import AIMBOM
-from app.models.requests import ReportsMetadata
+from app.models.requests import GenerationMetadata
 from app.utils.utils import AIMBOMTier, uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class StorageInterface(Protocol):
         self,
         model_uuid: str,
         model_version: str,
-        reports_metadata: dict[str, dict] | None,
+        generation_metadata: dict[str, dict] | None,
     ) -> Dict: ...
 
     async def save_aimbom(
@@ -66,24 +66,30 @@ class MinioStorage(StorageInterface):
         self,
         model_uuid: str,
         model_version: str,
-        reports_metadata: ReportsMetadata | None,
+        generation_metadata: GenerationMetadata | None,
     ) -> Dict:
         """Retrieve reports for a given model/version from MinIO.
 
         Args:
             model_uuid: Model UUID used as object prefix.
             model_version: Model version used as object prefix.
-            reports_metadata: Not used for MinIO backend; present for API compatibility.
+            generation_metadata: Not used for MinIO backend; present for API compatibility.
 
         Returns:
             Mapping of report name to parsed report JSON.
         """
 
         try:
+            logger.debug(
+                "Retrieving reports for model_uuid=%s model_version=%s from MinIO",
+                model_uuid,
+                model_version,
+            )
+
             return await asyncify(self.minio.get_reports_for_model)(
-                bucket_name=settings.REPORTS_BUCKET,
                 model_uuid=model_uuid,
                 model_version=model_version,
+                generation_metadata=generation_metadata,
             )
         except MinioConnectionError as e:
             raise StorageConnectionError(str(e)) from e
@@ -155,14 +161,14 @@ class OrchestratorStorage(StorageInterface):
         self,
         model_uuid: str,
         model_version: str,
-        reports_metadata: ReportsMetadata | None,
+        generation_metadata: GenerationMetadata | None,
     ) -> Dict:
         """Retrieve reports from the orchestrator using provided metadata.
 
         Args:
             model_uuid: Model UUID used for logging/context only.
             model_version: Model version used for logging/context only.
-            reports_metadata: A `ReportsMetadata` instance containing download URLs.
+            generation_metadata: A `GenerationMetadata` instance containing download URLs.
 
         Returns:
             Mapping of report type keys to parsed JSON report objects.
@@ -182,8 +188,13 @@ class OrchestratorStorage(StorageInterface):
 
         try:
             # TODO: Retrieve reports concurrently
-            for report_type, metadata in reports_metadata.model_dump().items():
-                print(f"Report metadata for {report_type}: {metadata}")
+            for report_type, metadata in generation_metadata.model_dump().items():
+                logger.debug(
+                    "Downloading report type=%s from orchestrator for model_uuid=%s model_version=%s",
+                    report_type,
+                    model_uuid,
+                    model_version,
+                )
 
                 response = await self.client.get(
                     metadata["download_url"],

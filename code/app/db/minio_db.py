@@ -5,8 +5,8 @@ from io import BytesIO
 from typing import Dict
 
 from app.core.config import settings
+from app.models.requests import GenerationMetadata
 from minio import Minio, S3Error
-from minio.datatypes import Object
 
 logger = logging.getLogger(__name__)
 
@@ -111,36 +111,6 @@ class MinioDB:
                 f"Failed to upload object '{object_name}' to bucket '{bucket_name}': {e}"
             ) from e
 
-    def list_objects_in_bucket(
-        self, bucket_name: str, prefix: str = ""
-    ) -> list[Object]:
-        """List objects in a bucket optionally filtered by prefix.
-
-        Args:
-            bucket_name: Target bucket name.
-            prefix: Optional prefix to filter objects.
-
-        Returns:
-            A list of `minio.datatypes.Object` instances.
-        """
-
-        try:
-            return list(
-                self.client.list_objects(
-                    bucket_name=bucket_name,
-                    prefix=prefix,
-                    recursive=True,
-                )
-            )
-        except S3Error as e:
-            raise MinioOperationError(
-                f"S3 error while listing objects in bucket '{bucket_name}': {e}"
-            ) from e
-        except Exception as e:
-            raise MinioConnectionError(
-                f"Failed to list objects in bucket '{bucket_name}': {e}"
-            ) from e
-
     def get_json(
         self,
         bucket_name: str,
@@ -184,38 +154,44 @@ class MinioDB:
                 response.release_conn()
 
     def get_reports_for_model(
-        self, bucket_name: str, model_uuid: str, model_version: str
+        self,
+        model_uuid: str,
+        model_version: str,
+        generation_metadata: GenerationMetadata,
     ) -> Dict:
         """Retrieve all report JSON files for a given model/version prefix.
 
         Args:
-            bucket_name: Bucket to scan for reports.
             model_uuid: Model UUID used as prefix.
             model_version: Model version used as prefix.
+            generation_metadata: Metadata containing download URLs for each report type.
 
         Returns:
             Mapping of object basename (without .json) to parsed JSON content.
-
-        Raises:
-            MinioOperationError: If no reports are found or S3 operations fail.
         """
 
         reports = {}
-        prefix = f"{model_uuid}/{model_version}/"
 
-        objects = self.list_objects_in_bucket(bucket_name=bucket_name, prefix=prefix)
-
-        if not objects:
-            raise MinioOperationError(
-                f"No reports found for model_uuid={model_uuid}, model_version={model_version} in bucket '{bucket_name}' with prefix '{prefix}'"
+        for report_type, metadata in generation_metadata.model_dump().items():
+            logger.debug(
+                "Downloading report type=%s from orchestrator for model_uuid=%s model_version=%s",
+                report_type,
+                model_uuid,
+                model_version,
             )
 
-        for obj in objects:
-            if not obj.object_name.endswith(".json"):
+            download_url = metadata.get("download_url")
+            if not download_url:
+                logger.warning(
+                    "No download URL for report type=%s for model_uuid=%s model_version=%s",
+                    report_type,
+                    model_uuid,
+                    model_version,
+                )
                 continue
 
-            data = self.get_json(bucket_name, obj.object_name)
-            reports[obj.object_name.split("/")[-1].replace(".json", "")] = data
+            bucket_name, object_name = download_url.split("/", 1)
+            reports[report_type] = self.get_json(bucket_name, object_name)
 
         return reports
 
