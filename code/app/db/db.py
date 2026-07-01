@@ -4,10 +4,9 @@ from functools import lru_cache
 from io import BytesIO
 from typing import Dict
 
+from app.core.config import settings
 from minio import Minio, S3Error
 from minio.datatypes import Object
-
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +40,8 @@ class MinioDB:
         try:
             self.client = Minio(
                 endpoint=settings.MINIO_ENDPOINT,
-                access_key=settings.MINIO_ACCESS_KEY,
-                secret_key=settings.MINIO_SECRET_KEY,
+                access_key=settings.MINIO_ROOT_USER,
+                secret_key=settings.MINIO_ROOT_PASSWORD,
                 secure=settings.MINIO_SECURE,
             )
         except Exception as e:

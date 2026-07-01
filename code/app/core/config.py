@@ -34,8 +34,8 @@ class Settings(BaseSettings):
 
     # MinIO configuration (from .env)
     MINIO_ENDPOINT: str = "minio:9000"
-    MINIO_ACCESS_KEY: str = "minioadmin"
-    MINIO_SECRET_KEY: str = "minioadmin"
+    MINIO_ROOT_USER: str = "minioadmin"
+    MINIO_ROOT_PASSWORD: str = "minioadmin"
     MINIO_SECURE: bool = False
 
     # Hardcoded in the docker-compose file, based on docker profile.
