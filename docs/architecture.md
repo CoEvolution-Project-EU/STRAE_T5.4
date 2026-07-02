@@ -12,32 +12,62 @@ The AIMBOM generation process is responsible for transforming validated reports 
 
 ![AIMBOM Generation Flow](graphics/AIMBOM_Generation.png)
 
+## System Overview
+
+STRAE is organized as a modular FastAPI application with a clear separation between HTTP entrypoints, background processing, external integrations, and domain services. The API layer accepts generation and signing requests, while a dedicated worker handles asynchronous generation jobs from a message broker. Shared services are responsible for validation, generation, signing, authentication, storage access, and orchestration with external systems.
+
+## Core Components
+
+- API layer: Exposes the public HTTP endpoints and coordinates request validation, business logic, and response formatting.
+- AIMBOM Generator: Consolidates validated report payloads into the structured AIMBOM schema used by STRAE and ensures the final artifact follows the expected format.
+- Report Gathering: Retrieves report payloads from the orchestrator/storage backend, resolves download URLs, and ensures all required source documents are available before generation.
+- Signing: Applies digital signing to reports and generated AIMBOMs as needed, ensuring integrity and provenance for downstream consumers.
+- Worker process: Consumes generation tasks from Kafka, decouples asynchronous execution from the API, and retries or skips work based on failure type.
+
+## Request and Processing Flow
+
+1. A client submits a generation request through the API with a model UUID, model version, and generation metadata.
+2. The API validates the request, prepares the required context, and either processes the task synchronously or publishes it for asynchronous execution.
+3. The application downloads the referenced reports from the configured storage/orchestrator source.
+4. Each report is validated for schema compliance, completeness, and integrity before being used in AIMBOM generation.
+5. The generator combines the validated inputs into a structured AIMBOM representation and optionally signs the output.
+6. The resulting AIMBOM is stored in the security assurance store and returned to the caller or queued worker for follow-up processing.
+
+## Security and Reliability Considerations
+
+- Authentication is handled centrally so that external storage and orchestration calls can be authorized consistently.
+- HTTP and storage errors are surfaced as typed exceptions to distinguish connection failures from operational issues.
+- The worker uses controlled message handling so that malformed payloads and transient failures do not permanently block the queue.
+- Logging is used throughout the pipeline to trace model UUIDs, versions, report types, and upload/download outcomes.
+
 ## API Endpoints
 
 | Endpoint | Method | Description | Input | Output |
 |----------|--------|-------------|-------|--------|
-| `/api/status` | GET | Health check endpoint for the STRAE API | - | Health Status & Version information |
-| `/api/sign` | POST | Sign the given report | Report payload (JSON format) | Signed report |
-| `/api/generate` | POST | Generate an AIMBOM for the given model UUID and version by aggregating reports from MinIO | model_uuid, model_version, generation_metadata | Confirmation Message & Unique AIMBOM identifier |
+| `/api/status` | GET | Health check endpoint for the STRAE API | - | Health status and version information |
+| `/api/sign` | POST | Signs a provided report payload | Report payload (JSON) | Signed report |
+| `/api/generate` | POST | Generates an AIMBOM for a given model UUID and version by aggregating reports from the configured storage backend | `model_uuid`, `model_version`, `generation_metadata` | Confirmation message and AIMBOM identifier |
 
-## Kafka worker
+## Kafka Worker
 
-The Kafka worker is responsible for enabling asynchronous AIMBOM generation within the STR Assurance Engine. It decouples request submission from processing by consuming generation tasks from a Kafka topic and executing them independently of the API layer.
+The Kafka worker enables asynchronous AIMBOM generation by decoupling request submission from processing. It consumes generation tasks from a configured Kafka topic and executes them independently of the API layer.
 
-The worker subscribes to a configured Kafka topic and listens for messages containing AIMBOM generation requests. Each message includes a target model identifier, version, and associated report references. Upon receiving a valid event, the worker retrieves the required data through the Orchestrator API, triggers the AIMBOM generation pipeline, and persists the resulting AIMBOM to the Security Assurance Pool.
-
-If processing succeeds, the Kafka offset is committed. In case of recoverable errors (such as missing reports or transient storage issues), the worker may delay or skip committing offsets to allow for retries, depending on the failure type. Invalid or malformed messages are safely discarded to prevent blocking the queue.
-
-The worker is designed to run as a long-lived background service and does not expose any HTTP endpoints.
+For each message, the worker validates the payload, retrieves the required reports through the orchestrator integration layer, triggers the AIMBOM generation pipeline, and persists the resulting artifact in the security assurance store. Successful processing commits the Kafka offset, while recoverable errors can defer commitment to support retry behavior. Invalid or malformed messages are discarded to avoid blocking the queue.
 
 ### Kafka Worker Processing Flow
 - Consume message from Kafka topic
-- Validate payload (model_uuid, version, reports)
-- Retrieve required reports via Orchestrator API
+- Validate payload (`model_uuid`, `version`, `reports`)
+- Retrieve required reports via orchestrator API
 - Execute AIMBOM generation
-- Store generated AIMBOM in the Security Assurance Pool
+- Store generated AIMBOM in the security assurance pool
 - Commit Kafka offset on success or controlled failure
 
 ## Technological Tools
 
-(Update this section)
+- Python 3 with FastAPI for the API layer
+- Pydantic models for request/response validation and structured payloads
+- HTTPX for asynchronous outbound requests to external services
+- Kafka for background task processing and decoupled execution
+- MinIO-compatible object storage for report and AIMBOM persistence
+- Docker Compose for local deployment and service orchestration
+- pytest for automated testing of API, generation, validation, and signing flows

@@ -139,78 +139,6 @@
           }
         }
       }
-    },
-    "/dev/{model_uuid}/{model_version}/reports/{report_name}": {
-      "post": {
-        "tags": [
-          "dev"
-        ],
-        "summary": "Save Report",
-        "operationId": "save_report_dev__model_uuid___model_version__reports__report_name__post",
-        "parameters": [
-          {
-            "name": "model_uuid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Model Uuid"
-            }
-          },
-          {
-            "name": "model_version",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Model Version"
-            }
-          },
-          {
-            "name": "report_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Report Name"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Report"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReportSavedResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -221,10 +149,10 @@
             "type": "string",
             "title": "Detail"
           },
-          "id": {
+          "aimbom_uuid": {
             "type": "string",
             "minLength": 1,
-            "title": "Id"
+            "title": "Aimbom Uuid"
           },
           "model_uuid": {
             "type": "string",
@@ -240,7 +168,7 @@
         "type": "object",
         "required": [
           "detail",
-          "id",
+          "aimbom_uuid",
           "model_uuid",
           "model_version"
         ],
@@ -377,43 +305,6 @@
           "download_url"
         ],
         "title": "ReportDetails"
-      },
-      "ReportSavedResponse": {
-        "properties": {
-          "detail": {
-            "type": "string",
-            "title": "Detail"
-          },
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Id"
-          },
-          "report_name": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Report Name"
-          },
-          "model_uuid": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Model Uuid"
-          },
-          "model_version": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Model Version"
-          }
-        },
-        "type": "object",
-        "required": [
-          "detail",
-          "id",
-          "report_name",
-          "model_uuid",
-          "model_version"
-        ],
-        "title": "ReportSavedResponse"
       },
       "SignedReportResponse": {
         "properties": {
