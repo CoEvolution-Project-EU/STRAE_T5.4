@@ -1,13 +1,13 @@
 from unittest.mock import MagicMock
 
 import pytest
-from app.db.minio_db import MinioConnectionError, MinioDB
+from app.clients.base import StorageConnectionError
+from app.clients.minio_client import MinioClient
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorMissingReportError,
     GeneratorStorageError,
 )
-from app.services.storage import MinioStorage
 
 from tests.utils import (
     MODEL_UUID,
@@ -23,9 +23,8 @@ async def test_generate_success():
     model_version = MODEL_VERSION
 
     minio = create_new_mock_minio()
-    storage = MinioStorage(minio)
 
-    generator = AIMBOMGenerator(storage)
+    generator = AIMBOMGenerator(minio)
 
     aimbom = await generator.generate(model_uuid, model_version, None)
 
@@ -38,9 +37,8 @@ async def test_generate_missing_reports():
     model_version = MODEL_VERSION
 
     minio = create_empty_mock_minio()
-    storage = MinioStorage(minio)
 
-    generator = AIMBOMGenerator(storage)
+    generator = AIMBOMGenerator(minio)
 
     with pytest.raises(GeneratorMissingReportError):
         await generator.generate(model_uuid, model_version, None)
@@ -51,11 +49,10 @@ async def test_minio_connection_failure():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
 
-    minio = MagicMock(spec=MinioDB)
-    minio.get_reports_for_model.side_effect = MinioConnectionError("MinIO down")
-    storage = MinioStorage(minio)
+    minio = MagicMock(spec=MinioClient)
+    minio.get_reports_for_model.side_effect = StorageConnectionError("MinIO down")
 
-    generator = AIMBOMGenerator(storage)
+    generator = AIMBOMGenerator(minio)
 
     with pytest.raises(GeneratorStorageError):
         await generator.generate(model_uuid, model_version, None)
@@ -65,7 +62,7 @@ async def test_minio_connection_failure():
 # def test_invalid_report_data():
 #     model_uuid = "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
 
-#     minio = MagicMock(spec=MinioDB)
+#     minio = MagicMock(spec=MinioClient)
 
 #     obj = MagicMock()
 #     obj.object_name = "4ff2dab7-bffe-414d-88a5-1826b9fea8df/bad.json"

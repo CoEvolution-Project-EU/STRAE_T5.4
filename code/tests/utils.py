@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from tests.mock_db import MockMinioDB
+from tests.mock_db import MockMinioClient
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "data/reports"
 AIMBOMS_DIR = Path(__file__).resolve().parent.parent / "data/aimboms"
@@ -14,7 +14,7 @@ def load_json(path: Path):
         return json.load(f)
 
 
-def seed_report(db: MockMinioDB, filename: str, object_name: str):
+def seed_report(db: MockMinioClient, filename: str, object_name: str):
     data = load_json(REPORTS_DIR / filename)
     db.upload_json(
         "reports",
@@ -24,7 +24,7 @@ def seed_report(db: MockMinioDB, filename: str, object_name: str):
 
 
 def create_empty_mock_minio():
-    db = MockMinioDB()
+    db = MockMinioClient()
     db.create_bucket("reports")
     db.create_bucket("aimboms")
     return db

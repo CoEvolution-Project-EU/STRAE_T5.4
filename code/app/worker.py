@@ -4,10 +4,9 @@ import logging
 import signal
 from contextlib import suppress
 
-import httpx
 from aiokafka import AIOKafkaConsumer
 
-from app.core.auth import OrchestratorAuth
+from app.clients.orchestrator_client import get_orchestrator_client
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.services.generator import (
@@ -16,7 +15,6 @@ from app.services.generator import (
     GeneratorMissingReportError,
     GeneratorStorageError,
 )
-from app.services.storage import OrchestratorStorage
 
 # Configure logging
 log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)
@@ -156,17 +154,12 @@ async def main():
 
     logger.info("Starting STRAE Kafka worker")
 
-    storage = None
+    client = None
     consumer = None
 
     try:
-        client = httpx.AsyncClient(
-            base_url=settings.ORCHESTRATOR_API_BASE_URL,
-        )
-        auth = OrchestratorAuth()
-        storage = OrchestratorStorage(client=client, auth=auth)
-
-        generator = AIMBOMGenerator(storage)
+        client = get_orchestrator_client()
+        generator = AIMBOMGenerator(client)
 
         consumer = AIOKafkaConsumer(
             settings.KAFKA_TOPIC,
@@ -205,11 +198,11 @@ async def main():
             with suppress(Exception):
                 await consumer.stop()
 
-        if storage is not None:
-            logger.info("Closing storage client")
+        if client is not None:
+            logger.info("Closing client connection")
 
             with suppress(Exception):
-                await storage.close()
+                await client.close()
 
         logger.info("Worker shutdown completed")
 

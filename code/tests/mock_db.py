@@ -1,5 +1,9 @@
-from app.db.minio_db import MinioOperationError
+from typing import Dict
+
+from app.clients.base import StorageClient, StorageOperationError
+from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
+from app.utils.utils import AIMBOMTier
 
 
 class MockMinioObjectInfo:
@@ -7,7 +11,7 @@ class MockMinioObjectInfo:
         self.object_name = object_name
 
 
-class MockMinioDB:
+class MockMinioClient(StorageClient):
     def __init__(self):
         # bucket_name -> { object_name: data }
         self.buckets = {}
@@ -34,9 +38,9 @@ class MockMinioDB:
         try:
             return self.buckets[bucket_name][object_name]
         except KeyError as e:
-            raise MinioOperationError(f"{object_name} not found") from e
+            raise StorageOperationError(f"{object_name} not found") from e
 
-    def get_reports_for_model(
+    async def get_reports_for_model(
         self,
         model_uuid: str,
         model_version: str,
@@ -49,7 +53,7 @@ class MockMinioDB:
 
         objects = self.list_objects_in_bucket(bucket_name=bucket_name, prefix=prefix)
         if not objects:
-            raise MinioOperationError(
+            raise StorageOperationError(
                 f"No reports found for model_uuid={model_uuid}, model_version={model_version} in bucket '{bucket_name}' with prefix '{prefix}'"
             )
 
@@ -62,3 +66,14 @@ class MockMinioDB:
             reports[obj.object_name.split("/")[-1].replace(".json", "")] = data
 
         return reports
+
+    async def save_aimbom(
+        self,
+        model_uuid: str,
+        model_version: str,
+        tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
+    ):
+        bucket_name = "aimboms"
+        for tier, aimbom in tiered_aimbom.items():
+            object_name = f"{model_uuid}/{model_version}/{tier.value}.json"
+            self.upload_json(bucket_name, object_name, aimbom.model_dump())

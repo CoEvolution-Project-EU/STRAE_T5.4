@@ -18,6 +18,7 @@ from app.services.generator import (
     GeneratorStorageError,
     get_generator,
 )
+from app.utils.utils import uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
 
@@ -155,16 +156,18 @@ async def generate_aimbom(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
+    aimbom_uuid = uuid_from_serial_number(aimbom.serial_number)
+
     logger.info(
         "AIMBOM generated: model_uuid=%s, model_version=%s, serial_number=%s",
         model_uuid,
         model_version,
-        aimbom.serial_number,
+        aimbom_uuid,
     )
 
     return AIMBOMGeneratedResponse(
         detail="AIMBOM generated successfully",
-        id=aimbom.serial_number,
+        aimbom_uuid=aimbom_uuid,
         model_uuid=model_uuid,
         model_version=model_version,
     )

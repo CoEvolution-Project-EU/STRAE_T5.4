@@ -4,49 +4,31 @@ from functools import lru_cache
 from io import BytesIO
 from typing import Dict
 
+from app.clients.base import (
+    StorageClient,
+    StorageConnectionError,
+    StorageOperationError,
+)
 from app.core.config import settings
+from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
+from app.utils.utils import AIMBOMTier, uuid_from_serial_number
+from asyncer import asyncify
+from fastapi.encoders import jsonable_encoder
 from minio import Minio, S3Error
 
 logger = logging.getLogger(__name__)
 
 
-class MinioError(Exception):
-    """Base exception for MinIO errors."""
-
-    pass
-
-
-class MinioConnectionError(MinioError):
-    """Minio connection error."""
-
-    pass
-
-
-class MinioOperationError(MinioError):
-    """Minio operation error."""
-
-    pass
-
-
-class MinioDB:
-    def __init__(self):
+class MinioClient(StorageClient):
+    def __init__(self, client: Minio):
         """Initialize the MinIO client wrapper.
 
         Creates a `Minio` client using settings from the configuration. Raises
-        `MinioConnectionError` if initialization fails.
+        `StorageConnectionError` if initialization fails.
         """
 
-        try:
-            self.client = Minio(
-                endpoint=settings.MINIO_ENDPOINT,
-                access_key=settings.MINIO_ROOT_USER,
-                secret_key=settings.MINIO_ROOT_PASSWORD,
-                secure=settings.MINIO_SECURE,
-            )
-        except Exception as e:
-            raise MinioConnectionError(f"Failed to initialize MinIO client: {e}") from e
-
+        self.client = client
         logger.info("MinIO client initialized")
 
     def create_bucket(self, bucket_name: str) -> None:
@@ -66,11 +48,11 @@ class MinioDB:
             else:
                 logger.debug("Bucket %s already exists", bucket_name)
         except S3Error as e:
-            raise MinioOperationError(
+            raise StorageOperationError(
                 f"S3 error while ensuring bucket '{bucket_name}': {e}"
             ) from e
         except Exception as e:
-            raise MinioConnectionError(
+            raise StorageConnectionError(
                 f"Failed to ensure bucket '{bucket_name}': {e}"
             ) from e
 
@@ -103,11 +85,11 @@ class MinioDB:
                 content_type="application/vnd.cyclonedx+json",
             )
         except S3Error as e:
-            raise MinioOperationError(
+            raise StorageOperationError(
                 f"S3 error while uploading '{object_name}' to bucket '{bucket_name}': {e}"
             ) from e
         except Exception as e:
-            raise MinioConnectionError(
+            raise StorageConnectionError(
                 f"Failed to upload object '{object_name}' to bucket '{bucket_name}': {e}"
             ) from e
 
@@ -126,8 +108,8 @@ class MinioDB:
             The parsed JSON payload as a `dict`.
 
         Raises:
-            MinioOperationError: On S3 errors.
-            MinioConnectionError: On transport/connection errors.
+            StorageOperationError: On S3 errors.
+            StorageConnectionError: On transport/connection errors.
 
         Ensures the response stream is properly closed after reading.
         """
@@ -140,11 +122,11 @@ class MinioDB:
                     object_name=object_name,
                 )
             except S3Error as e:
-                raise MinioOperationError(
+                raise StorageOperationError(
                     f"S3 operation failed for '{object_name}' in bucket '{bucket_name}': {e}"
                 ) from e
             except Exception as e:
-                raise MinioConnectionError(
+                raise StorageConnectionError(
                     f"Failed to retrieve object '{object_name}' from bucket '{bucket_name}': {e}"
                 ) from e
             return json.loads(response.read())
@@ -153,7 +135,7 @@ class MinioDB:
                 response.close()
                 response.release_conn()
 
-    def get_reports_for_model(
+    async def get_reports_for_model(
         self,
         model_uuid: str,
         model_version: str,
@@ -191,17 +173,48 @@ class MinioDB:
                 continue
 
             bucket_name, object_name = download_url.split("/", 1)
-            reports[report_type] = self.get_json(bucket_name, object_name)
+            reports[report_type] = await asyncify(self.get_json)(
+                bucket_name=bucket_name,
+                object_name=object_name,
+            )
 
         return reports
 
+    async def save_aimbom(
+        self,
+        model_uuid: str,
+        model_version: str,
+        tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
+    ):
+        for tier, aimbom in tiered_aimbom.items():
+            logger.debug(
+                "Saving AIMBOM tier %s to bucket for model_uuid=%s, model_version=%s, serial_number=%s",
+                tier.value,
+                model_uuid,
+                model_version,
+                aimbom.serial_number,
+            )
+
+            await asyncify(self.upload_json)(
+                bucket_name=settings.AIMBOMS_BUCKET,
+                object_name=f"{model_uuid}/{model_version}/{uuid_from_serial_number(aimbom.serial_number)}-{tier.value}.json",
+                data=jsonable_encoder(aimbom, exclude_none=True),
+            )
+
 
 @lru_cache
-def get_minio_client() -> MinioDB:
-    """Return a cached `MinioDB` instance for the application.
+def get_minio_client() -> MinioClient:
+    """Return a cached `MinioClient` instance for the application.
 
     Returns:
-        A `MinioDB` instance.
+        A `MinioClient` instance.
     """
 
-    return MinioDB()
+    return MinioClient(
+        client=Minio(
+            endpoint=settings.MINIO_ENDPOINT,
+            access_key=settings.MINIO_ROOT_USER,
+            secret_key=settings.MINIO_ROOT_PASSWORD,
+            secure=settings.MINIO_SECURE,
+        )
+    )

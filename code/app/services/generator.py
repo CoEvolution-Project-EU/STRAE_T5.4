@@ -5,6 +5,13 @@ from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
+from app.clients.base import (
+    StorageClient,
+    StorageConnectionError,
+    StorageError,
+    StorageOperationError,
+    get_storage_client,
+)
 from app.core.config import settings
 from app.models.aimbom import (
     AIMBOM,
@@ -16,13 +23,6 @@ from app.models.aimbom import (
 )
 from app.models.requests import GenerationMetadata
 from app.services import signing
-from app.services.storage import (
-    StorageConnectionError,
-    StorageError,
-    StorageInterface,
-    StorageOperationError,
-    get_storage,
-)
 from app.services.validation import validate_report
 from app.utils.utils import (
     REPORT_MODELS,
@@ -63,18 +63,18 @@ class GeneratorGenerationError(GeneratorError):
 
 
 class AIMBOMGenerator:
-    def __init__(self, storage: StorageInterface):
+    def __init__(self, client: StorageClient):
         """Initialize the AIMBOM generator.
 
         Args:
-            storage: A `StorageInterface` implementation used to retrieve
+            client: A `StorageClient` implementation used to retrieve
                 reports and persist generated AIMBOMs.
 
         Returns:
             None
         """
 
-        self.storage = storage
+        self.client = client
 
     async def generate(
         self,
@@ -160,7 +160,7 @@ class AIMBOMGenerator:
         # NOTE: Verify how are we going to find the latest reports,
         # if we have new reports for the same model_uuid and model_version.
         try:
-            retrieved_reports = await self.storage.get_reports_for_model(
+            retrieved_reports = await self.client.get_reports_for_model(
                 model_uuid, model_version, generation_metadata
             )
         except StorageConnectionError as e:
@@ -417,7 +417,7 @@ class AIMBOMGenerator:
             aimbom.serial_number,
         )
         try:
-            await self.storage.save_aimbom(
+            await self.client.save_aimbom(
                 model_uuid=model_uuid,
                 model_version=model_version,
                 tiered_aimbom=tiered_aimbom,
@@ -432,15 +432,15 @@ class AIMBOMGenerator:
 
 # AIMBOMGenerator dependency
 async def get_generator(
-    storage: StorageInterface = Depends(get_storage),
+    client: StorageClient = Depends(get_storage_client),
 ) -> AIMBOMGenerator:
     """FastAPI dependency that constructs an `AIMBOMGenerator`.
 
     Args:
-        storage: Injected `StorageInterface` dependency.
+        client: Injected `StorageClient` dependency.
 
     Returns:
         An `AIMBOMGenerator` instance ready for use by request handlers.
     """
 
-    return AIMBOMGenerator(storage)
+    return AIMBOMGenerator(client=client)
