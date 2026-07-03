@@ -23,8 +23,7 @@ from app.models.aimbom import (
     Tool,
 )
 from app.models.requests import GenerationMetadata
-from app.services import signing
-from app.services.validation import validate_report
+from app.services import signing, validation
 from app.utils.utils import (
     REPORT_MODELS,
     REPORT_TO_COMMENT,
@@ -189,19 +188,11 @@ class AIMBOMGenerator:
             GeneratorGenerationError: When report validation fails.
         """
 
-        reports: Dict[ReportType, ReportModel | None] = {
-            ReportType.AI_MODEL_INFO: None,
-            ReportType.ASSESSMENTS: None,
-            ReportType.DATASETS: None,
-            ReportType.DEFENCES: None,
-            ReportType.EU_AI_ACT: None,
-            ReportType.GADGETS: None,
-            ReportType.RISK_REPORT: None,
-        }
+        reports: Dict[ReportType, ReportModel | None] = {}
 
         # Validate and parse each retrieved report, ensuring they are compliant with the CycloneDX schema
         # and our specific report models.
-        for report_type in reports.keys():
+        for report_type in REPORT_MODELS.keys():
             report = raw_reports.get(report_type.value)
 
             if report is None:
@@ -218,7 +209,7 @@ class AIMBOMGenerator:
 
             try:
                 # Generic CycloneDX validation
-                validate_report(report)
+                validation.cdx_validate_dict(report)
 
                 # Schema-specific validation
                 model_cls = REPORT_MODELS[report_type]
@@ -416,7 +407,7 @@ class AIMBOMGenerator:
 
         try:
             logger.debug("Validating AIMBOM")
-            validate_report(jsonable_encoder(aimbom, exclude_none=True))
+            validation.cdx_validate_dict(jsonable_encoder(aimbom, exclude_none=True))
             logger.debug("AIMBOM validation successful")
         except ValueError as e:
             logger.error("AIMBOM validation failed: %s", str(e))

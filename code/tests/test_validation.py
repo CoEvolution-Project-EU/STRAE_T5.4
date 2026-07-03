@@ -1,5 +1,5 @@
 import pytest
-from app.services.validation import validate_report
+from app.services import validation
 
 from tests.utils import AIMBOMS_DIR, load_json
 
@@ -7,7 +7,7 @@ from tests.utils import AIMBOMS_DIR, load_json
 def test_validate_aimbom_accepts_valid_cyclonedx_report():
     report = load_json(AIMBOMS_DIR / "aimbom.json")
 
-    validate_report(report)
+    validation.cdx_validate_dict(report)
 
 
 def test_validate_aimbom_rejects_missing_required_field():
@@ -15,4 +15,4 @@ def test_validate_aimbom_rejects_missing_required_field():
     report.pop("bomFormat", None)
 
     with pytest.raises(ValueError, match="CycloneDX validation failed"):
-        validate_report(report)
+        validation.cdx_validate_dict(report)

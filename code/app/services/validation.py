@@ -76,7 +76,7 @@ def get_validator() -> Draft7Validator:
     return validator
 
 
-def validate_report(report_dict: dict) -> None:
+def cdx_validate_dict(report_dict: dict) -> None:
     logger.debug("Starting CycloneDX validation")
     validator = get_validator()
     errors = sorted(validator.iter_errors(report_dict), key=lambda e: e.path)
