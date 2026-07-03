@@ -60,7 +60,7 @@ STRAE_T5.4/
 └── status.md                         ← project status / notes
 ```
 
-## Documentation links
+## Documentation Links
 
 - [Architecture](docs/architecture.md)
 - [Docker / Deployment](docker/docker.md)
