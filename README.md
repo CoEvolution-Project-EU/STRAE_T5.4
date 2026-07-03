@@ -33,7 +33,7 @@ STRAE_T5.4/
 │   │   │   ├── auth.py                ← authentication and authorization helpers
 │   │   │   ├── config.py              ← app configuration and settings
 │   │   │   ├── logging.py             ← logging configuration
-│   │   │   └── middleware.py          ← api middleware
+│   │   │   └── middleware.py          ← API middleware
 │   │   ├── models/                    ← AIMBOM and request / response schema models
 │   │   ├── routers/
 │   │   │   ├── api.py                 ← public API routes
