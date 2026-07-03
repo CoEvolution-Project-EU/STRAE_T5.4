@@ -83,7 +83,7 @@ STRAE_T5.4/
 
 This project is licensed under the terms of the [Apache License 2.0](LICENSE).
 
-## Techincal Contact Person
+## Technical Contact Person
 
 Name: Orestis Tsirakis
 
