@@ -53,15 +53,3 @@ For each message, the worker validates the payload, retrieves the required repor
 4. Execute AIMBOM generation
 5. Store generated AIMBOM in the security assurance pool
 6. Commit Kafka offset on success or controlled failure
-
-## Tech Stack
-
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| Python | 3.12+ | Runtime |
-| FastAPI | 0.116.0 | HTTP API framework |
-| Pydantic | 2.11.7 | Data validation and settings |
-| MinIO | 7.2.20 | S3-compatible object storage |
-| Kafka / aiokafka | 0.14.0 | Asynchronous message processing |
-| HTTPX | 0.28.1 | Async HTTP client |
-| pytest | 9.0.2 | Automated testing |
