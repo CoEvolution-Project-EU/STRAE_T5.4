@@ -18,7 +18,7 @@ from app.services.generator import (
     GeneratorStorageError,
     get_generator,
 )
-from app.utils.utils import uuid_from_serial_number
+from app.utils.utils import AIMBOMTier, uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +132,7 @@ async def generate_aimbom(
     )
 
     try:
-        aimbom = await generator.generate(
+        tiered_aimbom = await generator.generate(
             model_uuid, model_version, generation_metadata
         )
     except GeneratorMissingReportError as e:
@@ -156,6 +156,8 @@ async def generate_aimbom(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
+    # Use the tier1 AIMBOM for the response
+    aimbom = tiered_aimbom[AIMBOMTier.TIER_1]
     aimbom_uuid = uuid_from_serial_number(aimbom.serial_number)
 
     logger.info(

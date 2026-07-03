@@ -15,6 +15,7 @@ from app.services.generator import (
     GeneratorMissingReportError,
     GeneratorStorageError,
 )
+from app.utils.utils import AIMBOMTier
 
 # Configure logging
 log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)
@@ -89,7 +90,7 @@ async def consume_messages(
 
                 continue
 
-            aimbom = await generator.generate(
+            tiered_aimbom = await generator.generate(
                 event["model_uuid"],
                 event["version"],
                 event["reports"],
@@ -99,7 +100,7 @@ async def consume_messages(
                 "AIMBOM generated successfully: model_uuid=%s, model_version=%s, serial_number=%s",
                 event["model_uuid"],
                 event["version"],
-                aimbom.serial_number,
+                tiered_aimbom[AIMBOMTier.TIER_1].serial_number,
             )
 
             # Commit ONLY after successful processing
