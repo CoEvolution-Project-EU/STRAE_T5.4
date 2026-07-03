@@ -27,18 +27,10 @@ STRAE is organized as a modular FastAPI application with a clear separation betw
 ## Request and Processing Flow
 
 1. A client submits a generation request through the API with a model UUID, model version, and generation metadata.
-2. The API validates the request, prepares the required context, and either processes the task synchronously or publishes it for asynchronous execution.
-3. The application downloads the referenced reports from the configured storage/orchestrator source.
-4. Each report is validated for schema compliance, completeness, and integrity before being used in AIMBOM generation.
-5. The generator combines the validated inputs into a structured AIMBOM representation and optionally signs the output.
-6. The resulting AIMBOM is stored in the security assurance store and returned to the caller or queued worker for follow-up processing.
-
-## Security and Reliability Considerations
-
-- Authentication is handled centrally so that external storage and orchestration calls can be authorized consistently.
-- HTTP and storage errors are surfaced as typed exceptions to distinguish connection failures from operational issues.
-- The worker uses controlled message handling so that malformed payloads and transient failures do not permanently block the queue.
-- Logging is used throughout the pipeline to trace model UUIDs, versions, report types, and upload/download outcomes.
+2. The application downloads the referenced reports from the configured storage/orchestrator source.
+3. Each report is validated for schema compliance, completeness, and integrity before being used in AIMBOM generation.
+4. The generator combines the validated inputs into a structured AIMBOM representation and signs the output.
+5. The resulting AIMBOM is stored in the Security Assurance Pool.
 
 ## API Endpoints
 
@@ -52,22 +44,24 @@ STRAE is organized as a modular FastAPI application with a clear separation betw
 
 The Kafka worker enables asynchronous AIMBOM generation by decoupling request submission from processing. It consumes generation tasks from a configured Kafka topic and executes them independently of the API layer.
 
-For each message, the worker validates the payload, retrieves the required reports through the orchestrator integration layer, triggers the AIMBOM generation pipeline, and persists the resulting artifact in the security assurance store. Successful processing commits the Kafka offset, while recoverable errors can defer commitment to support retry behavior. Invalid or malformed messages are discarded to avoid blocking the queue.
+For each message, the worker validates the payload, retrieves the required reports through the orchestrator integration layer, triggers the AIMBOM generation pipeline, and persists the resulting artifact in the Security Assurance Pool. Successful processing commits the Kafka offset, while recoverable errors can defer commitment to support retry behavior. Invalid or malformed messages are discarded to avoid blocking the queue.
 
 ### Kafka Worker Processing Flow
-- Consume message from Kafka topic
-- Validate payload (`model_uuid`, `version`, `reports`)
-- Retrieve required reports via orchestrator API
-- Execute AIMBOM generation
-- Store generated AIMBOM in the security assurance pool
-- Commit Kafka offset on success or controlled failure
+1. Consume message from Kafka topic
+2. Validate payload (`model_uuid`, `version`, `reports`)
+3. Retrieve required reports via orchestrator API
+4. Execute AIMBOM generation
+5. Store generated AIMBOM in the security assurance pool
+6. Commit Kafka offset on success or controlled failure
 
-## Technological Tools
+## Tech Stack
 
-- Python 3 with FastAPI for the API layer
-- Pydantic models for request/response validation and structured payloads
-- HTTPX for asynchronous outbound requests to external services
-- Kafka for background task processing and decoupled execution
-- MinIO-compatible object storage for report and AIMBOM persistence
-- Docker Compose for local deployment and service orchestration
-- pytest for automated testing of API, generation, validation, and signing flows
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| Python | 3.12+ | Runtime |
+| FastAPI | 0.116.0 | HTTP API framework |
+| Pydantic | 2.11.7 | Data validation and settings |
+| MinIO | 7.2.20 | S3-compatible object storage |
+| Kafka / aiokafka | 0.14.0 | Asynchronous message processing |
+| HTTPX | 0.28.1 | Async HTTP client |
+| pytest | 9.0.2 | Automated testing |

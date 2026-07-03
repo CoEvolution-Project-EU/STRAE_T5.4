@@ -104,9 +104,10 @@ class AIMBOMGenerator:
         )
 
         # TODO: Check if an AIMBOM already exists for the given model_uuid and
-        # model_version before starting the generation process.
+        # model_version before starting the generation process (should be inlcuded
+        # in the generation_metadata).
         # 1 -> If it exists, we have AIMBOM deprecation and we need to generate a
-        # new AIMBOM with the new reports that includes the deprecated one.
+        # new AIMBOM with the new reports that includes a link to the deprecated one.
         # 2 -> If it doesn't exist, we proceed with the generation as normal.
 
         reports = await self._retrieve_reports(
@@ -157,8 +158,7 @@ class AIMBOMGenerator:
             ReportType.RISK_REPORT: None,
         }
 
-        # NOTE: Verify how are we going to find the latest reports,
-        # if we have new reports for the same model_uuid and model_version.
+        # Fetch reports from the storage backend using the provided model UUID, version and generation metadata.
         try:
             retrieved_reports = await self.client.get_reports_for_model(
                 model_uuid, model_version, generation_metadata
