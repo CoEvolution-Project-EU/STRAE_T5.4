@@ -6,7 +6,7 @@ from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
-from app.clients.base import (
+from app.clients.storage_client import (
     StorageClient,
     StorageConnectionError,
     StorageError,

@@ -3,7 +3,9 @@ import logging
 from typing import Dict
 
 import httpx
-from app.clients.base import (
+from fastapi.encoders import jsonable_encoder
+
+from app.clients.storage_client import (
     StorageAuthError,
     StorageConnectionError,
     StorageOperationError,
@@ -13,7 +15,6 @@ from app.core.config import settings
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
 from app.utils.utils import AIMBOMTier
-from fastapi.encoders import jsonable_encoder
 
 logger = logging.getLogger(__name__)
 

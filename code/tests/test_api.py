@@ -1,5 +1,5 @@
 import pytest
-from app.clients.base import get_storage_client
+from app.clients.storage_client import get_storage_client
 from app.main import app
 from httpx import ASGITransport, AsyncClient
 

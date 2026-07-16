@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Dict
 
+from fastapi import Request
+
 from app.models.aimbom import AIMBOM
 from app.utils.utils import AIMBOMTier
-from fastapi import Request
 
 
 class StorageError(Exception):

@@ -3,8 +3,8 @@ from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 
-from app.clients.base import StorageError
 from app.clients.minio_client import MinioClient, get_minio_client
+from app.clients.storage_client import StorageError
 from app.core.config import settings
 from app.models.responses import ReportSavedResponse
 

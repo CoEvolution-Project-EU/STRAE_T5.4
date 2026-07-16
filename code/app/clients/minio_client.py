@@ -4,7 +4,11 @@ from functools import lru_cache
 from io import BytesIO
 from typing import Dict
 
-from app.clients.base import (
+from asyncer import asyncify
+from fastapi.encoders import jsonable_encoder
+from minio import Minio, S3Error
+
+from app.clients.storage_client import (
     StorageClient,
     StorageConnectionError,
     StorageOperationError,
@@ -13,9 +17,6 @@ from app.core.config import settings
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
 from app.utils.utils import AIMBOMTier, uuid_from_serial_number
-from asyncer import asyncify
-from fastapi.encoders import jsonable_encoder
-from minio import Minio, S3Error
 
 logger = logging.getLogger(__name__)
 

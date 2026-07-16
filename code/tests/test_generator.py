@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock
 
 import pytest
-from app.clients.base import StorageConnectionError
 from app.clients.minio_client import MinioClient
+from app.clients.storage_client import StorageConnectionError
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorMissingReportError,

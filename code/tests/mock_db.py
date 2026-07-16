@@ -1,6 +1,6 @@
 from typing import Dict
 
-from app.clients.base import StorageClient, StorageOperationError
+from app.clients.storage_client import StorageClient, StorageOperationError
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
 from app.utils.utils import AIMBOMTier
