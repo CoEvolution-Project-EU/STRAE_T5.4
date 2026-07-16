@@ -1,9 +1,14 @@
 import pytest
+from app.clients.storage_client import get_storage_client
 from app.main import app
-from app.storage import MinioStorage, get_storage
 from httpx import ASGITransport, AsyncClient
 
-from tests.utils import MODEL_UUID, MODEL_VERSION, create_new_mock_minio
+from tests.utils import (
+    MODEL_UUID,
+    MODEL_VERSION,
+    create_new_mock_minio,
+    get_generation_metadata,
+)
 
 
 @pytest.fixture
@@ -13,7 +18,7 @@ def get_mock_minio():
 
 @pytest.fixture(autouse=True)
 def override_storage(get_mock_minio):
-    app.dependency_overrides[get_storage] = lambda: MinioStorage(get_mock_minio)
+    app.dependency_overrides[get_storage_client] = lambda: get_mock_minio
     yield
     app.dependency_overrides.clear()
 
@@ -61,12 +66,15 @@ async def test_generate_aimbom_success():
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
-        response = await ac.post(f"/api/generate/{model_uuid}/{model_version}")
+        response = await ac.post(
+            f"/api/generate/{model_uuid}/{model_version}",
+            json=get_generation_metadata(),
+        )
 
     assert response.status_code == 201
     data = response.json()
     assert data["model_uuid"] == model_uuid
-    assert "id" in data
+    assert "aimbom_uuid" in data
 
 
 @pytest.mark.anyio
@@ -77,5 +85,8 @@ async def test_generate_aimbom_no_reports():
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
-        response = await ac.post(f"/api/generate/{model_uuid}/{model_version}")
+        response = await ac.post(
+            f"/api/generate/{model_uuid}/{model_version}",
+            json=get_generation_metadata(),
+        )
     assert response.status_code == 409

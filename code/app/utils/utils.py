@@ -52,9 +52,9 @@ def uuid_from_serial_number(serial_number: str) -> str:
 
 
 class AIMBOMTier(str, Enum):
-    Tier_1 = "tier-1"
-    Tier_2 = "tier-2"
-    Tier_3 = "tier-3"
+    TIER_1 = "tier-1"
+    TIER_2 = "tier-2"
+    TIER_3 = "tier-3"
 
 
 class ReportType(str, Enum):

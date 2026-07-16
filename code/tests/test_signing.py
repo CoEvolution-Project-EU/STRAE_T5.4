@@ -1,6 +1,6 @@
 import base64
 
-from app.signing import (
+from app.services.signing import (
     canonicalize_json,
     get_certificate_path,
     get_private_key,

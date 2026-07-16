@@ -4,19 +4,18 @@ import logging
 import signal
 from contextlib import suppress
 
-import httpx
 from aiokafka import AIOKafkaConsumer
 
-from app.auth import OrchestratorAuth
-from app.config import settings
-from app.generator import (
+from app.clients.orchestrator_client import get_orchestrator_client
+from app.core.config import settings
+from app.core.logging import setup_logging
+from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
     GeneratorMissingReportError,
     GeneratorStorageError,
 )
-from app.logging import setup_logging
-from app.storage import OrchestratorStorage
+from app.utils.utils import AIMBOMTier
 
 # Configure logging
 log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)
@@ -91,7 +90,7 @@ async def consume_messages(
 
                 continue
 
-            aimbom = await generator.generate(
+            tiered_aimbom = await generator.generate(
                 event["model_uuid"],
                 event["version"],
                 event["reports"],
@@ -101,7 +100,7 @@ async def consume_messages(
                 "AIMBOM generated successfully: model_uuid=%s, model_version=%s, serial_number=%s",
                 event["model_uuid"],
                 event["version"],
-                aimbom.serial_number,
+                tiered_aimbom[AIMBOMTier.TIER_1].serial_number,
             )
 
             # Commit ONLY after successful processing
@@ -156,17 +155,12 @@ async def main():
 
     logger.info("Starting STRAE Kafka worker")
 
-    storage = None
+    client = None
     consumer = None
 
     try:
-        client = httpx.AsyncClient(
-            base_url=settings.ORCHESTRATOR_API_BASE_URL,
-        )
-        auth = OrchestratorAuth()
-        storage = OrchestratorStorage(client=client, auth=auth)
-
-        generator = AIMBOMGenerator(storage)
+        client = get_orchestrator_client()
+        generator = AIMBOMGenerator(client)
 
         consumer = AIOKafkaConsumer(
             settings.KAFKA_TOPIC,
@@ -205,11 +199,11 @@ async def main():
             with suppress(Exception):
                 await consumer.stop()
 
-        if storage is not None:
-            logger.info("Closing storage client")
+        if client is not None:
+            logger.info("Closing client connection")
 
             with suppress(Exception):
-                await storage.close()
+                await client.close()
 
         logger.info("Worker shutdown completed")
 

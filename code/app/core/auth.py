@@ -4,8 +4,8 @@ from datetime import timedelta
 
 import httpx
 
-from app.config import settings
-from app.utils import utc_now_datetime
+from app.core.config import settings
+from app.utils.utils import utc_now_datetime
 
 logger = logging.getLogger(__name__)
 
