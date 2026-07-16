@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from tests.mock_db import MockMinioDB
+from tests.mock_db import MockMinioClient
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "data/reports"
 AIMBOMS_DIR = Path(__file__).resolve().parent.parent / "data/aimboms"
@@ -14,7 +14,7 @@ def load_json(path: Path):
         return json.load(f)
 
 
-def seed_report(db: MockMinioDB, filename: str, object_name: str):
+def seed_report(db: MockMinioClient, filename: str, object_name: str):
     data = load_json(REPORTS_DIR / filename)
     db.upload_json(
         "reports",
@@ -24,7 +24,7 @@ def seed_report(db: MockMinioDB, filename: str, object_name: str):
 
 
 def create_empty_mock_minio():
-    db = MockMinioDB()
+    db = MockMinioClient()
     db.create_bucket("reports")
     db.create_bucket("aimboms")
     return db
@@ -42,3 +42,29 @@ def create_new_mock_minio():
     seed_report(db, "aimbom-riskreport.json", "risk_report.json")
 
     return db
+
+
+def get_generation_metadata():
+    return {
+        "risk_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report.json",
+        },
+        "assessment_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/assessment_report.json",
+        },
+        "defence_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/defence_report.json",
+        },
+        "gadgets_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/gadgets_report.json",
+        },
+        "aimodelinfo_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/aimodelinfo_report.json",
+        },
+        "euaiact_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/euaiact_report.json",
+        },
+        "datasets_report": {
+            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/datasets_report.json",
+        },
+    }

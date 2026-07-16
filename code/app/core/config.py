@@ -34,8 +34,8 @@ class Settings(BaseSettings):
 
     # MinIO configuration (from .env)
     MINIO_ENDPOINT: str = "minio:9000"
-    MINIO_ACCESS_KEY: str = "minioadmin"
-    MINIO_SECRET_KEY: str = "minioadmin"
+    MINIO_ROOT_USER: str = "minioadmin"
+    MINIO_ROOT_PASSWORD: str = "minioadmin"
     MINIO_SECURE: bool = False
 
     # Hardcoded in the docker-compose file, based on docker profile.
@@ -48,6 +48,18 @@ class Settings(BaseSettings):
     @field_validator("LOG_LEVEL")
     @classmethod
     def validate_log_level(cls, v: str) -> str:
+        """Validate and normalize the `LOG_LEVEL` environment value.
+
+        Args:
+            v: The provided log level string.
+
+        Returns:
+            Normalized uppercase log level string.
+
+        Raises:
+            ValueError: If `v` is not a recognised logging level.
+        """
+
         level = v.upper()
         valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         if level not in valid_levels:

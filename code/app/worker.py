@@ -4,19 +4,18 @@ import logging
 import signal
 from contextlib import suppress
 
-import httpx
 from aiokafka import AIOKafkaConsumer
 
-from app.auth import OrchestratorAuth
-from app.config import settings
-from app.generator import (
+from app.clients.orchestrator_client import get_orchestrator_client
+from app.core.config import settings
+from app.core.logging import setup_logging
+from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
     GeneratorMissingReportError,
     GeneratorStorageError,
 )
-from app.logging import setup_logging
-from app.storage import OrchestratorStorage
+from app.utils.utils import AIMBOMTier
 
 # Configure logging
 log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)
@@ -33,6 +32,12 @@ shutdown_event = asyncio.Event()
 
 
 def _handle_shutdown_signal():
+    """Handle termination signals by initiating a clean shutdown.
+
+    Sets the module-level `shutdown_event` so running loops can exit
+    gracefully.
+    """
+
     logger.info("Shutdown signal received")
     shutdown_event.set()
 
@@ -41,6 +46,15 @@ async def consume_messages(
     consumer: AIOKafkaConsumer,
     generator: AIMBOMGenerator,
 ):
+    """Consume Kafka messages and dispatch AIMBOM generation tasks.
+
+    Args:
+        consumer: An `AIOKafkaConsumer` instance to read events from Kafka.
+        generator: An `AIMBOMGenerator` used to process generation requests.
+
+    Returns:
+        None
+    """
     async for message in consumer:
         if shutdown_event.is_set():
             logger.info("Shutdown requested, stopping consumer loop")
@@ -76,7 +90,7 @@ async def consume_messages(
 
                 continue
 
-            aimbom = await generator.generate(
+            tiered_aimbom = await generator.generate(
                 event["model_uuid"],
                 event["version"],
                 event["reports"],
@@ -86,7 +100,7 @@ async def consume_messages(
                 "AIMBOM generated successfully: model_uuid=%s, model_version=%s, serial_number=%s",
                 event["model_uuid"],
                 event["version"],
-                aimbom.serial_number,
+                tiered_aimbom[AIMBOMTier.TIER_1].serial_number,
             )
 
             # Commit ONLY after successful processing
@@ -133,20 +147,20 @@ async def consume_messages(
 
 
 async def main():
+    """Entrypoint for the Kafka worker process.
+
+    Sets up the orchestrator storage client, AIMBOM generator and Kafka
+    consumer, runs the consume loop and performs clean shutdown on exit.
+    """
 
     logger.info("Starting STRAE Kafka worker")
 
-    storage = None
+    client = None
     consumer = None
 
     try:
-        client = httpx.AsyncClient(
-            base_url=settings.ORCHESTRATOR_API_BASE_URL,
-        )
-        auth = OrchestratorAuth()
-        storage = OrchestratorStorage(client=client, auth=auth)
-
-        generator = AIMBOMGenerator(storage)
+        client = get_orchestrator_client()
+        generator = AIMBOMGenerator(client)
 
         consumer = AIOKafkaConsumer(
             settings.KAFKA_TOPIC,
@@ -185,11 +199,11 @@ async def main():
             with suppress(Exception):
                 await consumer.stop()
 
-        if storage is not None:
-            logger.info("Closing storage client")
+        if client is not None:
+            logger.info("Closing client connection")
 
             with suppress(Exception):
-                await storage.close()
+                await client.close()
 
         logger.info("Worker shutdown completed")
 

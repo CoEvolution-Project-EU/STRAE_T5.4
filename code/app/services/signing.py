@@ -40,6 +40,12 @@ w6FRV5qdpdACzsLGYh9cOxjP6IlXW7tAXg9GJ7g=
 
 # TODO: Maybe cache this
 def get_private_key() -> ec.EllipticCurvePrivateKey:
+    """Load the hardcoded EC private key for signing.
+
+    NOTE: This is intended only for development/demo use. In production a
+    secure key manager should be used instead of an in-repo PEM.
+    """
+
     return serialization.load_pem_private_key(
         PRIVATE_KEY_PEM,
         password=None,
@@ -48,6 +54,12 @@ def get_private_key() -> ec.EllipticCurvePrivateKey:
 
 # TODO: Maybe cache this
 def get_certificate_path() -> list:
+    """Return the signing certificate path encoded as base64 DER.
+
+    The CycloneDX `certificatePath` field is represented as a list of
+    base64-encoded DER certificates; this helper returns that list.
+    """
+
     cert = x509.load_pem_x509_certificate(CERT_PEM)
 
     der_bytes = cert.public_bytes(serialization.Encoding.DER)
@@ -62,6 +74,12 @@ def canonicalize_json(data: dict) -> bytes:
 
 
 def sign_data(private_key: ec.EllipticCurvePrivateKey, data: bytes) -> str:
+    """Sign provided bytes using ES256 and return base64(raw_r|raw_s).
+
+    Produces a raw concatenated r||s signature encoded in base64 which is
+    commonly used in JOSE-style signatures.
+    """
+
     # TODO: Verify that the signing process is correct and compatible with the expected verification process.
     signature = private_key.sign(data, ec.ECDSA(hashes.SHA256()))
 

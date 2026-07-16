@@ -9,7 +9,7 @@ from referencing import Registry, Resource
 
 logger = logging.getLogger(__name__)
 
-SCHEMAS_DIR = Path(__file__).parent / "schemas"
+SCHEMAS_DIR = Path(__file__).parent.parent / "schemas"
 
 CDX_SCHEMA_PATH = SCHEMAS_DIR / "bom-1.7.schema.json"
 SPDX_SCHEMA_PATH = SCHEMAS_DIR / "spdx.schema.json"
@@ -76,7 +76,7 @@ def get_validator() -> Draft7Validator:
     return validator
 
 
-def validate_report(report_dict: dict) -> None:
+def cdx_validate_dict(report_dict: dict) -> None:
     logger.debug("Starting CycloneDX validation")
     validator = get_validator()
     errors = sorted(validator.iter_errors(report_dict), key=lambda e: e.path)

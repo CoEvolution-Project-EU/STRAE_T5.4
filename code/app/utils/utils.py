@@ -13,24 +13,48 @@ from app.models.risk_report_info import RiskReportInfo
 
 
 def utc_now_datetime() -> datetime:
+    """Return the current UTC datetime with tzinfo set to UTC.
+
+    Returns:
+        A `datetime` instance set to UTC.
+    """
+
     return datetime.now(timezone.utc)
     # return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def utc_now_str() -> str:
+    """Return the current UTC time as an ISO 8601 formatted string.
+
+    Returns:
+        An ISO 8601 formatted UTC timestamp string.
+    """
+
     return datetime.now(timezone.utc).isoformat()
 
 
 def uuid_from_serial_number(serial_number: str) -> str:
+    """Extract the UUID portion from a CycloneDX serial number string.
+
+    Args:
+        serial_number: A serial number prefixed with `urn:uuid:`.
+
+    Returns:
+        The UUID string without the `urn:uuid:` prefix.
+
+    Raises:
+        ValueError: If the serial number is not in the expected format.
+    """
+
     if serial_number.startswith("urn:uuid:"):
         return serial_number.split("urn:uuid:")[1]
     raise ValueError(f"Invalid serial number format: {serial_number}")
 
 
 class AIMBOMTier(str, Enum):
-    Tier_1 = "tier-1"
-    Tier_2 = "tier-2"
-    Tier_3 = "tier-3"
+    TIER_1 = "tier-1"
+    TIER_2 = "tier-2"
+    TIER_3 = "tier-3"
 
 
 class ReportType(str, Enum):
