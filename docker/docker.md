@@ -26,7 +26,18 @@ cp .env.example .env
 # Review and update the variables relevant to the profile you intend to run.
 ```
 
-### 3. Start the services
+### 3. Configure signing key
+
+**TODO: Add instructions on how to generate the key and certificate**
+
+```bash
+cd secrets
+cp signing-key.pem.example signing-key.pem
+cp signing-cert.pem.example signing-cert.pem
+# Edit signing-key.pem and signing-cert.pem with your generated key and certificate.
+```
+
+### 4. Start the services
 
 This project uses **Docker Compose profiles** to distinguish between different deployment scenarios.
 
@@ -106,7 +117,7 @@ Kafka worker only:
 docker compose --profile kafka up --build
 ```
 
-### 4. Dev Profile
+### 5. Dev Profile
 
 #### FastAPI Server
 
@@ -128,7 +139,7 @@ The MinIO Console (Web UI) is available at:
 
 * http://127.0.0.1:9001
 
-### 5. Prod Profile
+### 6. Prod Profile
 
 #### FastAPI Server
 
@@ -137,7 +148,7 @@ The production API runs without hot reloading and is intended to connect to exte
 * External MinIO storage
 * CoEvolution Knowledge Base services
 
-### 6. Kafka Profile
+### 7. Kafka Profile
 
 #### Kafka Worker
 

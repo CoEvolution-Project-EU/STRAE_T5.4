@@ -1,7 +1,7 @@
 import base64
 
 from app.services.signing import (
-    canonicalize_json,
+    get_certificate,
     get_certificate_path,
     get_private_key,
     sign_data,
@@ -30,11 +30,11 @@ def test_get_certificate_path_returns_base64_der():
     assert len(der_bytes) > 0
 
 
-def test_canonicalize_json_produces_deterministic_order():
-    data = {"b": 1, "a": {"d": 4, "c": 3}}
-    canonical = canonicalize_json(data)
+def test_signing_material():
+    key = get_private_key()
+    cert = get_certificate()
 
-    assert canonical == b'{"a":{"c":3,"d":4},"b":1}'
+    assert key.public_key().public_numbers() == cert.public_key().public_numbers()
 
 
 def test_sign_data_returns_raw_es256_signature():
