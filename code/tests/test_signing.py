@@ -4,12 +4,12 @@ import copy
 import jcs
 import pytest
 from app.services.signing import (
-    get_certificate,
     get_certificate_path,
     get_private_key,
     sign_data,
     sign_report,
 )
+from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -22,6 +22,7 @@ from tests.utils import REPORTS_DIR, load_json
 
 def decode_base64url(value: str) -> bytes:
     """Decode unpadded Base64URL."""
+
     padding = "=" * (-len(value) % 4)
     return base64.urlsafe_b64decode(value + padding)
 
@@ -48,6 +49,16 @@ def verify_es256_signature(
     )
 
     return True
+
+
+def get_public_key_from_certificate_path(
+    certificate_path: list[str],
+):
+    cert_der = base64.b64decode(certificate_path[0])
+
+    certificate = x509.load_der_x509_certificate(cert_der)
+
+    return certificate.public_key()
 
 
 # ====================Tests====================
@@ -100,7 +111,7 @@ def test_sign_report_adds_signature_and_preserves_report():
     assert signature["value"] != "old"
 
 
-def test_sign_report_signature_is_valid():
+def test_sign_report_signature_valid():
     report = load_json(REPORTS_DIR / "aimbom-aimodelinfo.json")
 
     signed_report = sign_report(report)
@@ -109,7 +120,6 @@ def test_sign_report_signature_is_valid():
 
     signature = signed_copy.pop("signature")
 
-    # Recreate JSF signing input
     signed_copy["signature"] = {
         "algorithm": signature["algorithm"],
         "certificatePath": signature["certificatePath"],
@@ -117,8 +127,10 @@ def test_sign_report_signature_is_valid():
 
     canonical = jcs.canonicalize(signed_copy)
 
+    public_key = get_public_key_from_certificate_path(signature["certificatePath"])
+
     assert verify_es256_signature(
-        get_certificate().public_key(),
+        public_key,
         canonical,
         signature["value"],
     )
@@ -135,7 +147,6 @@ def test_modified_report_fails_signature_verification():
 
     signature = signed_copy.pop("signature")
 
-    # Recreate JSF signing input
     signed_copy["signature"] = {
         "algorithm": signature["algorithm"],
         "certificatePath": signature["certificatePath"],
@@ -143,9 +154,11 @@ def test_modified_report_fails_signature_verification():
 
     canonical = jcs.canonicalize(signed_copy)
 
+    public_key = get_public_key_from_certificate_path(signature["certificatePath"])
+
     with pytest.raises(InvalidSignature):
         verify_es256_signature(
-            get_certificate().public_key(),
+            public_key,
             canonical,
             signature["value"],
         )
