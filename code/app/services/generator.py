@@ -516,6 +516,8 @@ class AIMBOMGenerator:
             ) from e
 
         # Sign the AIMBOM to ensure its integrity and authenticity.
+        # NOTE: We sign the AIMBOM before creating the Tiers. In Tiers 1-2 the signature cannot be validated.
+        # Maybe sign each Tier separately, but this would require a new signature for each Tier and the signature would be different for each Tier.
         aimbom = self._sign_aimbom(aimbom)
 
         # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.

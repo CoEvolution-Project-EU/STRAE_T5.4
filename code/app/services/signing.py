@@ -86,14 +86,16 @@ def sign_data(private_key: ec.EllipticCurvePrivateKey, data: bytes) -> str:
         A base64-encoded string of the raw r||s signature.
     """
 
-    # TODO: Verify that the signing process is correct and compatible with the expected verification process.
+    if not isinstance(private_key.curve, ec.SECP256R1):
+        raise ValueError("ES256 requires P-256 curve")
+
     signature = private_key.sign(data, ec.ECDSA(hashes.SHA256()))
 
     # Convert DER signature to raw r|s format
     r, s = decode_dss_signature(signature)
     raw_signature = r.to_bytes(32, "big") + s.to_bytes(32, "big")
 
-    return base64.b64encode(raw_signature).decode()
+    return base64.urlsafe_b64encode(raw_signature).rstrip(b"=").decode("ascii")
 
 
 def sign_report(report: Dict) -> Dict:

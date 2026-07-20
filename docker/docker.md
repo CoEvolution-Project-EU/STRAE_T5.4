@@ -28,13 +28,37 @@ cp .env.example .env
 
 ### 3. Configure signing key
 
-**TODO: Add instructions on how to generate the key and certificate**
+Create a P-256 EC private key:
+
+```bash
+cd secrets
+openssl ecparam \
+  -name prime256v1 \
+  -genkey \
+  -noout \
+  -out signing-key.pem
+```
+
+Generate a certificate using that key:
+
+```bash
+openssl req \
+  -new \
+  -x509 \
+  -key signing-key.pem \
+  -out signing-cert.pem \
+  -days 365 \
+  -sha256 \
+  -subj "/C=GR/O=STRAE/CN=STRAE Signing Certificate"
+```
+
+Or copy the existing examples and replace them with your own key and certificate
 
 ```bash
 cd secrets
 cp signing-key.pem.example signing-key.pem
 cp signing-cert.pem.example signing-cert.pem
-# Edit signing-key.pem and signing-cert.pem with your generated key and certificate.
+# Edit signing-key.pem and signing-cert.pem with your own key and certificate.
 ```
 
 ### 4. Start the services
