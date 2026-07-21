@@ -40,8 +40,10 @@ ls -l /home/strae/docker/secrets
 
 Expected output:
 
+```text
 signing-key.pem
 signing-cert.pem
+```
 
 Set appropriate permissions in the server:
 
