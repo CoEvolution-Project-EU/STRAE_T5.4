@@ -1,20 +1,23 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from app.clients.minio_client import MinioClient
-from app.clients.storage_client import StorageConnectionError
+from app.clients.storage_client import StorageClient, StorageConnectionError
 from app.services.generator import (
     AIMBOMGenerator,
+    GeneratorGenerationError,
     GeneratorMissingReportError,
     GeneratorStorageError,
 )
-from app.utils.utils import AIMBOMTier, ReportComment
+from app.utils.utils import AIMBOMTier, ReportComment, ReportType
+from fastapi.encoders import jsonable_encoder
 
 from tests.utils import (
     MODEL_UUID,
     MODEL_VERSION,
     create_empty_mock_minio,
     create_new_mock_minio,
+    verify_report,
 )
 
 
@@ -79,6 +82,9 @@ async def test_generate_success():
     tier1_comments = {ref.comment for ref in aimbom_tier1.external_references}
     assert tier1_comments == {ReportComment.EU_AI_ACT}
 
+    # Check that the generated AIMBOM is valid and can be verified
+    assert verify_report(jsonable_encoder(aimbom_tier3, exclude_none=True)) is True
+
 
 @pytest.mark.anyio
 async def test_generate_missing_reports():
@@ -105,19 +111,18 @@ async def test_minio_connection_failure():
         await generator.generate(model_uuid, model_version, None)
 
 
-# Update this test when we have report validation logic implemented
-# def test_invalid_report_data():
-#     model_uuid = "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
+@pytest.mark.anyio
+async def test_invalid_report_data():
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
 
-#     minio = MagicMock(spec=MinioClient)
+    storage = MagicMock(spec=StorageClient)
 
-#     obj = MagicMock()
-#     obj.object_name = "4ff2dab7-bffe-414d-88a5-1826b9fea8df/bad.json"
+    storage.get_reports_for_model = AsyncMock(
+        return_value={ReportType.AI_MODEL_INFO: {"invalid": "schema"}}
+    )
 
-#     minio.list_objects_in_bucket.return_value = [obj]
-#     minio.get_json.return_value = {"invalid": "schema"}
+    generator = AIMBOMGenerator(storage)
 
-#     generator = AIMBOMGenerator(minio)
-
-#     with pytest.raises(GeneratorGenerationError):
-#         generator.generate(model_uuid)
+    with pytest.raises(GeneratorGenerationError):
+        await generator.generate(model_uuid, model_version, None)

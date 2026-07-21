@@ -418,23 +418,30 @@ class AIMBOMGenerator:
     def _filter_aimbom_references(
         self, aimbom: AIMBOM, references_to_keep: set[ReportComment]
     ) -> AIMBOM:
-        """Filter AIMBOM external references based on specified references.
+        """
+        Filter AIMBOM external references based on specified references.
+        Remove signature from the  AIMBOM, as it is no longer valid after filtering.
 
         Args:
             aimbom: The original `AIMBOM` instance.
             references_to_keep: A set of `ReportComment` values to retain in the external references.
 
         Returns:
-            A new `AIMBOM` instance with filtered external references.
+            A new `AIMBOM` instance with filtered external references and no signature.
         """
 
+        # NOTE: We are removing the signature from the AIMBOM after filtering the external
+        # references because the signature is no longer valid after filtering. The signature
+        # is generated over the entire AIMBOM, and if we remove any external references, the
+        # signature will not match the new AIMBOM.
         return aimbom.model_copy(
             update={
                 "external_references": [
                     ref
                     for ref in aimbom.external_references
                     if ref.comment in references_to_keep
-                ]
+                ],
+                "signature": None,
             }
         )
 
@@ -516,8 +523,9 @@ class AIMBOMGenerator:
             ) from e
 
         # Sign the AIMBOM to ensure its integrity and authenticity.
-        # NOTE: We sign the AIMBOM before creating the Tiers. In Tiers 1-2 the signature cannot be validated.
-        # Maybe sign each Tier separately, but this would require a new signature for each Tier and the signature would be different for each Tier.
+        # NOTE: We sign the AIMBOM before creating the Tiers. In Tiers 1-2 we remove the signature.
+        # TODO:Maybe sign each Tier separately, but this would require a new signature for each Tier
+        # and the signature would be different for each Tier.
         aimbom = self._sign_aimbom(aimbom)
 
         # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.
