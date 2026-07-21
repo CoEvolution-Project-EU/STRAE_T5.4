@@ -9,6 +9,8 @@ from aiokafka import AIOKafkaConsumer
 from app.clients.orchestrator_client import get_orchestrator_client
 from app.core.config import settings
 from app.core.logging import setup_logging
+from app.models.requests import GenerationMetadata
+from app.services import signing
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
@@ -93,7 +95,7 @@ async def consume_messages(
             tiered_aimbom = await generator.generate(
                 event["model_uuid"],
                 event["version"],
-                event["reports"],
+                GenerationMetadata(**event["reports"]),
             )
 
             logger.info(
@@ -159,6 +161,9 @@ async def main():
     consumer = None
 
     try:
+        # Validate signing material
+        signing.validate_signing_material()
+
         client = get_orchestrator_client()
         generator = AIMBOMGenerator(client)
 

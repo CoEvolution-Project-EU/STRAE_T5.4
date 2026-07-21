@@ -15,6 +15,7 @@ from app.core.middleware import (
 )
 from app.routers.api import router as api_router
 from app.routers.dev import router as dev_router
+from app.services import signing
 
 # Configure logging
 log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)
@@ -45,6 +46,9 @@ async def lifespan(app: FastAPI):
                 raise RuntimeError(f"MinIO startup failed for bucket {bucket}") from e
 
         app.state.client = minio
+
+    # Validate signing material
+    signing.validate_signing_material()
 
     yield
 

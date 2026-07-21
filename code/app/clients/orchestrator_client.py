@@ -107,7 +107,7 @@ class OrchestratorClient:
 
             raise StorageOperationError(str(e)) from e
 
-    async def upload_aimbom(
+    async def save_aimbom(
         self,
         model_uuid: str,
         model_version: str,

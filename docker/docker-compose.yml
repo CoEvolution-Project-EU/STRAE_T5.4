@@ -12,6 +12,8 @@ services:
     ports:
       - "8000:8000"
     command: fastapi run app/main.py --host 0.0.0.0 --port 8000
+    volumes:
+      - ./secrets:/run/secrets:ro
     profiles:
       - prod
     restart: unless-stopped
@@ -32,6 +34,7 @@ services:
         condition: service_healthy
     volumes:
       - ../code/app:/code/app
+      - ./secrets:/run/secrets:ro
     profiles:
       - dev
     restart: unless-stopped
@@ -46,6 +49,8 @@ services:
     environment:
       - ENVIRONMENT=prod
     command: python -m app.worker
+    volumes:
+      - ./secrets:/run/secrets:ro
     profiles:
       - kafka
     restart: unless-stopped

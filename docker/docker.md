@@ -26,7 +26,42 @@ cp .env.example .env
 # Review and update the variables relevant to the profile you intend to run.
 ```
 
-### 3. Start the services
+### 3. Configure signing key
+
+Create a P-256 EC private key:
+
+```bash
+cd secrets
+openssl ecparam \
+  -name prime256v1 \
+  -genkey \
+  -noout \
+  -out signing-key.pem
+```
+
+Generate a certificate using that key:
+
+```bash
+openssl req \
+  -new \
+  -x509 \
+  -key signing-key.pem \
+  -out signing-cert.pem \
+  -days 365 \
+  -sha256 \
+  -subj "/C=GR/O=STRAE/CN=STRAE Signing Certificate"
+```
+
+Or copy the existing examples and replace them with your own key and certificate
+
+```bash
+cd secrets
+cp signing-key.pem.example signing-key.pem
+cp signing-cert.pem.example signing-cert.pem
+# Edit signing-key.pem and signing-cert.pem with your own key and certificate.
+```
+
+### 4. Start the services
 
 This project uses **Docker Compose profiles** to distinguish between different deployment scenarios.
 
@@ -106,7 +141,7 @@ Kafka worker only:
 docker compose --profile kafka up --build
 ```
 
-### 4. Dev Profile
+### 5. Dev Profile
 
 #### FastAPI Server
 
@@ -128,7 +163,7 @@ The MinIO Console (Web UI) is available at:
 
 * http://127.0.0.1:9001
 
-### 5. Prod Profile
+### 6. Prod Profile
 
 #### FastAPI Server
 
@@ -137,7 +172,7 @@ The production API runs without hot reloading and is intended to connect to exte
 * External MinIO storage
 * CoEvolution Knowledge Base services
 
-### 6. Kafka Profile
+### 7. Kafka Profile
 
 #### Kafka Worker
 
