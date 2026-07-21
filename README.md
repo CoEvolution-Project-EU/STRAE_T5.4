@@ -52,9 +52,10 @@ STRAE_T5.4/
 │   ├── secrets/                       ← folder to store signing key and certificate
 │   ├── Dockerfile
 │   ├── docker-compose.yml
-│   └── docker.md                      ← deployment and service setup docs
+│   └── docker.md                      ← docker setup docs
 ├── docs/
 │   ├── architecture.md                ← system architecture and design docs
+│   ├── deployment.md                  ← server deployment docs
 │   └── strae_swagger.json             ← API schema / Swagger definition
 ├── LICENSE
 ├── README.md
@@ -64,7 +65,8 @@ STRAE_T5.4/
 ## Documentation Links
 
 - [Architecture](docs/architecture.md)
-- [Docker / Deployment](docker/docker.md)
+- [Deployment](docs/deployment.md)
+- [Docker Setup](docker/docker.md)
 - [Tests](code/tests.md)
 - [Status](status.md)
 
