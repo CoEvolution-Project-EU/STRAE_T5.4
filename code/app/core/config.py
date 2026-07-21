@@ -16,6 +16,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # Signing configuration (from .env)
+    SIGNING_PRIVATE_KEY_PATH: str = "/run/secrets/signing-key.pem"
+    SIGNING_CERTIFICATE_PATH: str = "/run/secrets/signing-cert.pem"
+
     # Kafka configuration (from .env)
     KAFKA_TOPIC: str = "strae"
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"

@@ -26,7 +26,7 @@ STRAE_T5.4/
 │   │   ├── main.py                    ← FastAPI application entrypoint
 │   │   ├── worker.py                  ← Kafka consumer entrypoint
 │   │   ├── clients/
-│   │   │   ├── base.py                ← storage client base class
+│   │   │   ├── storage_client.py      ← storage client base class
 │   │   │   ├── minio_client.py        ← MinIO storage integration
 │   │   │   └── orchestrator_client.py ← orchestrator / report retrieval client
 │   │   ├── core/
@@ -49,15 +49,16 @@ STRAE_T5.4/
 |   ├── requirements.txt               ← app requirements
 |   └── tests.md                       ← tests docs
 ├── docker/
+│   ├── secrets/                       ← folder to store signing key and certificate
 │   ├── Dockerfile
 │   ├── docker-compose.yml
-│   └── docker.md                     ← deployment and service setup docs
+│   └── docker.md                      ← deployment and service setup docs
 ├── docs/
-│   ├── architecture.md               ← system architecture and design docs
-│   └── strae_swagger.json            ← API schema / Swagger definition
+│   ├── architecture.md                ← system architecture and design docs
+│   └── strae_swagger.json             ← API schema / Swagger definition
 ├── LICENSE
 ├── README.md
-└── status.md                         ← project status / notes
+└── status.md                          ← project status / notes
 ```
 
 ## Documentation Links

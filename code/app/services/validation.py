@@ -25,6 +25,13 @@ CDEFS_SCHEMA_PATH = SCHEMAS_DIR / "cryptography-defs.schema.json"
 # This custom checker enforces that a URI must have a scheme (e.g. "https://"),
 # so known algorithm names only match the enum branch.
 def get_format_checker() -> FormatChecker:
+    """
+    Get a custom JSON Schema format checker with strict URI validation.
+
+    Returns:
+        FormatChecker: A JSON Schema format checker with strict URI validation.
+    """
+
     checker = FormatChecker()
 
     # Override the uri format to be strict — ES256 etc. must not match
@@ -41,6 +48,13 @@ def get_format_checker() -> FormatChecker:
 
 
 def get_validator_registry() -> Registry[Any]:
+    """
+    Get a JSON Schema registry with the required schemas for CycloneDX validation.
+
+    Returns:
+        Registry: A JSON Schema registry containing the CycloneDX, SPDX, JSF, and cryptography-defs schemas.
+    """
+
     with (
         open(SPDX_SCHEMA_PATH) as spdx,
         open(JSF_SCHEMA_PATH) as jsf,
@@ -66,6 +80,13 @@ def get_validator_registry() -> Registry[Any]:
 
 @lru_cache
 def get_validator() -> Draft7Validator:
+    """
+    Get a JSON Schema validator for CycloneDX reports.
+
+    Returns:
+        Draft7Validator: A JSON Schema validator for CycloneDX reports.
+    """
+
     with open(CDX_SCHEMA_PATH) as sf:
         validator = Draft7Validator(
             json.load(sf),
@@ -77,6 +98,13 @@ def get_validator() -> Draft7Validator:
 
 
 def cdx_validate_dict(report_dict: dict) -> None:
+    """
+    Validate a CycloneDX report dictionary against the CycloneDX JSON Schema.
+
+    Args:
+        report_dict (dict): The CycloneDX report as a dictionary.
+    """
+
     logger.debug("Starting CycloneDX validation")
     validator = get_validator()
     errors = sorted(validator.iter_errors(report_dict), key=lambda e: e.path)
