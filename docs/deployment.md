@@ -6,12 +6,15 @@ This document describes the steps required to deploy the STRAE container on a Do
 
 The deployment requires:
 
+- The docker image pushed to the github registry
 - signing-key.pem
 - signing-cert.pem
 
 The private key is used to sign AIMBOM reports and must be protected.
 
-## 1. Copy signing keys to the server
+## Deploy kafka worker
+
+### 1. Copy signing keys to the server
 
 Create the secrets directory on the deployment server.
 
@@ -25,8 +28,8 @@ Copy the signing key and certificate from your machine to the server:
 
 ```bash
 cd docker/secrets
-scp signing-key.pem strae@<server-ip>:/home/strae/docker/secrets/
-scp signing-cert.pem strae@<server-ip>:/home/strae/docker/secrets/
+scp signing-key.pem <server-username>@<server-ip>:/home/strae/docker/secrets/
+scp signing-cert.pem <server-username>@<server-ip>:/home/strae/docker/secrets/
 ```
 
 Verify that the files exist in the server:
@@ -49,7 +52,7 @@ chmod 644 /home/strae/docker/secrets/signing-cert.pem
 
 The private key should only be readable by the deployment user.
 
-## 2. Deploy the STRAE stack
+### 2. Deploy the STRAE stack
 
 1. Open Portainer.
 
