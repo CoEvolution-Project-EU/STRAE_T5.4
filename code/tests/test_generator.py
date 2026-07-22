@@ -1,7 +1,6 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from app.clients.minio_client import MinioClient
 from app.clients.storage_client import StorageClient, StorageConnectionError
 from app.services.generator import (
     AIMBOMGenerator,
@@ -15,9 +14,9 @@ from fastapi.encoders import jsonable_encoder
 from tests.utils import (
     MODEL_UUID,
     MODEL_VERSION,
-    create_empty_mock_minio,
-    create_new_mock_minio,
-    verify_report,
+    create_empty_mock_storage,
+    create_new_mock_storage,
+    verify_signature,
 )
 
 
@@ -26,8 +25,8 @@ async def test_generate_success():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
 
-    minio = create_new_mock_minio()
-    generator = AIMBOMGenerator(minio)
+    storage = create_new_mock_storage()
+    generator = AIMBOMGenerator(storage)
 
     tiered_aimbom = await generator.generate(model_uuid, model_version, None)
 
@@ -82,8 +81,8 @@ async def test_generate_success():
     tier1_comments = {ref.comment for ref in aimbom_tier1.external_references}
     assert tier1_comments == {ReportComment.EU_AI_ACT}
 
-    # Check that the generated AIMBOM is valid and can be verified
-    assert verify_report(jsonable_encoder(aimbom_tier3, exclude_none=True)) is True
+    # Check that the generated AIMBOM signature is valid and can be verified
+    assert verify_signature(jsonable_encoder(aimbom_tier3, exclude_none=True)) is True
 
 
 @pytest.mark.anyio
@@ -91,21 +90,21 @@ async def test_generate_missing_reports():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
 
-    minio = create_empty_mock_minio()
-    generator = AIMBOMGenerator(minio)
+    storage = create_empty_mock_storage()
+    generator = AIMBOMGenerator(storage)
 
     with pytest.raises(GeneratorMissingReportError):
         await generator.generate(model_uuid, model_version, None)
 
 
 @pytest.mark.anyio
-async def test_minio_connection_failure():
+async def test_storage_connection_failure():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
 
-    minio = MagicMock(spec=MinioClient)
-    minio.get_reports_for_model.side_effect = StorageConnectionError("MinIO down")
-    generator = AIMBOMGenerator(minio)
+    storage = MagicMock(spec=StorageClient)
+    storage.get_reports_for_model.side_effect = StorageConnectionError("MinIO down")
+    generator = AIMBOMGenerator(storage)
 
     with pytest.raises(GeneratorStorageError):
         await generator.generate(model_uuid, model_version, None)

@@ -6,19 +6,19 @@ from httpx import ASGITransport, AsyncClient
 from tests.utils import (
     MODEL_UUID,
     MODEL_VERSION,
-    create_new_mock_minio,
+    create_new_mock_storage,
     get_generation_metadata,
 )
 
 
 @pytest.fixture
-def get_mock_minio():
-    return create_new_mock_minio()
+def get_mock_storage():
+    return create_new_mock_storage()
 
 
 @pytest.fixture(autouse=True)
-def override_storage(get_mock_minio):
-    app.dependency_overrides[get_storage_client] = lambda: get_mock_minio
+def override_storage(get_mock_storage):
+    app.dependency_overrides[get_storage_client] = lambda: get_mock_storage
     yield
     app.dependency_overrides.clear()
 
