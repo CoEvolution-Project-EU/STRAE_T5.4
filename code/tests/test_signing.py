@@ -13,7 +13,7 @@ from tests.utils import (
     REPORTS_DIR,
     decode_base64url,
     load_json,
-    verify_report,
+    verify_signature,
 )
 
 
@@ -69,7 +69,7 @@ def test_sign_report_signature_valid():
 
     signed_report = sign_report(report)
 
-    assert verify_report(signed_report) is True
+    assert verify_signature(signed_report) is True
 
 
 def test_modified_report_fails_signature_verification():
@@ -80,4 +80,4 @@ def test_modified_report_fails_signature_verification():
     signed_report["metadata"] = "tampered"
 
     with pytest.raises(InvalidSignature):
-        verify_report(signed_report)
+        verify_signature(signed_report)

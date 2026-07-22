@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 
-from tests.mock_db import MockMinioClient
+from tests.mock_storage import MockStorageClient
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "data/reports"
 AIMBOMS_DIR = Path(__file__).resolve().parent.parent / "data/aimboms"
@@ -23,57 +23,52 @@ def load_json(path: Path):
         return json.load(f)
 
 
-def seed_report(db: MockMinioClient, filename: str, object_name: str):
-    data = load_json(REPORTS_DIR / filename)
-    db.upload_json(
-        "reports",
-        f"{MODEL_UUID}/{MODEL_VERSION}/{object_name}",
-        data,
-    )
+def create_empty_mock_storage():
+    storage = MockStorageClient()
+    return storage
 
 
-def create_empty_mock_minio():
-    db = MockMinioClient()
-    db.create_bucket("reports")
-    db.create_bucket("aimboms")
-    return db
+def create_new_mock_storage():
+    storage = create_empty_mock_storage()
 
+    storage.reports[(MODEL_UUID, MODEL_VERSION)] = {
+        ReportType.AI_MODEL_INFO.value: load_json(
+            REPORTS_DIR / "aimbom-aimodelinfo.json"
+        ),
+        ReportType.DATASETS.value: load_json(REPORTS_DIR / "aimbom-datasets.json"),
+        ReportType.ASSESSMENTS.value: load_json(
+            REPORTS_DIR / "aimbom-assessments.json"
+        ),
+        ReportType.DEFENCES.value: load_json(REPORTS_DIR / "aimbom-defences.json"),
+        ReportType.EU_AI_ACT.value: load_json(REPORTS_DIR / "aimbom-euaiact.json"),
+        ReportType.GADGETS.value: load_json(REPORTS_DIR / "aimbom-gadgets.json"),
+        ReportType.RISK_REPORT.value: load_json(REPORTS_DIR / "aimbom-riskreport.json"),
+    }
 
-def create_new_mock_minio():
-    db = create_empty_mock_minio()
-
-    seed_report(db, "aimbom-aimodelinfo.json", f"{ReportType.AI_MODEL_INFO.value}.json")
-    seed_report(db, "aimbom-assessments.json", f"{ReportType.ASSESSMENTS.value}.json")
-    seed_report(db, "aimbom-datasets.json", f"{ReportType.DATASETS.value}.json")
-    seed_report(db, "aimbom-defences.json", f"{ReportType.DEFENCES.value}.json")
-    seed_report(db, "aimbom-euaiact.json", f"{ReportType.EU_AI_ACT.value}.json")
-    seed_report(db, "aimbom-gadgets.json", f"{ReportType.GADGETS.value}.json")
-    seed_report(db, "aimbom-riskreport.json", f"{ReportType.RISK_REPORT.value}.json")
-
-    return db
+    return storage
 
 
 def get_generation_metadata():
     return {
-        f"{ReportType.RISK_REPORT.value}": {
+        ReportType.RISK_REPORT.value: {
             "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.RISK_REPORT.value}.json",
         },
-        f"{ReportType.ASSESSMENTS.value}": {
+        ReportType.ASSESSMENTS.value: {
             "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.ASSESSMENTS.value}.json",
         },
-        f"{ReportType.DEFENCES.value}": {
+        ReportType.DEFENCES.value: {
             "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.DEFENCES.value}.json",
         },
-        f"{ReportType.GADGETS.value}": {
+        ReportType.GADGETS.value: {
             "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.GADGETS.value}.json",
         },
-        f"{ReportType.AI_MODEL_INFO.value}": {
+        ReportType.AI_MODEL_INFO.value: {
             "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.AI_MODEL_INFO.value}.json",
         },
-        f"{ReportType.EU_AI_ACT.value}": {
+        ReportType.EU_AI_ACT.value: {
             "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.EU_AI_ACT.value}.json",
         },
-        f"{ReportType.DATASETS.value}": {
+        ReportType.DATASETS.value: {
             "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.DATASETS.value}.json",
         },
     }
@@ -123,7 +118,7 @@ def get_public_key_from_certificate_path(
     return certificate.public_key()
 
 
-def verify_report(report: dict) -> bool:
+def verify_signature(report: dict) -> bool:
     report = copy.deepcopy(report)
 
     signature = report["signature"]

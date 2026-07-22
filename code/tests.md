@@ -8,7 +8,7 @@
 
 To run the test suite, make sure your virtual environment is activated and dependencies are installed.
 
-The tests use a mock MinIO server in order to perform unit tests without requiring a database connection.
+The tests use a mock storage client in order to perform unit tests without requiring a database connection.
 
 Inside the `/code` directory:
 

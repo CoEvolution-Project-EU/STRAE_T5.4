@@ -26,6 +26,7 @@ class StorageAuthError(StorageError):
 class StorageClient(ABC):
     @abstractmethod
     async def get_reports_for_model(
+        self,
         model_uuid: str,
         model_version: str,
         generation_metadata: object,
@@ -33,6 +34,7 @@ class StorageClient(ABC):
 
     @abstractmethod
     async def save_aimbom(
+        self,
         model_uuid: str,
         model_version: str,
         tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
