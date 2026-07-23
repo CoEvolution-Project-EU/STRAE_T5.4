@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft7Validator, FormatChecker
+from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
 logger = logging.getLogger(__name__)
@@ -15,36 +15,6 @@ CDX_SCHEMA_PATH = SCHEMAS_DIR / "bom-1.7.schema.json"
 SPDX_SCHEMA_PATH = SCHEMAS_DIR / "spdx.schema.json"
 JSF_SCHEMA_PATH = SCHEMAS_DIR / "jsf-0.82.schema.json"
 CDEFS_SCHEMA_PATH = SCHEMAS_DIR / "cryptography-defs.schema.json"
-
-
-# The JSF schema defines the `algorithm` field in the `signature` as a `oneOf` between a
-# known algorithm enum (e.g. "ES256") and a `format: uri` string for custom/proprietary algorithms.
-# By default, jsonschema's URI format validation is loose enough that plain strings
-# like "ES256" pass as valid URIs (interpreted as relative URIs), causing "ES256" to
-# match both branches and failing `oneOf` (which requires exactly one match).
-# This custom checker enforces that a URI must have a scheme (e.g. "https://"),
-# so known algorithm names only match the enum branch.
-def get_format_checker() -> FormatChecker:
-    """
-    Get a custom JSON Schema format checker with strict URI validation.
-
-    Returns:
-        FormatChecker: A JSON Schema format checker with strict URI validation.
-    """
-
-    checker = FormatChecker()
-
-    # Override the uri format to be strict — ES256 etc. must not match
-    @checker.checks("uri", raises=ValueError)
-    def check_uri(value):
-        from urllib.parse import urlparse
-
-        result = urlparse(value)
-        if not result.scheme:
-            raise ValueError(f"{value!r} is not a valid URI (no scheme)")
-        return True
-
-    return checker
 
 
 def get_validator_registry() -> Registry[Any]:
@@ -91,7 +61,7 @@ def get_validator() -> Draft7Validator:
         validator = Draft7Validator(
             json.load(sf),
             registry=get_validator_registry(),
-            format_checker=get_format_checker(),
+            format_checker=Draft7Validator.FORMAT_CHECKER,
         )
 
     return validator
