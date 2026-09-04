@@ -220,8 +220,6 @@ class AIMBOMGenerator:
         """Create an updated AIMBOM based on the previous AIMBOM and the new assessment report.
 
         Args:
-            model_uuid: Model UUID to associate with the updated AIMBOM.
-            model_version: Model version to associate with the updated AIMBOM.
             previous_aimbom: The previous `AIMBOM` instance.
             new_assessment_report: The new assessment report to include in the updated AIMBOM.
         """
@@ -258,8 +256,6 @@ class AIMBOMGenerator:
         """Fetch reports for a given model UUID and version.
 
         Args:
-            model_uuid: Model UUID to fetch reports for.
-            model_version: Model version to fetch reports for.
             generation_metadata: Optional metadata used to fetch reports from an
                 external orchestrator.
 
