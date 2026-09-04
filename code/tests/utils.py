@@ -48,28 +48,31 @@ def create_new_mock_storage():
     return storage
 
 
-def get_generation_metadata():
+def get_generation_metadata(model_uuid: str, model_version: str):
     return {
-        ReportType.RISK_REPORT.value: {
-            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.RISK_REPORT.value}.json",
-        },
-        ReportType.ASSESSMENTS.value: {
-            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.ASSESSMENTS.value}.json",
-        },
-        ReportType.DEFENCES.value: {
-            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.DEFENCES.value}.json",
-        },
-        ReportType.GADGETS.value: {
-            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.GADGETS.value}.json",
-        },
-        ReportType.AI_MODEL_INFO.value: {
-            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.AI_MODEL_INFO.value}.json",
-        },
-        ReportType.EU_AI_ACT.value: {
-            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.EU_AI_ACT.value}.json",
-        },
-        ReportType.DATASETS.value: {
-            "download_url": f"reports/{MODEL_UUID}/{MODEL_VERSION}/{ReportType.DATASETS.value}.json",
+        "previous_aimbom": None,
+        "reports": {
+            ReportType.RISK_REPORT.value: {
+                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.RISK_REPORT.value}.json",
+            },
+            ReportType.ASSESSMENTS.value: {
+                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.ASSESSMENTS.value}.json",
+            },
+            ReportType.DEFENCES.value: {
+                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.DEFENCES.value}.json",
+            },
+            ReportType.GADGETS.value: {
+                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.GADGETS.value}.json",
+            },
+            ReportType.AI_MODEL_INFO.value: {
+                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.AI_MODEL_INFO.value}.json",
+            },
+            ReportType.EU_AI_ACT.value: {
+                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.EU_AI_ACT.value}.json",
+            },
+            ReportType.DATASETS.value: {
+                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.DATASETS.value}.json",
+            },
         },
     }
 

@@ -68,7 +68,7 @@ async def test_generate_aimbom_success():
     ) as ac:
         response = await ac.post(
             f"/api/generate/{model_uuid}/{model_version}",
-            json=get_generation_metadata(),
+            json=get_generation_metadata(model_uuid, model_version),
         )
 
     assert response.status_code == 201
@@ -87,6 +87,6 @@ async def test_generate_aimbom_no_reports():
     ) as ac:
         response = await ac.post(
             f"/api/generate/{model_uuid}/{model_version}",
-            json=get_generation_metadata(),
+            json=get_generation_metadata(model_uuid, model_version),
         )
     assert response.status_code == 409

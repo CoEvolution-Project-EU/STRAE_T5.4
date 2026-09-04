@@ -95,7 +95,10 @@ async def consume_messages(
             tiered_aimbom = await generator.generate(
                 event["model_uuid"],
                 event["version"],
-                GenerationMetadata(**event["reports"]),
+                GenerationMetadata(
+                    previous_aimbom=None,  # TODO: Change this to take the value from the event when orchestrator supports it
+                    reports=event["reports"],
+                ),
             )
 
             logger.info(

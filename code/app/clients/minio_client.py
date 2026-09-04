@@ -136,17 +136,38 @@ class MinioClient(StorageClient):
                 response.close()
                 response.release_conn()
 
+    async def get_file_from_url(self, download_url: str) -> Dict:
+        """Retrieve a file from MinIO given a download URL.
+
+        Args:
+            download_url: The download URL in the format 'bucket_name/object_name'.
+
+        Returns:
+            The parsed JSON content of the file.
+
+        Raises:
+            StorageOperationError: If the download URL format is invalid
+        """
+
+        try:
+            bucket_name, object_name = download_url.split("/", 1)
+        except ValueError:
+            raise StorageOperationError(
+                f"Invalid download URL format: '{download_url}'. Expected 'bucket_name/object_name'."
+            )
+
+        return await asyncify(self.get_json)(
+            bucket_name=bucket_name,
+            object_name=object_name,
+        )
+
     async def get_reports_for_model(
         self,
-        model_uuid: str,
-        model_version: str,
         generation_metadata: GenerationMetadata,
     ) -> Dict:
         """Retrieve all report JSON files for a given model/version prefix.
 
         Args:
-            model_uuid: Model UUID used as prefix.
-            model_version: Model version used as prefix.
             generation_metadata: Metadata containing download URLs for each report type.
 
         Returns:
@@ -155,28 +176,20 @@ class MinioClient(StorageClient):
 
         reports = {}
 
-        for report_type, metadata in generation_metadata.model_dump().items():
-            logger.debug(
-                "Downloading report type=%s from orchestrator for model_uuid=%s model_version=%s",
-                report_type,
-                model_uuid,
-                model_version,
-            )
+        for report_type, metadata in generation_metadata.reports.model_dump().items():
+            logger.debug("Downloading report type=%s from orchestrator", report_type)
+
+            if metadata is None:
+                logger.warning("No metadata for report type=%s", report_type)
+                continue
 
             download_url = metadata.get("download_url")
             if not download_url:
-                logger.warning(
-                    "No download URL for report type=%s for model_uuid=%s model_version=%s",
-                    report_type,
-                    model_uuid,
-                    model_version,
-                )
+                logger.warning("No download URL for report type=%s", report_type)
                 continue
 
-            bucket_name, object_name = download_url.split("/", 1)
-            reports[report_type] = await asyncify(self.get_json)(
-                bucket_name=bucket_name,
-                object_name=object_name,
+            reports[report_type] = await self.get_file_from_url(
+                download_url=download_url
             )
 
         return reports
@@ -198,7 +211,7 @@ class MinioClient(StorageClient):
 
             await asyncify(self.upload_json)(
                 bucket_name=settings.AIMBOMS_BUCKET,
-                object_name=f"{model_uuid}/{model_version}/{uuid_from_serial_number(aimbom.serial_number)}-{tier.value}.json",
+                object_name=f"{model_uuid}/{model_version}/{uuid_from_serial_number(aimbom.serial_number)}-v{aimbom.version}-{tier.value}.json",
                 data=jsonable_encoder(aimbom, exclude_none=True),
             )
 

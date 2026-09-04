@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from app.clients.storage_client import StorageClient, StorageConnectionError
+from app.models.requests import GenerationMetadata
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
@@ -16,6 +17,7 @@ from tests.utils import (
     MODEL_VERSION,
     create_empty_mock_storage,
     create_new_mock_storage,
+    get_generation_metadata,
     verify_signature,
 )
 
@@ -28,7 +30,11 @@ async def test_generate_success():
     storage = create_new_mock_storage()
     generator = AIMBOMGenerator(storage)
 
-    tiered_aimbom = await generator.generate(model_uuid, model_version, None)
+    tiered_aimbom = await generator.generate(
+        model_uuid,
+        model_version,
+        GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
+    )
 
     aimbom_tier3 = tiered_aimbom[AIMBOMTier.TIER_3]
     aimbom_tier2 = tiered_aimbom[AIMBOMTier.TIER_2]
@@ -94,7 +100,11 @@ async def test_generate_missing_reports():
     generator = AIMBOMGenerator(storage)
 
     with pytest.raises(GeneratorMissingReportError):
-        await generator.generate(model_uuid, model_version, None)
+        await generator.generate(
+            model_uuid,
+            model_version,
+            GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
+        )
 
 
 @pytest.mark.anyio
@@ -107,7 +117,11 @@ async def test_storage_connection_failure():
     generator = AIMBOMGenerator(storage)
 
     with pytest.raises(GeneratorStorageError):
-        await generator.generate(model_uuid, model_version, None)
+        await generator.generate(
+            model_uuid,
+            model_version,
+            GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
+        )
 
 
 @pytest.mark.anyio
@@ -124,4 +138,8 @@ async def test_invalid_report_data():
     generator = AIMBOMGenerator(storage)
 
     with pytest.raises(GeneratorGenerationError):
-        await generator.generate(model_uuid, model_version, None)
+        await generator.generate(
+            model_uuid,
+            model_version,
+            GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
+        )
