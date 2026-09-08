@@ -23,6 +23,12 @@ def load_json(path: Path):
         return json.load(f)
 
 
+def get_url_for_report_type(
+    model_uuid: str, model_version: str, report_type: ReportType
+):
+    return f"reports/{model_uuid}/{model_version}/{report_type.value}.json"
+
+
 def create_empty_mock_storage():
     storage = MockStorageClient()
     return storage
@@ -31,47 +37,44 @@ def create_empty_mock_storage():
 def create_new_mock_storage():
     storage = create_empty_mock_storage()
 
-    storage.reports[(MODEL_UUID, MODEL_VERSION)] = {
-        ReportType.AI_MODEL_INFO.value: load_json(
-            REPORTS_DIR / "aimbom-aimodelinfo.json"
-        ),
-        ReportType.DATASETS.value: load_json(REPORTS_DIR / "aimbom-datasets.json"),
-        ReportType.ASSESSMENTS.value: load_json(
-            REPORTS_DIR / "aimbom-assessments.json"
-        ),
-        ReportType.DEFENCES.value: load_json(REPORTS_DIR / "aimbom-defences.json"),
-        ReportType.EU_AI_ACT.value: load_json(REPORTS_DIR / "aimbom-euaiact.json"),
-        ReportType.GADGETS.value: load_json(REPORTS_DIR / "aimbom-gadgets.json"),
-        ReportType.RISK_REPORT.value: load_json(REPORTS_DIR / "aimbom-riskreport.json"),
-    }
+    for report_type in ReportType:
+        storage.data[
+            get_url_for_report_type(MODEL_UUID, MODEL_VERSION, report_type)
+        ] = load_json(REPORTS_DIR / f"{report_type.value}.json")
+
+    storage.data[
+        f"reports/{MODEL_UUID}/{MODEL_VERSION}/assessment_report_updated.json"
+    ] = load_json(REPORTS_DIR / "assessment_report_updated.json")
+
+    storage.data[f"aimboms/{MODEL_UUID}/{MODEL_VERSION}/aimbom.json"] = load_json(
+        AIMBOMS_DIR / "aimbom.json"
+    )
 
     return storage
 
 
 def get_generation_metadata(model_uuid: str, model_version: str):
+    reports = {
+        report_type.value: {
+            "download_url": get_url_for_report_type(
+                model_uuid, model_version, report_type
+            )
+        }
+        for report_type in ReportType
+    }
+
+    return {"previous_aimbom": None, "reports": reports}
+
+
+def get_generation_metadata_deprecation(model_uuid: str, model_version: str):
+
     return {
-        "previous_aimbom": None,
+        "previous_aimbom": {
+            "download_url": f"aimboms/{model_uuid}/{model_version}/aimbom.json"
+        },
         "reports": {
-            ReportType.RISK_REPORT.value: {
-                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.RISK_REPORT.value}.json",
-            },
-            ReportType.ASSESSMENTS.value: {
-                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.ASSESSMENTS.value}.json",
-            },
-            ReportType.DEFENCES.value: {
-                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.DEFENCES.value}.json",
-            },
-            ReportType.GADGETS.value: {
-                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.GADGETS.value}.json",
-            },
-            ReportType.AI_MODEL_INFO.value: {
-                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.AI_MODEL_INFO.value}.json",
-            },
-            ReportType.EU_AI_ACT.value: {
-                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.EU_AI_ACT.value}.json",
-            },
-            ReportType.DATASETS.value: {
-                "download_url": f"reports/{model_uuid}/{model_version}/{ReportType.DATASETS.value}.json",
+            "assessment_report": {
+                "download_url": f"reports/{model_uuid}/{model_version}/assessment_report_updated.json"
             },
         },
     }

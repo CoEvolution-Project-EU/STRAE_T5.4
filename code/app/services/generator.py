@@ -116,11 +116,14 @@ class AIMBOMGenerator:
             previous_aimbom = await self._get_previous_aimbom(
                 generation_metadata.previous_aimbom.download_url,
             )
+
             # Load and validate updated the reports for the given model UUID and version.
             # (only the assessment report should change)
+            # TODO: Check whether the defence or any other report should also be updated.
             new_assessment_report = await self._get_new_assessment_report(
                 generation_metadata.reports.assessment_report.download_url,
             )
+
             # Create a new updated AIMBOM with the updated reports and increment the version number.
             tiered_aimbom = await self._create_updated_aimbom(
                 previous_aimbom,

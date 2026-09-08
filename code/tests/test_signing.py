@@ -39,7 +39,7 @@ def test_sign_data_returns_raw_es256_signature():
 
 
 def test_sign_report_adds_signature_and_preserves_report():
-    report = load_json(REPORTS_DIR / "aimbom-aimodelinfo.json")
+    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
     report["signature"] = {
         "algorithm": "none",
         "certificatePath": [],
@@ -65,7 +65,7 @@ def test_sign_report_adds_signature_and_preserves_report():
 
 
 def test_sign_report_signature_valid():
-    report = load_json(REPORTS_DIR / "aimbom-aimodelinfo.json")
+    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
 
     signed_report = sign_report(report)
 
@@ -73,7 +73,7 @@ def test_sign_report_signature_valid():
 
 
 def test_modified_report_fails_signature_verification():
-    report = load_json(REPORTS_DIR / "aimbom-aimodelinfo.json")
+    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
 
     signed_report = sign_report(report)
 
