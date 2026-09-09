@@ -95,7 +95,7 @@ async def test_generate_aimbom_no_reports():
 
 
 @pytest.mark.anyio
-async def test_generate_aimbom_deprecated():
+async def test_deprecate_aimbom_success():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
 
