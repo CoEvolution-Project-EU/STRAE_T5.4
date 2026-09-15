@@ -5,6 +5,7 @@ import signal
 from contextlib import suppress
 
 from aiokafka import AIOKafkaConsumer
+from pydantic import ValidationError
 
 from app.clients.orchestrator_client import get_orchestrator_client
 from app.core.config import settings
@@ -30,7 +31,61 @@ class WorkerShutdown(Exception):
     """Raised when the worker is shutting down."""
 
 
+class WorkerInvalidPayloadError(Exception):
+    """Raised when a Kafka event is missing fields required for its event type."""
+
+
 shutdown_event = asyncio.Event()
+
+UPDATED_AIMBOM_EVENT = "updated-aimbom-requested"
+
+
+def _extract_previous_aimbom_and_reports(
+    event: dict,
+) -> tuple[dict | None, dict]:
+    """Derive the `previous_aimbom` and `reports` payloads from a raw Kafka event.
+
+    For an `updated-aimbom-requested` event, the previous AIMBOM reference is
+    read from `changedReports.aimbom_report` and the remaining entries of
+    `changedReports` are used as the changed reports. For any other event
+    type, `reports` is used directly and there is no previous AIMBOM.
+
+    Args:
+        event: The raw, JSON-decoded Kafka event.
+
+    Returns:
+        A `(previous_aimbom, reports)` tuple of raw dicts, suitable for
+        constructing a `GenerationMetadata` instance.
+
+    Raises:
+        WorkerInvalidPayloadError: If the event is missing the fields
+            required for its declared event type.
+    """
+
+    if event.get("event") == UPDATED_AIMBOM_EVENT:
+        changed_reports = event.get("changedReports")
+
+        if (
+            not isinstance(changed_reports, dict)
+            or "aimbom_report" not in changed_reports
+        ):
+            raise WorkerInvalidPayloadError(
+                f"'{UPDATED_AIMBOM_EVENT}' event requires a "
+                "'changedReports.aimbom_report' field"
+            )
+
+        # Copy to avoid mutating the original Kafka message value.
+        changed_reports = dict(changed_reports)
+        previous_aimbom = changed_reports.pop("aimbom_report")
+        reports = changed_reports
+    else:
+        previous_aimbom = None
+        reports = event.get("reports")
+
+        if not isinstance(reports, dict):
+            raise WorkerInvalidPayloadError("Event requires a 'reports' field")
+
+    return previous_aimbom, reports
 
 
 def _handle_shutdown_signal():
@@ -65,6 +120,17 @@ async def consume_messages(
         try:
             event = message.value
 
+            if not isinstance(event, dict):
+                logger.error(
+                    "Discarding non-object Kafka event payload=%r",
+                    event,
+                )
+
+                # Commit invalid messages so they do not poison the queue
+                await consumer.commit()
+
+                continue
+
             logger.info(
                 "Received AIMBOM generation request model_uuid=%s version=%s",
                 event.get("model_uuid"),
@@ -75,7 +141,6 @@ async def consume_messages(
             required_fields = [
                 "model_uuid",
                 "version",
-                # "reports",
             ]
 
             missing_fields = [field for field in required_fields if field not in event]
@@ -92,22 +157,31 @@ async def consume_messages(
 
                 continue
 
-            # Determine previous AIMBOM and reports based on event type
-            if event["event"] == "updated-aimbom-requested":
-                previous_aimbom = event["changedReports"]["aimbom_report"]
-                del event["changedReports"]["aimbom_report"]
-                reports = event["changedReports"]
-            else:
-                previous_aimbom = None
-                reports = event["reports"]
+            # Determine previous AIMBOM and reports based on event type, and
+            # validate the resulting shape against GenerationMetadata.
+            try:
+                previous_aimbom, reports = _extract_previous_aimbom_and_reports(event)
+
+                generation_metadata = GenerationMetadata(
+                    previous_aimbom=previous_aimbom,
+                    reports=reports,
+                )
+            except (WorkerInvalidPayloadError, ValidationError) as e:
+                logger.error(
+                    "Invalid Kafka event payload model_uuid=%s: %s",
+                    event.get("model_uuid"),
+                    str(e),
+                )
+
+                # Commit invalid messages so they do not poison the queue
+                await consumer.commit()
+
+                continue
 
             tiered_aimbom = await generator.generate(
                 event["model_uuid"],
                 event["version"],
-                GenerationMetadata(
-                    previous_aimbom=previous_aimbom,
-                    reports=reports,
-                ),
+                generation_metadata,
             )
 
             logger.info(
