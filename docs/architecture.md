@@ -50,7 +50,7 @@ STRAE is organized as a modular FastAPI application with a clear separation betw
 |----------|--------|-------------|-------|--------|
 | `/api/status` | GET | Health check endpoint for the STRAE API | - | Health status and version information |
 | `/api/sign` | POST | Signs a provided report payload | Report payload (JSON) | Signed report |
-| `/api/generate` | POST | Generates an AIMBOM for a given model UUID and version by aggregating reports from the configured storage backend, or produces an updated version of an existing AIMBOM when `previous_aimbom` is provided | `model_uuid`, `model_version`, `generation_metadata` | Confirmation message, AIMBOM identifier and version |
+| `/api/generate` | POST | Generates an AIMBOM for a given model UUID and version by aggregating reports from the configured storage backend, or produces an updated version of an existing AIMBOM when `previous_aimbom` is provided in the `generation_metadata` | `model_uuid`, `model_version`, `generation_metadata` | Confirmation message, AIMBOM identifier and version |
 
 ## Kafka Worker
 
