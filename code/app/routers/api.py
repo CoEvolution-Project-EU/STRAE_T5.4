@@ -170,6 +170,7 @@ async def generate_aimbom(
     return AIMBOMGeneratedResponse(
         detail="AIMBOM generated successfully",
         aimbom_uuid=aimbom_uuid,
+        aimbom_version=aimbom.version,
         model_uuid=model_uuid,
         model_version=model_version,
     )

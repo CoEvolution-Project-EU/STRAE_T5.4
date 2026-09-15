@@ -25,14 +25,17 @@ class StorageAuthError(StorageError):
 
 class StorageClient(ABC):
     @abstractmethod
+    async def get_file_from_url(self, download_url: str) -> Dict: ...
+
+    @abstractmethod
     async def get_reports_for_model(
-        model_uuid: str,
-        model_version: str,
+        self,
         generation_metadata: object,
-    ): ...
+    ) -> Dict: ...
 
     @abstractmethod
     async def save_aimbom(
+        self,
         model_uuid: str,
         model_version: str,
         tiered_aimbom: Dict[AIMBOMTier, AIMBOM],

@@ -14,6 +14,7 @@ class ReportSavedResponse(BaseModel):
 class AIMBOMGeneratedResponse(BaseModel):
     detail: str
     aimbom_uuid: str = Field(..., min_length=1)
+    aimbom_version: int = Field(..., ge=1)
     model_uuid: str = Field(..., min_length=1)
     model_version: str = Field(..., min_length=1)
 

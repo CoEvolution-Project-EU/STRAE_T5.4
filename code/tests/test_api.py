@@ -6,19 +6,20 @@ from httpx import ASGITransport, AsyncClient
 from tests.utils import (
     MODEL_UUID,
     MODEL_VERSION,
-    create_new_mock_minio,
+    create_new_mock_storage,
     get_generation_metadata,
+    get_generation_metadata_deprecation,
 )
 
 
 @pytest.fixture
-def get_mock_minio():
-    return create_new_mock_minio()
+def get_mock_storage():
+    return create_new_mock_storage()
 
 
 @pytest.fixture(autouse=True)
-def override_storage(get_mock_minio):
-    app.dependency_overrides[get_storage_client] = lambda: get_mock_minio
+def override_storage(get_mock_storage):
+    app.dependency_overrides[get_storage_client] = lambda: get_mock_storage
     yield
     app.dependency_overrides.clear()
 
@@ -68,13 +69,14 @@ async def test_generate_aimbom_success():
     ) as ac:
         response = await ac.post(
             f"/api/generate/{model_uuid}/{model_version}",
-            json=get_generation_metadata(),
+            json=get_generation_metadata(model_uuid, model_version),
         )
 
     assert response.status_code == 201
     data = response.json()
     assert data["model_uuid"] == model_uuid
     assert "aimbom_uuid" in data
+    assert data["aimbom_version"] == 1
 
 
 @pytest.mark.anyio
@@ -87,6 +89,26 @@ async def test_generate_aimbom_no_reports():
     ) as ac:
         response = await ac.post(
             f"/api/generate/{model_uuid}/{model_version}",
-            json=get_generation_metadata(),
+            json=get_generation_metadata(model_uuid, model_version),
         )
     assert response.status_code == 409
+
+
+@pytest.mark.anyio
+async def test_deprecate_aimbom_success():
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post(
+            f"/api/generate/{model_uuid}/{model_version}",
+            json=get_generation_metadata_deprecation(model_uuid, model_version),
+        )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["model_uuid"] == model_uuid
+    assert "aimbom_uuid" in data
+    assert data["aimbom_version"] == 2

@@ -75,7 +75,7 @@ async def consume_messages(
             required_fields = [
                 "model_uuid",
                 "version",
-                "reports",
+                # "reports",
             ]
 
             missing_fields = [field for field in required_fields if field not in event]
@@ -92,10 +92,22 @@ async def consume_messages(
 
                 continue
 
+            # Determine previous AIMBOM and reports based on event type
+            if event["event"] == "updated-aimbom-requested":
+                previous_aimbom = event["changedReports"]["aimbom_report"]
+                del event["changedReports"]["aimbom_report"]
+                reports = event["changedReports"]
+            else:
+                previous_aimbom = None
+                reports = event["reports"]
+
             tiered_aimbom = await generator.generate(
                 event["model_uuid"],
                 event["version"],
-                GenerationMetadata(**event["reports"]),
+                GenerationMetadata(
+                    previous_aimbom=previous_aimbom,
+                    reports=reports,
+                ),
             )
 
             logger.info(

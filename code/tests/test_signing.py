@@ -13,7 +13,7 @@ from tests.utils import (
     REPORTS_DIR,
     decode_base64url,
     load_json,
-    verify_report,
+    verify_signature,
 )
 
 
@@ -39,7 +39,7 @@ def test_sign_data_returns_raw_es256_signature():
 
 
 def test_sign_report_adds_signature_and_preserves_report():
-    report = load_json(REPORTS_DIR / "aimbom-aimodelinfo.json")
+    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
     report["signature"] = {
         "algorithm": "none",
         "certificatePath": [],
@@ -65,19 +65,19 @@ def test_sign_report_adds_signature_and_preserves_report():
 
 
 def test_sign_report_signature_valid():
-    report = load_json(REPORTS_DIR / "aimbom-aimodelinfo.json")
+    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
 
     signed_report = sign_report(report)
 
-    assert verify_report(signed_report) is True
+    assert verify_signature(signed_report) is True
 
 
 def test_modified_report_fails_signature_verification():
-    report = load_json(REPORTS_DIR / "aimbom-aimodelinfo.json")
+    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
 
     signed_report = sign_report(report)
 
     signed_report["metadata"] = "tampered"
 
     with pytest.raises(InvalidSignature):
-        verify_report(signed_report)
+        verify_signature(signed_report)
