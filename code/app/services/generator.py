@@ -97,23 +97,51 @@ class AIMBOMGenerator:
         Returns:
             The generated `AIMBOM` instance.
         """
+
         logger.debug(
             "Starting generation pipeline model_uuid=%s, model_version=%s",
             model_uuid,
             model_version,
         )
 
-        # TODO: Check if an AIMBOM already exists for the given model_uuid and
-        # model_version before starting the generation process (should be inlcuded
-        # in the generation_metadata).
-        # 1 -> If it exists, we have AIMBOM deprecation and we need to generate a
-        # new AIMBOM with the new reports that includes a link to the deprecated one.
-        # 2 -> If it doesn't exist, we proceed with the generation as normal.
+        if generation_metadata.previous_aimbom is not None:
+            logger.info(
+                "Previous AIMBOM exists for model_uuid=%s, model_version=%s. "
+                "Generating new version of AIMBOM.",
+                model_uuid,
+                model_version,
+            )
 
-        reports = await self._load_reports(
-            model_uuid, model_version, generation_metadata
-        )
-        tiered_aimbom = self._create_aimbom_from_reports(reports)
+            # Load previous AIMBOM.
+            previous_aimbom = await self._get_previous_aimbom(
+                generation_metadata.previous_aimbom.download_url,
+            )
+
+            # Load and validate updated the reports for the given model UUID and version.
+            # (only the assessment report should change)
+            # TODO: Check whether the defence or any other report should also be updated.
+            new_assessment_report = await self._get_new_assessment_report(
+                generation_metadata.reports.assessment_report.download_url,
+            )
+
+            # Create a new updated AIMBOM with the updated reports and increment the version number.
+            tiered_aimbom = await self._create_updated_aimbom(
+                previous_aimbom,
+                new_assessment_report,
+            )
+
+        else:
+            logger.info(
+                "No previous AIMBOM exists for model_uuid=%s, model_version=%s. "
+                "Generating new AIMBOM.",
+                model_uuid,
+                model_version,
+            )
+
+            reports = await self._load_reports(generation_metadata)
+            tiered_aimbom = self._create_aimbom_from_reports(reports)
+
+        # Save the generated AIMBOM to the configured storage backend (MinIO or Orchestrator).
         await self._save_aimbom(model_uuid, model_version, tiered_aimbom)
 
         logger.debug(
@@ -123,17 +151,114 @@ class AIMBOMGenerator:
         )
         return tiered_aimbom
 
+    async def _get_previous_aimbom(
+        self,
+        download_url: str,
+    ) -> AIMBOM:
+        """Retrieve the previous AIMBOM for a given model UUID and version.
+
+        Args:
+            download_url: The download URL of the previous AIMBOM.
+        """
+
+        try:
+            previous_aimbom = await self.client.get_file_from_url(
+                download_url=download_url
+            )
+            return AIMBOM(**previous_aimbom)
+        except StorageConnectionError as e:
+            logger.error(
+                "Storage connection error retrieving previous AIMBOM",
+                exc_info=True,
+            )
+            raise GeneratorStorageError(
+                f"Failed to retrieve previous AIMBOM from storage: {str(e)}"
+            ) from e
+        except StorageOperationError as e:
+            logger.warning(
+                "No previous AIMBOM found",
+            )
+            raise GeneratorStorageError(
+                f"Failed to retrieve previous AIMBOM from storage: {str(e)}"
+            ) from e
+
+    async def _get_new_assessment_report(
+        self,
+        download_url: str,
+    ) -> ReportModel:
+        """Retrieve the new assessment report for a given model UUID and version.
+
+        Args:
+            download_url: The download URL of the new assessment report.
+        """
+
+        try:
+            new_assessment_report = await self.client.get_file_from_url(
+                download_url=download_url
+            )
+            return REPORT_MODELS[ReportType.ASSESSMENTS].model_validate(
+                new_assessment_report
+            )
+        except StorageConnectionError as e:
+            logger.error(
+                "Storage connection error retrieving new assessment report",
+                exc_info=True,
+            )
+            raise GeneratorStorageError(
+                f"Failed to retrieve new assessment report from storage: {str(e)}"
+            ) from e
+        except StorageOperationError as e:
+            logger.warning(
+                "No new assessment report found",
+            )
+            raise GeneratorMissingReportError(
+                f"Required new assessment report is missing : {str(e)}"
+            ) from e
+
+    async def _create_updated_aimbom(
+        self,
+        previous_aimbom: AIMBOM,
+        new_assessment_report: ReportModel,
+    ) -> Dict[AIMBOMTier, AIMBOM]:
+        """Create an updated AIMBOM based on the previous AIMBOM and the new assessment report.
+
+        Args:
+            previous_aimbom: The previous `AIMBOM` instance.
+            new_assessment_report: The new assessment report to include in the updated AIMBOM.
+        """
+        # Create a new updated AIMBOM with the updated reports and increment the version number.
+        # NOTE: The new AIMBOM will have the same serial number as the previous AIMBOM, but the version will be incremented.
+
+        aimbom = previous_aimbom.model_copy()
+        aimbom.version += 1
+        # Update the external references to include the new assessment report.
+        aimbom.external_references = [
+            ref
+            for ref in aimbom.external_references
+            if ref.comment != REPORT_TO_COMMENT.get(ReportType.ASSESSMENTS.value)
+        ] + [
+            ExternalReference(
+                type="bom",
+                url=f"urn:cdx:{uuid_from_serial_number(new_assessment_report.serial_number)}/{new_assessment_report.version}",
+                comment=REPORT_TO_COMMENT.get(ReportType.ASSESSMENTS.value),
+            )
+        ]
+
+        # Replace the old signature with a new signature for the updated AIMBOM.
+        aimbom = self._sign_aimbom(aimbom)
+
+        # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.
+        self._validate_aimbom(aimbom)
+
+        return self._create_tiered_aimbom(aimbom)
+
     async def _fetch_raw_reports(
         self,
-        model_uuid: str,
-        model_version: str,
         generation_metadata: GenerationMetadata,
     ) -> Dict[ReportType, Dict]:
         """Fetch reports for a given model UUID and version.
 
         Args:
-            model_uuid: Model UUID to fetch reports for.
-            model_version: Model version to fetch reports for.
             generation_metadata: Optional metadata used to fetch reports from an
                 external orchestrator.
 
@@ -146,38 +271,31 @@ class AIMBOMGenerator:
         """
 
         try:
-            return await self.client.get_reports_for_model(
-                model_uuid, model_version, generation_metadata
-            )
+            return await self.client.get_reports_for_model(generation_metadata)
         except StorageConnectionError as e:
             logger.error(
-                "Storage connection error retrieving reports for model_uuid=%s, model_version=%s",
-                model_uuid,
-                model_version,
+                "Storage connection error retrieving reports",
                 exc_info=True,
             )
             raise GeneratorStorageError(
-                f"Failed to retrieve reports for model_uuid={model_uuid}, model_version={model_version} from MinIO storage: {str(e)}"
+                f"Failed to retrieve reports from MinIO storage: {str(e)}"
             ) from e
         except StorageOperationError as e:
             logger.warning(
-                "Missing reports for model_uuid=%s, model_version=%s",
-                model_uuid,
-                model_version,
+                "Missing reports",
+                exc_info=True,
             )
             raise GeneratorMissingReportError(
-                f"Required reports are missing for model_uuid={model_uuid}, model_version={model_version}: {str(e)}"
+                f"Required reports are missing: {str(e)}"
             ) from e
 
     def _validate_reports(
-        self, model_uuid: str, model_version: str, raw_reports: Dict[ReportType, Dict]
+        self, raw_reports: Dict[ReportType, Dict]
     ) -> Dict[ReportType, ReportModel]:
         """
         Validate the retrieved reports for a given model UUID and version.
 
         Args:
-            model_uuid: Model UUID to validate reports for.
-            model_version: Model version to validate reports for.
             raw_reports: A mapping of `ReportType` to raw JSON dictionaries.
 
         Returns:
@@ -196,15 +314,9 @@ class AIMBOMGenerator:
             report = raw_reports.get(report_type.value)
 
             if report is None:
-                logger.warning(
-                    "Missing report %s for model_uuid=%s, model_version=%s",
-                    report_type.value,
-                    model_uuid,
-                    model_version,
-                )
+                logger.warning("Missing report %s", report_type.value)
                 raise GeneratorMissingReportError(
-                    f"Required report {report_type.value} is missing for "
-                    f"model_uuid={model_uuid}, model_version={model_version}"
+                    f"Required report {report_type.value} is missing"
                 )
 
             try:
@@ -216,78 +328,53 @@ class AIMBOMGenerator:
                 validated_report = model_cls.model_validate(report)
             except ValueError as e:
                 logger.warning(
-                    "Invalid CycloneDX report %s for model_uuid=%s, model_version=%s: %s",
+                    "Invalid CycloneDX report %s: %s",
                     report_type.value,
-                    model_uuid,
-                    model_version,
                     str(e),
                 )
                 raise GeneratorGenerationError(
-                    f"Report {report_type.value} is invalid for "
-                    f"model_uuid={model_uuid}, model_version={model_version}: {str(e)}"
+                    f"Report {report_type.value} is invalid: {str(e)}"
                 ) from e
             except ValidationError as e:
                 logger.warning(
-                    "Schema validation failed for report %s "
-                    "for model_uuid=%s, model_version=%s: %s",
+                    "Schema validation failed for report %s: %s",
                     report_type.value,
-                    model_uuid,
-                    model_version,
                     str(e),
                 )
                 raise GeneratorGenerationError(
-                    f"Report {report_type.value} failed schema validation "
-                    f"for model_uuid={model_uuid}, "
-                    f"model_version={model_version}: {str(e)}"
+                    f"Report {report_type.value} failed schema validation: {str(e)}"
                 ) from e
 
             reports[report_type] = validated_report
 
-            logger.debug(
-                "Retrieved report %s for model_uuid=%s, model_version=%s",
-                report_type.value,
-                model_uuid,
-                model_version,
-            )
+            logger.debug("Retrieved report %s", report_type.value)
         return reports
 
     async def _load_reports(
         self,
-        model_uuid: str,
-        model_version: str,
         generation_metadata: GenerationMetadata,
     ) -> Dict[ReportType, ReportModel]:
         """Load and validate the set of required reports for a model.
 
         Args:
-            model_uuid: Model UUID to fetch reports for.
-            model_version: Model version to fetch reports for.
             generation_metadata: Optional metadata used by orchestrator-backed storage.
 
         Returns:
             A mapping of `ReportType` to validated report model instances.
         """
         logger.debug(
-            "Retrieving reports for model_uuid=%s, model_version=%s",
-            model_uuid,
-            model_version,
+            "Retrieving reports",
         )
 
         # Fetch reports from the storage backend using the provided model UUID, version and generation metadata.
-        raw_reports = await self._fetch_raw_reports(
-            model_uuid, model_version, generation_metadata
-        )
+        raw_reports = await self._fetch_raw_reports(generation_metadata)
 
         # Validate and parse each retrieved report, ensuring they are compliant with the CycloneDX schema
         # and our specific report models.
-        validated_reports = self._validate_reports(
-            model_uuid, model_version, raw_reports
-        )
+        validated_reports = self._validate_reports(raw_reports)
 
         logger.debug(
-            "All reports retrieved for model_uuid=%s, model_version=%s",
-            model_uuid,
-            model_version,
+            "All reports retrieved",
         )
         return validated_reports
 

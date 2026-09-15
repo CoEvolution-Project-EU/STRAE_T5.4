@@ -8,6 +8,7 @@ from tests.utils import (
     MODEL_VERSION,
     create_new_mock_storage,
     get_generation_metadata,
+    get_generation_metadata_deprecation,
 )
 
 
@@ -68,13 +69,14 @@ async def test_generate_aimbom_success():
     ) as ac:
         response = await ac.post(
             f"/api/generate/{model_uuid}/{model_version}",
-            json=get_generation_metadata(),
+            json=get_generation_metadata(model_uuid, model_version),
         )
 
     assert response.status_code == 201
     data = response.json()
     assert data["model_uuid"] == model_uuid
     assert "aimbom_uuid" in data
+    assert data["aimbom_version"] == 1
 
 
 @pytest.mark.anyio
@@ -87,6 +89,26 @@ async def test_generate_aimbom_no_reports():
     ) as ac:
         response = await ac.post(
             f"/api/generate/{model_uuid}/{model_version}",
-            json=get_generation_metadata(),
+            json=get_generation_metadata(model_uuid, model_version),
         )
     assert response.status_code == 409
+
+
+@pytest.mark.anyio
+async def test_deprecate_aimbom_success():
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post(
+            f"/api/generate/{model_uuid}/{model_version}",
+            json=get_generation_metadata_deprecation(model_uuid, model_version),
+        )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["model_uuid"] == model_uuid
+    assert "aimbom_uuid" in data
+    assert data["aimbom_version"] == 2
