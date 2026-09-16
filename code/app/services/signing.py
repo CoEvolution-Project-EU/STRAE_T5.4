@@ -85,6 +85,7 @@ def get_private_key() -> ec.EllipticCurvePrivateKey:
     Returns:
         ec.EllipticCurvePrivateKey: The loaded ECDSA private key.
     """
+
     with open(settings.SIGNING_PRIVATE_KEY_PATH, "rb") as f:
         return serialization.load_pem_private_key(
             f.read(),

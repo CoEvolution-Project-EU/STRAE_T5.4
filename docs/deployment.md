@@ -118,3 +118,25 @@ SIGNING_CERTIFICATE_PATH=/run/secrets/signing-cert.pem
 ```
 
 Deploy the stack.
+
+## Rotating the signing key/certificate
+
+STRAE reloads the signing key and certificate automatically whenever the files at
+`SIGNING_PRIVATE_KEY_PATH`/`SIGNING_CERTIFICATE_PATH` change, so rotation does not
+require restarting the API or the Kafka worker.
+
+To rotate:
+
+1. Copy the new `signing-key.pem`/`signing-cert.pem` to the server, the same way as
+   in [Copy signing keys to the server](#1-copy-signing-keys-to-the-server).
+2. Overwrite the existing files at `/home/strae/docker/secrets/` with the new ones,
+   keeping the same filenames.
+3. Set permissions again, since they are not preserved by `scp`:
+
+```bash
+chmod 600 /home/strae/docker/secrets/signing-key.pem
+chmod 644 /home/strae/docker/secrets/signing-cert.pem
+```
+
+The new key/certificate are picked up on the next sign operation. No restart or
+redeploy of the stack is needed.
