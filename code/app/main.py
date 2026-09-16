@@ -10,6 +10,7 @@ from app.core.config import Environment, settings
 from app.core.logging import setup_logging
 from app.core.middleware import (
     ConcurrencyLimitMiddleware,
+    LoggingMiddleware,
     RateLimitMiddleware,
     RequestSizeLimitMiddleware,
 )
@@ -75,10 +76,15 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Logging middleware
-# app.add_middleware(LoggingMiddleware)
 
-if settings.ENVIRONMENT == Environment.prod:
+if settings.SECURITY_MIDDLEWARE_ENABLED:
+    # NOTE: RateLimitMiddleware and ConcurrencyLimitMiddleware keep their
+    # state (request timestamps / in-flight count) in this process's memory.
+    # They only enforce correctly when a single API instance is running. If
+    # this service is ever scaled to multiple replicas/containers, each
+    # instance enforces its own independent limit, so the effective limit
+    # becomes (configured limit x replica count). See docker/docker.md.
+
     # Rate limiting middleware
     app.add_middleware(
         RateLimitMiddleware,
@@ -100,6 +106,10 @@ if settings.ENVIRONMENT == Environment.prod:
         RequestSizeLimitMiddleware,
         max_content_length=1024 * 1024 * 50,  # 50MB
     )
+
+# Logging middleware
+if settings.ENVIRONMENT == Environment.dev:
+    app.add_middleware(LoggingMiddleware)
 
 # Include api router
 app.include_router(api_router)

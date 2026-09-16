@@ -11,6 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Per-IP request rate limiter.
+
+    State (`ip_requests`) is kept in this process's memory, so the limit is
+    only correct when a single instance of the API is running. Running
+    multiple replicas behind a load balancer multiplies the effective limit
+    by the replica count, since each instance tracks requests independently.
+    """
+
     def __init__(
         self,
         app,
@@ -85,6 +93,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 
 class ConcurrencyLimitMiddleware(BaseHTTPMiddleware):
+    """Caps total in-flight requests to protected routes via an in-process semaphore.
+
+    The semaphore is local to this process, so the cap is only correct when
+    a single instance of the API is running. Running multiple replicas
+    behind a load balancer multiplies the effective cap by the replica
+    count, since each instance enforces its own independent limit.
+    """
+
     def __init__(
         self,
         app,
