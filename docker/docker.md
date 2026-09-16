@@ -76,8 +76,26 @@ This project uses **Docker Compose profiles** to distinguish between different d
 
   * No hot reloading
   * Uses an external **MinIO Server** for storage
-  * Enables security-focused middleware
+  * Enables security-focused middleware (rate limiting, concurrency limiting, request size limiting)
   * Suitable for production-like deployments
+
+  > **Enabling/disabling the middleware:** controlled by the
+  > `SECURITY_MIDDLEWARE_ENABLED` environment variable (default `true`),
+  > independently of the `dev`/`prod` profile. It's set explicitly per
+  > service in `docker-compose.yml` (`true` for `api`, `false` for
+  > `api-dev`) rather than in `.env`, so change it there to affect a
+  > specific profile.
+  >
+  > **Single-instance assumption:** the rate limiting and concurrency limiting
+  > middleware keep their state in the process's own memory. They only
+  > enforce the configured limits correctly when exactly **one** API
+  > container/replica is running. If the `prod` profile is ever scaled to
+  > multiple replicas (e.g. behind a load balancer), each instance enforces
+  > its own independent limit, so the effective limit becomes the configured
+  > value multiplied by the replica count. Scaling out should either move
+  > this enforcement to the reverse proxy in front of the deployment (e.g.
+  > nginx `limit_req`/`limit_conn`/upstream `max_conns`) or back the
+  > middleware with a shared store (e.g. Redis).
 
 * **`kafka` profile**
 

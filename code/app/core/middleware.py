@@ -11,6 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Per-IP request rate limiter.
+
+    State (`ip_requests`) is kept in this process's memory, so the limit is
+    only correct when a single instance of the API is running. Running
+    multiple replicas behind a load balancer multiplies the effective limit
+    by the replica count, since each instance tracks requests independently.
+    """
+
     def __init__(
         self,
         app,
@@ -23,6 +31,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.rate_limit_window = rate_limit_window
         self.protected_routes = protected_routes
         self.ip_requests = defaultdict(list)
+        self._last_cleanup = time.time()
         logger.info(
             "Rate limit middleware initialized: %d requests / %ds",
             rate_limit,
@@ -35,12 +44,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Only apply rate limiting to protected routes
         if any(request.url.path.startswith(route) for route in self.protected_routes):
-            # Clean up old requests
+            # Clean up old requests for this IP
             self.ip_requests[client_ip] = [
                 t
                 for t in self.ip_requests[client_ip]
                 if current_time - t < self.rate_limit_window
             ]
+
+            # Periodic cleanup of stale IPs, at most once per rate-limit window,
+            # so the dict doesn't grow unbounded with IPs that stopped sending
+            # requests. In a production app with multiple replicas, use a
+            # shared store (e.g. Redis) instead.
+            if current_time - self._last_cleanup > self.rate_limit_window:
+                self._cleanup_all_ips(current_time)
+                self._last_cleanup = current_time
 
             # Check if rate limit exceeded
             if len(self.ip_requests[client_ip]) >= self.rate_limit:
@@ -58,10 +75,32 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             self.ip_requests[client_ip].append(current_time)
 
         # Process the request
-        return await call_next(request)
+        response = await call_next(request)
+        return response
+
+    def _cleanup_all_ips(self, current_time):
+        """Remove IPs that haven't made requests in the window"""
+
+        to_remove = []
+        for ip, timestamps in self.ip_requests.items():
+            # If latest timestamp is older than window, remove IP
+            if not timestamps or (
+                current_time - timestamps[-1] > self.rate_limit_window
+            ):
+                to_remove.append(ip)
+        for ip in to_remove:
+            del self.ip_requests[ip]
 
 
 class ConcurrencyLimitMiddleware(BaseHTTPMiddleware):
+    """Caps total in-flight requests to protected routes via an in-process semaphore.
+
+    The semaphore is local to this process, so the cap is only correct when
+    a single instance of the API is running. Running multiple replicas
+    behind a load balancer multiplies the effective cap by the replica
+    count, since each instance enforces its own independent limit.
+    """
+
     def __init__(
         self,
         app,
