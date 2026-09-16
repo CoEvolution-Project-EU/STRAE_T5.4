@@ -87,5 +87,8 @@ class Settings(BaseSettings):
     REPORTS_BUCKET: str = "reports"
     AIMBOMS_BUCKET: str = "aimboms"
 
+    # AIMBOM deprecation event name
+    UPDATED_AIMBOM_EVENT: str = "updated-aimbom-requested"
+
 
 settings = Settings()

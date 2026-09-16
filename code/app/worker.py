@@ -37,8 +37,6 @@ class WorkerInvalidPayloadError(Exception):
 
 shutdown_event = asyncio.Event()
 
-UPDATED_AIMBOM_EVENT = "updated-aimbom-requested"
-
 
 def _extract_previous_aimbom_and_reports(
     event: dict,
@@ -62,16 +60,18 @@ def _extract_previous_aimbom_and_reports(
             required for its declared event type.
     """
 
-    if event.get("event") == UPDATED_AIMBOM_EVENT:
+    if event.get("event") == settings.UPDATED_AIMBOM_EVENT:
         changed_reports = event.get("changedReports")
 
         if (
             not isinstance(changed_reports, dict)
             or "aimbom_report" not in changed_reports
+            or "assessment_report" not in changed_reports
         ):
             raise WorkerInvalidPayloadError(
-                f"'{UPDATED_AIMBOM_EVENT}' event requires a "
-                "'changedReports.aimbom_report' field"
+                f"'{settings.UPDATED_AIMBOM_EVENT}' event requires a "
+                "'changedReports.aimbom_report' and a "
+                "'changedReports.assessment_report' field"
             )
 
         # Copy to avoid mutating the original Kafka message value.
