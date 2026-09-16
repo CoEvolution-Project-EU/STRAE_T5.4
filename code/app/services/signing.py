@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+class SigningError(RuntimeError):
+    """Raised when the signing key and certificate do not match."""
+
+
 def load_if_changed(path: str) -> Callable[[Callable[[], T]], Callable[[], T]]:
     """Decorator factory that caches a zero-arg loader's return value,
     reloading it whenever the file at `path` has changed (tracked by
@@ -106,32 +110,48 @@ def get_certificate() -> x509.Certificate:
         return x509.load_pem_x509_certificate(f.read())
 
 
-def get_certificate_path() -> list[str]:
+def get_certificate_path(cert: x509.Certificate | None = None) -> list[str]:
     """
     Get the base64-encoded DER representation of the certificate.
+
+    Args:
+        cert: Certificate to encode. Defaults to the current
+            `get_certificate()` value if not given.
 
     Returns:
         list[str]: A list containing the base64-encoded DER representation of the certificate.
     """
 
-    cert = get_certificate()
+    if cert is None:
+        cert = get_certificate()
+
     der_bytes = cert.public_bytes(serialization.Encoding.DER)
     return [base64.b64encode(der_bytes).decode()]
 
 
-def validate_signing_material():
+def validate_signing_material(
+    key: ec.EllipticCurvePrivateKey | None = None, cert: x509.Certificate | None = None
+) -> None:
     """
     Validate that the signing key and certificate match.
 
+    Args:
+        key: Private key to validate. Defaults to the current
+            `get_private_key()` value if not given.
+        cert: Certificate to validate. Defaults to the current
+            `get_certificate()` value if not given.
+
     Raises:
-        RuntimeError: If the signing key and certificate do not match.
+        SigningError: If the signing key and certificate do not match.
     """
 
-    key = get_private_key()
-    cert = get_certificate()
+    if key is None:
+        key = get_private_key()
+    if cert is None:
+        cert = get_certificate()
 
     if key.public_key().public_numbers() != cert.public_key().public_numbers():
-        raise RuntimeError("Signing key and certificate do not match")
+        raise SigningError("Signing key and certificate do not match")
 
 
 def sign_data(private_key: ec.EllipticCurvePrivateKey, data: bytes) -> str:
@@ -176,7 +196,11 @@ def sign_report(report: Dict) -> Dict:
     report = copy.deepcopy(report)
 
     private_key = get_private_key()
-    cert_path = get_certificate_path()
+    cert = get_certificate()
+
+    validate_signing_material(key=private_key, cert=cert)
+
+    cert_path = get_certificate_path(cert)
 
     # Remove existing signature if present
     # NOTE: Maybe prevent signing an already signed report.

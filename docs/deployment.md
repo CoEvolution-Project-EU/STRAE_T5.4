@@ -125,18 +125,38 @@ STRAE reloads the signing key and certificate automatically whenever the files a
 `SIGNING_PRIVATE_KEY_PATH`/`SIGNING_CERTIFICATE_PATH` change, so rotation does not
 require restarting the API or the Kafka worker.
 
-To rotate:
+The key and certificate are reloaded independently, each tracked by its own file's
+modification time. If the two files are overwritten one at a time in place, there is
+a narrow window where a sign operation could load the new key paired with the old
+certificate (or vice versa). STRAE detects this and fails the sign operation with an
+error rather than producing an invalid signature, but the window is avoided
+entirely by rotating both files atomically:
 
-1. Copy the new `signing-key.pem`/`signing-cert.pem` to the server, the same way as
-   in [Copy signing keys to the server](#1-copy-signing-keys-to-the-server).
-2. Overwrite the existing files at `/home/strae/docker/secrets/` with the new ones,
-   keeping the same filenames.
-3. Set permissions again, since they are not preserved by `scp`:
+1. Upload the new files under temporary names, alongside the existing ones:
 
 ```bash
-chmod 600 /home/strae/docker/secrets/signing-key.pem
-chmod 644 /home/strae/docker/secrets/signing-cert.pem
+cd docker/secrets
+scp signing-key.pem <server-username>@<server-ip>:/home/strae/docker/secrets/signing-key.pem.new
+scp signing-cert.pem <server-username>@<server-ip>:/home/strae/docker/secrets/signing-cert.pem.new
 ```
+
+2. Set permissions on the new files:
+
+```bash
+chmod 600 /home/strae/docker/secrets/signing-key.pem.new
+chmod 644 /home/strae/docker/secrets/signing-cert.pem.new
+```
+
+3. Move both into place with a single command, back-to-back with no pause in between:
+
+```bash
+mv /home/strae/docker/secrets/signing-key.pem.new /home/strae/docker/secrets/signing-key.pem && \
+mv /home/strae/docker/secrets/signing-cert.pem.new /home/strae/docker/secrets/signing-cert.pem
+```
+
+`mv` within the same directory is an atomic rename, so each file switches over
+instantly with no partially-written content in between -- unlike overwriting an
+existing file in place, which a concurrent sign operation could read mid-write.
 
 The new key/certificate are picked up on the next sign operation. No restart or
 redeploy of the stack is needed.

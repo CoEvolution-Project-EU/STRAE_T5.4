@@ -4,11 +4,13 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from app.services.signing import (
+    SigningError,
     get_certificate_path,
     get_private_key,
     load_if_changed,
     sign_data,
     sign_report,
+    validate_signing_material,
 )
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
@@ -72,6 +74,22 @@ def test_get_certificate_path_returns_base64_der():
     der_bytes = base64.b64decode(certificate_path[0])
     assert isinstance(der_bytes, bytes)
     assert len(der_bytes) > 0
+
+
+def test_validate_signing_material_passes_for_matching_pair():
+    key, _, cert_bytes = _generate_key_and_cert_bytes()
+    cert = x509.load_pem_x509_certificate(cert_bytes)
+
+    validate_signing_material(key=key, cert=cert)
+
+
+def test_validate_signing_material_raises_signing_error_on_mismatch():
+    key, _, _ = _generate_key_and_cert_bytes()
+    _, _, other_cert_bytes = _generate_key_and_cert_bytes()
+    mismatched_cert = x509.load_pem_x509_certificate(other_cert_bytes)
+
+    with pytest.raises(SigningError, match="do not match"):
+        validate_signing_material(key=key, cert=mismatched_cert)
 
 
 def test_sign_data_returns_raw_es256_signature():

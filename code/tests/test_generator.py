@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from app.clients.storage_client import StorageClient, StorageConnectionError
@@ -7,8 +7,10 @@ from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
     GeneratorMissingReportError,
+    GeneratorSigningError,
     GeneratorStorageError,
 )
+from app.services.signing import SigningError
 from app.utils.utils import AIMBOMTier, ReportComment, ReportType
 from fastapi.encoders import jsonable_encoder
 
@@ -144,6 +146,31 @@ async def test_invalid_report_data():
             model_version,
             GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
         )
+
+
+@pytest.mark.anyio
+async def test_signing_material_mismatch_raises_signing_error():
+    """A signing key/certificate mismatch (e.g. caught mid-rotation) is a
+    distinct failure from a malformed report: it reflects the state of the
+    signing material, not the input, so it must surface as
+    GeneratorSigningError rather than GeneratorGenerationError."""
+
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
+
+    storage = create_new_mock_storage()
+    generator = AIMBOMGenerator(storage)
+
+    with patch(
+        "app.services.signing.sign_report",
+        side_effect=SigningError("Signing key and certificate do not match"),
+    ):
+        with pytest.raises(GeneratorSigningError):
+            await generator.generate(
+                model_uuid,
+                model_version,
+                GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
+            )
 
 
 @pytest.mark.anyio

@@ -16,6 +16,7 @@ from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
     GeneratorMissingReportError,
+    GeneratorSigningError,
     GeneratorStorageError,
 )
 from app.utils.utils import AIMBOMTier
@@ -212,6 +213,16 @@ async def consume_messages(
             )
 
             # No commit -> message will be retried
+
+        except GeneratorSigningError:
+            logger.exception(
+                "Signing material error while generating AIMBOM model_uuid=%s",
+                event.get("model_uuid"),
+            )
+
+            # Not the message's fault (the signing key/cert are currently
+            # mismatched, e.g. caught mid-rotation) -> no commit, retry
+            # later once the signing material is consistent again.
 
         except GeneratorGenerationError:
             logger.exception(

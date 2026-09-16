@@ -5,6 +5,7 @@ from app.models.requests import GenerationMetadata
 from app.services.generator import (
     GeneratorGenerationError,
     GeneratorMissingReportError,
+    GeneratorSigningError,
     GeneratorStorageError,
 )
 from app.utils.utils import AIMBOMTier
@@ -218,6 +219,22 @@ async def test_storage_error_is_not_committed():
     metadata = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
     consumer = FakeConsumer([base_event(reports=metadata["reports"])])
     generator = make_generator(side_effect=GeneratorStorageError("storage down"))
+
+    await consume_messages(consumer, generator)
+
+    assert consumer.commit_calls == 0
+
+
+@pytest.mark.anyio
+async def test_signing_error_is_not_committed():
+    # A signing key/certificate mismatch reflects the environment, not the
+    # message, and is typically transient (e.g. caught mid-rotation) -- it
+    # must be retried, not treated as a poison message.
+    metadata = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
+    consumer = FakeConsumer([base_event(reports=metadata["reports"])])
+    generator = make_generator(
+        side_effect=GeneratorSigningError("signing key and certificate do not match")
+    )
 
     await consume_messages(consumer, generator)
 
