@@ -15,6 +15,7 @@ from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
     GeneratorMissingReportError,
+    GeneratorSigningError,
     GeneratorStorageError,
     get_generator,
 )
@@ -75,6 +76,11 @@ def sign_report(report: Dict):
         return SignedReportResponse(
             detail="Report signed successfully",
             signed_report=signed_report,
+        )
+    except signing.SigningError as e:
+        logger.error("Signing material mismatch", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
         )
     except Exception as e:
         logger.error("Error signing report", exc_info=True)
@@ -140,6 +146,13 @@ async def generate_aimbom(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except GeneratorStorageError as e:
         logger.error("Storage error for model_uuid=%s", model_uuid, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        )
+    except GeneratorSigningError as e:
+        logger.error(
+            "Signing material error for model_uuid=%s", model_uuid, exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
         )

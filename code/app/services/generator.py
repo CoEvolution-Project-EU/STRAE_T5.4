@@ -56,6 +56,14 @@ class GeneratorStorageError(GeneratorError):
     pass
 
 
+class GeneratorSigningError(GeneratorError):
+    """Raised when signing fails because the signing key and certificate do
+    not match.
+    """
+
+    pass
+
+
 class GeneratorGenerationError(GeneratorError):
     """Raised when AIMBOM generation fails due to unexpected issues."""
 
@@ -466,7 +474,9 @@ class AIMBOMGenerator:
             A signed `AIMBOM` instance.
 
         Raises:
-            GeneratorGenerationError: If signing fails.
+            GeneratorSigningError: If the signing key and certificate
+                currently loaded don't match (see `signing.SigningError`).
+            GeneratorGenerationError: If signing fails for any other reason.
         """
 
         try:
@@ -478,6 +488,11 @@ class AIMBOMGenerator:
             logger.debug("AIMBOM signed successfully")
 
             return aimbom
+        except signing.SigningError as e:
+            logger.error(
+                "Signing material mismatch while signing AIMBOM", exc_info=True
+            )
+            raise GeneratorSigningError(f"Failed to sign AIMBOM: {str(e)}") from e
         except Exception as e:
             logger.error("Error signing AIMBOM", exc_info=True)
             raise GeneratorGenerationError(f"Failed to sign AIMBOM: {str(e)}") from e
