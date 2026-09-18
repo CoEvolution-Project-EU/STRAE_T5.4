@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 from typing_extensions import Self
 
-from app.utils.utils import UPDATABLE_REPORT_TYPES, ReportType
+from app.utils.utils import REPORT_TYPES, UPDATABLE_REPORT_TYPES
 
 
 class ReportDetails(BaseModel):
@@ -30,31 +30,53 @@ class GenerationMetadata(BaseModel):
 
     @model_validator(mode="after")
     def _check_required_reports_present(self) -> Self:
-        """Ensure the reports required for this request's mode are present.
+        """Ensure exactly the reports required for this request's mode are present.
 
         - New generation (`previous_aimbom` is `None`): the generator builds
           the AIMBOM from scratch, so every report type must be present.
         - Update (`previous_aimbom` set): the generator only recomputes the
           reports in `UPDATABLE_REPORT_TYPES` (currently the assessment and
           risk reports) and carries the rest over from the previous AIMBOM
-          unchanged, so only those need be present.
+          unchanged, so only those may be present -- any other report field
+          would be fetched but silently ignored downstream, so it's
+          rejected here instead.
         """
 
+        # If no previous AIMBOM is provided, all report types must be present.
         if self.previous_aimbom is None:
-            required_report_types = tuple(ReportType)
-            mode = "previous_aimbom is not set"
-        else:
-            required_report_types = UPDATABLE_REPORT_TYPES
-            mode = "previous_aimbom is set"
+            missing = [
+                report_type.value
+                for report_type in REPORT_TYPES
+                if getattr(self.reports, report_type.value) is None
+            ]
+            if missing:
+                raise ValueError(
+                    f"reports fields required when previous_aimbom is not set: {missing}"
+                )
+            return self
 
+        # If a previous AIMBOM is provided, only the updatable report types may be present.
         missing = [
             report_type.value
-            for report_type in required_report_types
+            for report_type in UPDATABLE_REPORT_TYPES
             if getattr(self.reports, report_type.value) is None
         ]
-
         if missing:
-            raise ValueError(f"reports fields required when {mode}: {missing}")
+            raise ValueError(
+                f"reports fields required when previous_aimbom is set: {missing}"
+            )
+
+        # Any other report types must not be present, as they will be ignored by the generator.
+        non_updatable_types = set(REPORT_TYPES) - set(UPDATABLE_REPORT_TYPES)
+        unexpected = [
+            report_type.value
+            for report_type in non_updatable_types
+            if getattr(self.reports, report_type.value) is not None
+        ]
+        if unexpected:
+            raise ValueError(
+                f"reports fields not allowed when previous_aimbom is set: {unexpected}"
+            )
 
         return self
 

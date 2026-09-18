@@ -70,3 +70,15 @@ def test_update_metadata_missing_both_updatable_reports_is_invalid():
 
     assert "assessment_report" in str(exc_info.value)
     assert "risk_report" in str(exc_info.value)
+
+
+def test_update_metadata_with_extra_non_updatable_report_is_invalid():
+    with pytest.raises(ValidationError, match="defence_report"):
+        GenerationMetadata(
+            previous_aimbom={"download_url": "aimboms/x/1.0/aimbom.json"},
+            reports={
+                "assessment_report": {"download_url": "reports/x/1.0/a.json"},
+                "risk_report": {"download_url": "reports/x/1.0/r.json"},
+                "defence_report": {"download_url": "reports/x/1.0/d.json"},
+            },
+        )
