@@ -92,6 +92,19 @@ REPORT_TYPES = (
 # TODO: Check whether the defence or any other report should also be updatable.
 UPDATABLE_REPORT_TYPES = (ReportType.ASSESSMENTS, ReportType.RISK_REPORT)
 
+# Which report comments' external references are kept in each AIMBOM tier.
+# TIER_3 (the full AIMBOM) isn't listed here since it keeps every reference.
+TIER_REPORT_COMMENTS: dict[AIMBOMTier, set[ReportComment]] = {
+    AIMBOMTier.TIER_1: {ReportComment.EU_AI_ACT},
+    AIMBOMTier.TIER_2: {
+        ReportComment.EU_AI_ACT,
+        ReportComment.RISK_REPORT,
+        ReportComment.ASSESSMENTS,
+        ReportComment.DEFENCES,
+        ReportComment.GADGETS,
+    },
+}
+
 REPORT_TO_COMMENT = {
     ReportType.AI_MODEL_INFO: ReportComment.AI_MODEL_INFO,
     ReportType.ASSESSMENTS: ReportComment.ASSESSMENTS,

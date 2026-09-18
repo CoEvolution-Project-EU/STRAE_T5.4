@@ -28,6 +28,7 @@ from app.utils.utils import (
     REPORT_MODELS,
     REPORT_TO_COMMENT,
     REPORT_TYPES,
+    TIER_REPORT_COMMENTS,
     UPDATABLE_REPORT_TYPES,
     AIMBOMTier,
     ReportComment,
@@ -539,17 +540,10 @@ class AIMBOMGenerator:
         try:
             return {
                 AIMBOMTier.TIER_1: self._filter_aimbom_references(
-                    aimbom, {ReportComment.EU_AI_ACT}
+                    aimbom, TIER_REPORT_COMMENTS[AIMBOMTier.TIER_1]
                 ),
                 AIMBOMTier.TIER_2: self._filter_aimbom_references(
-                    aimbom,
-                    {
-                        ReportComment.EU_AI_ACT,
-                        ReportComment.RISK_REPORT,
-                        ReportComment.ASSESSMENTS,
-                        ReportComment.DEFENCES,
-                        ReportComment.GADGETS,
-                    },
+                    aimbom, TIER_REPORT_COMMENTS[AIMBOMTier.TIER_2]
                 ),
                 AIMBOMTier.TIER_3: aimbom,
             }
