@@ -17,7 +17,7 @@ The AIMBOM generation process is responsible for transforming validated reports 
 When a model UUID and version already has an AIMBOM associated with it, STRAE does not generate a new AIMBOM from scratch. Instead, the generation metadata carries a `previous_aimbom` reference alongside the updated reports:
 
 1. If `previous_aimbom` is present in the generation metadata, the generator downloads the previous AIMBOM instead of re-fetching every report.
-2. Only the changed reports (currently the assessment report) are downloaded and validated.
+2. Only the changed reports (currently the assessment report and the risk report) are downloaded and validated.
 3. The generator copies the previous AIMBOM, increments its version, and updates the external references that point to the changed report(s). The AIMBOM keeps the same serial number as the previous version, so it is identifiable as an update rather than a new artifact.
 4. The updated AIMBOM is re-signed and re-validated against the CycloneDX schema before being stored.
 5. If `previous_aimbom` is absent, STRAE falls back to the standard generation flow, retrieving and validating all required reports to build a new AIMBOM.

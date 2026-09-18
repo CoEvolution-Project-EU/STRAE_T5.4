@@ -27,6 +27,7 @@ from app.services import signing, validation
 from app.utils.utils import (
     REPORT_MODELS,
     REPORT_TO_COMMENT,
+    UPDATABLE_REPORT_TYPES,
     AIMBOMTier,
     ReportComment,
     ReportModel,
@@ -125,17 +126,22 @@ class AIMBOMGenerator:
                 generation_metadata.previous_aimbom.download_url,
             )
 
-            # Load and validate updated the reports for the given model UUID and version.
-            # (only the assessment report should change)
-            # TODO: Check whether the defence or any other report should also be updated.
-            new_assessment_report = await self._get_new_assessment_report(
-                generation_metadata.reports.assessment_report.download_url,
-            )
+            # Load and validate the updated reports for the given model UUID and version
+            # (see UPDATABLE_REPORT_TYPES for which reports are expected to change).
+            new_reports = {
+                report_type: await self._get_new_report(
+                    report_type,
+                    getattr(
+                        generation_metadata.reports, report_type.value
+                    ).download_url,
+                )
+                for report_type in UPDATABLE_REPORT_TYPES
+            }
 
             # Create a new updated AIMBOM with the updated reports and increment the version number.
             tiered_aimbom = await self._create_updated_aimbom(
                 previous_aimbom,
-                new_assessment_report,
+                new_reports,
             )
 
         else:
@@ -190,66 +196,73 @@ class AIMBOMGenerator:
                 f"Failed to retrieve previous AIMBOM from storage: {str(e)}"
             ) from e
 
-    async def _get_new_assessment_report(
+    async def _get_new_report(
         self,
+        report_type: ReportType,
         download_url: str,
     ) -> ReportModel:
-        """Retrieve the new assessment report for a given model UUID and version.
+        """Retrieve a single new (changed) report for a given model UUID and version.
 
         Args:
-            download_url: The download URL of the new assessment report.
+            report_type: The type of report being retrieved.
+            download_url: The download URL of the new report.
         """
 
         try:
-            new_assessment_report = await self.client.get_file_from_url(
-                download_url=download_url
-            )
-            return REPORT_MODELS[ReportType.ASSESSMENTS].model_validate(
-                new_assessment_report
-            )
+            new_report = await self.client.get_file_from_url(download_url=download_url)
+            return REPORT_MODELS[report_type].model_validate(new_report)
         except StorageConnectionError as e:
             logger.error(
-                "Storage connection error retrieving new assessment report",
+                "Storage connection error retrieving new report %s",
+                report_type.value,
                 exc_info=True,
             )
             raise GeneratorStorageError(
-                f"Failed to retrieve new assessment report from storage: {str(e)}"
+                f"Failed to retrieve new report {report_type.value} from storage: {str(e)}"
             ) from e
         except StorageOperationError as e:
             logger.warning(
-                "No new assessment report found",
+                "No new report %s found",
+                report_type.value,
             )
             raise GeneratorMissingReportError(
-                f"Required new assessment report is missing : {str(e)}"
+                f"Required new report {report_type.value} is missing : {str(e)}"
             ) from e
 
     async def _create_updated_aimbom(
         self,
         previous_aimbom: AIMBOM,
-        new_assessment_report: ReportModel,
+        new_reports: Dict[ReportType, ReportModel],
     ) -> Dict[AIMBOMTier, AIMBOM]:
-        """Create an updated AIMBOM based on the previous AIMBOM and the new assessment report.
+        """Create an updated AIMBOM based on the previous AIMBOM and the changed reports.
 
         Args:
             previous_aimbom: The previous `AIMBOM` instance.
-            new_assessment_report: The new assessment report to include in the updated AIMBOM.
+            new_reports: Mapping of `ReportType` to the new report to include
+                in the updated AIMBOM, for each report that changed.
         """
         # Create a new updated AIMBOM with the updated reports and increment the version number.
         # NOTE: The new AIMBOM will have the same serial number as the previous AIMBOM, but the version will be incremented.
 
         aimbom = previous_aimbom.model_copy()
         aimbom.version += 1
-        # Update the external references to include the new assessment report.
+
+        # Replace the external reference for each changed report with one
+        # pointing at its new version.
+        changed_comments = {
+            REPORT_TO_COMMENT.get(report_type.value) for report_type in new_reports
+        }
         aimbom.external_references = [
             ref
             for ref in aimbom.external_references
-            if ref.comment != REPORT_TO_COMMENT.get(ReportType.ASSESSMENTS.value)
+            if ref.comment not in changed_comments
         ] + [
             ExternalReference(
                 type="bom",
-                url=f"urn:cdx:{uuid_from_serial_number(new_assessment_report.serial_number)}/{new_assessment_report.version}",
-                comment=REPORT_TO_COMMENT.get(ReportType.ASSESSMENTS.value),
+                url=f"urn:cdx:{uuid_from_serial_number(report.serial_number)}/{report.version}",
+                comment=REPORT_TO_COMMENT.get(report_type.value),
             )
+            for report_type, report in new_reports.items()
         ]
 
         # Replace the old signature with a new signature for the updated AIMBOM.

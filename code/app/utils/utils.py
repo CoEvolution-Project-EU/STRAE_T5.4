@@ -77,6 +77,10 @@ class ReportComment(str, Enum):
     RISK_REPORT = "Risk Assessment"
 
 
+# Report types expected to change when updating an existing AIMBOM.
+# TODO: Check whether the defence or any other report should also be updatable.
+UPDATABLE_REPORT_TYPES = (ReportType.ASSESSMENTS, ReportType.RISK_REPORT)
+
 REPORT_TO_COMMENT = {
     ReportType.AI_MODEL_INFO: ReportComment.AI_MODEL_INFO,
     ReportType.ASSESSMENTS: ReportComment.ASSESSMENTS,

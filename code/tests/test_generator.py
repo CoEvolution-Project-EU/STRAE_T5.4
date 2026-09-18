@@ -227,7 +227,7 @@ async def test_deprecate_success():
     )
 
     assert references[ReportComment.RISK_REPORT].url == (
-        "urn:cdx:689d20e1-38b1-4c07-bdcb-b5736440c2f7/1"
+        "urn:cdx:689d20e1-38b1-4c07-bdcb-b5736440c2f7/2"
     )
 
     # Check that the external references in each tiered AIMBOM have the expected reference types
