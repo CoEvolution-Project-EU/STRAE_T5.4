@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import Dict
+from typing import Dict, Iterable
 
 from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
@@ -27,6 +27,9 @@ from app.services import signing, validation
 from app.utils.utils import (
     REPORT_MODELS,
     REPORT_TO_COMMENT,
+    REPORT_TYPES,
+    TIER_REPORT_COMMENTS,
+    UPDATABLE_REPORT_TYPES,
     AIMBOMTier,
     ReportComment,
     ReportModel,
@@ -52,6 +55,14 @@ class GeneratorMissingReportError(GeneratorError):
 
 class GeneratorStorageError(GeneratorError):
     """Raised when an operation with MinIO fails."""
+
+    pass
+
+
+class GeneratorSigningError(GeneratorError):
+    """Raised when signing fails because the signing key and certificate do
+    not match.
+    """
 
     pass
 
@@ -117,17 +128,17 @@ class AIMBOMGenerator:
                 generation_metadata.previous_aimbom.download_url,
             )
 
-            # Load and validate updated the reports for the given model UUID and version.
-            # (only the assessment report should change)
-            # TODO: Check whether the defence or any other report should also be updated.
-            new_assessment_report = await self._get_new_assessment_report(
-                generation_metadata.reports.assessment_report.download_url,
+            # Fetch and validate the updated reports for the given model UUID and version
+            # (see UPDATABLE_REPORT_TYPES for which reports are expected to change).
+            new_raw_reports = await self._fetch_raw_reports(generation_metadata)
+            new_reports = self._validate_reports(
+                new_raw_reports, UPDATABLE_REPORT_TYPES
             )
 
             # Create a new updated AIMBOM with the updated reports and increment the version number.
             tiered_aimbom = await self._create_updated_aimbom(
                 previous_aimbom,
-                new_assessment_report,
+                new_reports,
             )
 
         else:
@@ -138,7 +149,12 @@ class AIMBOMGenerator:
                 model_version,
             )
 
-            reports = await self._load_reports(generation_metadata)
+            # Fetch reports from the storage backend using the provided model UUID, version and generation metadata.
+            raw_reports = await self._fetch_raw_reports(generation_metadata)
+
+            # Validate and parse each retrieved report, ensuring they are compliant with the CycloneDX schema
+            # and our specific report models.
+            reports = self._validate_reports(raw_reports, REPORT_TYPES)
             tiered_aimbom = self._create_aimbom_from_reports(reports)
 
         # Save the generated AIMBOM to the configured storage backend (MinIO or Orchestrator).
@@ -182,66 +198,40 @@ class AIMBOMGenerator:
                 f"Failed to retrieve previous AIMBOM from storage: {str(e)}"
             ) from e
 
-    async def _get_new_assessment_report(
-        self,
-        download_url: str,
-    ) -> ReportModel:
-        """Retrieve the new assessment report for a given model UUID and version.
-
-        Args:
-            download_url: The download URL of the new assessment report.
-        """
-
-        try:
-            new_assessment_report = await self.client.get_file_from_url(
-                download_url=download_url
-            )
-            return REPORT_MODELS[ReportType.ASSESSMENTS].model_validate(
-                new_assessment_report
-            )
-        except StorageConnectionError as e:
-            logger.error(
-                "Storage connection error retrieving new assessment report",
-                exc_info=True,
-            )
-            raise GeneratorStorageError(
-                f"Failed to retrieve new assessment report from storage: {str(e)}"
-            ) from e
-        except StorageOperationError as e:
-            logger.warning(
-                "No new assessment report found",
-            )
-            raise GeneratorMissingReportError(
-                f"Required new assessment report is missing : {str(e)}"
-            ) from e
-
     async def _create_updated_aimbom(
         self,
         previous_aimbom: AIMBOM,
-        new_assessment_report: ReportModel,
+        new_reports: Dict[ReportType, ReportModel],
     ) -> Dict[AIMBOMTier, AIMBOM]:
-        """Create an updated AIMBOM based on the previous AIMBOM and the new assessment report.
+        """Create an updated AIMBOM based on the previous AIMBOM and the changed reports.
 
         Args:
             previous_aimbom: The previous `AIMBOM` instance.
-            new_assessment_report: The new assessment report to include in the updated AIMBOM.
+            new_reports: Mapping of `ReportType` to the new report to include
+                in the updated AIMBOM, for each report that changed.
         """
         # Create a new updated AIMBOM with the updated reports and increment the version number.
         # NOTE: The new AIMBOM will have the same serial number as the previous AIMBOM, but the version will be incremented.
 
         aimbom = previous_aimbom.model_copy()
         aimbom.version += 1
-        # Update the external references to include the new assessment report.
+
+        # Replace the external reference for each changed report with one
+        # pointing at its new version.
+        changed_comments = {
+            REPORT_TO_COMMENT.get(report_type.value) for report_type in new_reports
+        }
         aimbom.external_references = [
             ref
             for ref in aimbom.external_references
-            if ref.comment != REPORT_TO_COMMENT.get(ReportType.ASSESSMENTS.value)
+            if ref.comment not in changed_comments
         ] + [
             ExternalReference(
                 type="bom",
-                url=f"urn:cdx:{uuid_from_serial_number(new_assessment_report.serial_number)}/{new_assessment_report.version}",
-                comment=REPORT_TO_COMMENT.get(ReportType.ASSESSMENTS.value),
+                url=f"urn:cdx:{uuid_from_serial_number(report.serial_number)}/{report.version}",
+                comment=REPORT_TO_COMMENT.get(report_type.value),
             )
+            for report_type, report in new_reports.items()
         ]
 
         # Replace the old signature with a new signature for the updated AIMBOM.
@@ -289,94 +279,84 @@ class AIMBOMGenerator:
                 f"Required reports are missing: {str(e)}"
             ) from e
 
-    def _validate_reports(
-        self, raw_reports: Dict[ReportType, Dict]
-    ) -> Dict[ReportType, ReportModel]:
-        """
-        Validate the retrieved reports for a given model UUID and version.
+    def _validate_report(
+        self, report_type: ReportType, raw_report: Dict
+    ) -> ReportModel:
+        """Validate a single raw report against the CycloneDX schema and its
+        report-specific Pydantic model.
+
+        Presence is not checked here: `GenerationMetadata` already guarantees
+        that a report is only referenced (and therefore only fetched) when
+        it's actually required, for both new generations and updates.
 
         Args:
-            raw_reports: A mapping of `ReportType` to raw JSON dictionaries.
+            report_type: The type of report being validated.
+            raw_report: The raw JSON dict for the report.
 
         Returns:
-            A mapping of `ReportType` to validated `ReportModel` instances.
+            The validated `ReportModel` instance.
 
         Raises:
-            GeneratorMissingReportError: When required reports are missing.
             GeneratorGenerationError: When report validation fails.
         """
 
-        reports: Dict[ReportType, ReportModel | None] = {}
+        try:
+            # Generic CycloneDX validation
+            validation.cdx_validate_dict(raw_report)
 
-        # Validate and parse each retrieved report, ensuring they are compliant with the CycloneDX schema
-        # and our specific report models.
-        for report_type in REPORT_MODELS.keys():
-            report = raw_reports.get(report_type.value)
+            # Schema-specific validation
+            model_cls = REPORT_MODELS[report_type]
+            return model_cls.model_validate(raw_report)
+        except ValueError as e:
+            logger.warning(
+                "Invalid CycloneDX report %s: %s",
+                report_type.value,
+                str(e),
+            )
+            raise GeneratorGenerationError(
+                f"Report {report_type.value} is invalid: {str(e)}"
+            ) from e
+        except ValidationError as e:
+            logger.warning(
+                "Schema validation failed for report %s: %s",
+                report_type.value,
+                str(e),
+            )
+            raise GeneratorGenerationError(
+                f"Report {report_type.value} failed schema validation: {str(e)}"
+            ) from e
 
-            if report is None:
-                logger.warning("Missing report %s", report_type.value)
-                raise GeneratorMissingReportError(
-                    f"Required report {report_type.value} is missing"
-                )
-
-            try:
-                # Generic CycloneDX validation
-                validation.cdx_validate_dict(report)
-
-                # Schema-specific validation
-                model_cls = REPORT_MODELS[report_type]
-                validated_report = model_cls.model_validate(report)
-            except ValueError as e:
-                logger.warning(
-                    "Invalid CycloneDX report %s: %s",
-                    report_type.value,
-                    str(e),
-                )
-                raise GeneratorGenerationError(
-                    f"Report {report_type.value} is invalid: {str(e)}"
-                ) from e
-            except ValidationError as e:
-                logger.warning(
-                    "Schema validation failed for report %s: %s",
-                    report_type.value,
-                    str(e),
-                )
-                raise GeneratorGenerationError(
-                    f"Report {report_type.value} failed schema validation: {str(e)}"
-                ) from e
-
-            reports[report_type] = validated_report
-
-            logger.debug("Retrieved report %s", report_type.value)
-        return reports
-
-    async def _load_reports(
+    def _validate_reports(
         self,
-        generation_metadata: GenerationMetadata,
+        raw_reports: Dict[str, Dict],
+        report_types: Iterable[ReportType],
     ) -> Dict[ReportType, ReportModel]:
-        """Load and validate the set of required reports for a model.
+        """
+        Validate a set of raw reports for a given model UUID and version.
 
         Args:
-            generation_metadata: Optional metadata used by orchestrator-backed storage.
+            raw_reports: A mapping of report type value to raw JSON dictionaries.
+            report_types: Which report types to validate -- `REPORT_TYPES`
+                for a new generation (every report type), or
+                `UPDATABLE_REPORT_TYPES` for an AIMBOM update.
 
         Returns:
-            A mapping of `ReportType` to validated report model instances.
+            A mapping of `ReportType` to validated `ReportModel` instances,
+            one entry per `report_types`.
+
+        Raises:
+            GeneratorGenerationError: When report validation fails.
         """
-        logger.debug(
-            "Retrieving reports",
-        )
 
-        # Fetch reports from the storage backend using the provided model UUID, version and generation metadata.
-        raw_reports = await self._fetch_raw_reports(generation_metadata)
+        reports: Dict[ReportType, ReportModel] = {}
 
-        # Validate and parse each retrieved report, ensuring they are compliant with the CycloneDX schema
-        # and our specific report models.
-        validated_reports = self._validate_reports(raw_reports)
+        for report_type in report_types:
+            reports[report_type] = self._validate_report(
+                report_type, raw_reports.get(report_type.value)
+            )
+            logger.debug("Retrieved report %s", report_type.value)
 
-        logger.debug(
-            "All reports retrieved",
-        )
-        return validated_reports
+        return reports
 
     def _build_metadata(self, reports: Dict[ReportType, ReportModel]) -> Metadata:
         """Construct the `Metadata` section of the AIMBOM from the reports.
@@ -466,7 +446,9 @@ class AIMBOMGenerator:
             A signed `AIMBOM` instance.
 
         Raises:
-            GeneratorGenerationError: If signing fails.
+            GeneratorSigningError: If the signing key and certificate
+                currently loaded don't match (see `signing.SigningError`).
+            GeneratorGenerationError: If signing fails for any other reason.
         """
 
         try:
@@ -478,6 +460,11 @@ class AIMBOMGenerator:
             logger.debug("AIMBOM signed successfully")
 
             return aimbom
+        except signing.SigningError as e:
+            logger.error(
+                "Signing material mismatch while signing AIMBOM", exc_info=True
+            )
+            raise GeneratorSigningError(f"Failed to sign AIMBOM: {str(e)}") from e
         except Exception as e:
             logger.error("Error signing AIMBOM", exc_info=True)
             raise GeneratorGenerationError(f"Failed to sign AIMBOM: {str(e)}") from e
@@ -553,17 +540,10 @@ class AIMBOMGenerator:
         try:
             return {
                 AIMBOMTier.TIER_1: self._filter_aimbom_references(
-                    aimbom, {ReportComment.EU_AI_ACT}
+                    aimbom, TIER_REPORT_COMMENTS[AIMBOMTier.TIER_1]
                 ),
                 AIMBOMTier.TIER_2: self._filter_aimbom_references(
-                    aimbom,
-                    {
-                        ReportComment.EU_AI_ACT,
-                        ReportComment.RISK_REPORT,
-                        ReportComment.ASSESSMENTS,
-                        ReportComment.DEFENCES,
-                        ReportComment.GADGETS,
-                    },
+                    aimbom, TIER_REPORT_COMMENTS[AIMBOMTier.TIER_2]
                 ),
                 AIMBOMTier.TIER_3: aimbom,
             }

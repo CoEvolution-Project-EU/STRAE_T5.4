@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     # Default to "dev" when running without docker, for tests.
     ENVIRONMENT: Environment = Environment.dev
 
+    # Enables/disables the rate limiting, concurrency limiting and request
+    # size limiting middleware, independently of ENVIRONMENT. Defaults to
+    # enabled so it isn't accidentally left off in a production deployment;
+    # set to False to disable (e.g. for local development against a
+    # non-"dev" profile, or load testing). See docker/docker.md for the
+    # single-instance assumption these middleware make.
+    SECURITY_MIDDLEWARE_ENABLED: bool = True
+
     # Logging
     LOG_LEVEL: str = "INFO"
 
@@ -78,6 +86,9 @@ class Settings(BaseSettings):
     # Bucket names for MinIO
     REPORTS_BUCKET: str = "reports"
     AIMBOMS_BUCKET: str = "aimboms"
+
+    # AIMBOM deprecation event name
+    UPDATED_AIMBOM_EVENT: str = "updated-aimbom-requested"
 
 
 settings = Settings()

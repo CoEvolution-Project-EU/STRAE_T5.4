@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from app.clients.storage_client import StorageClient, StorageConnectionError
@@ -7,8 +7,10 @@ from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
     GeneratorMissingReportError,
+    GeneratorSigningError,
     GeneratorStorageError,
 )
+from app.services.signing import SigningError
 from app.utils.utils import AIMBOMTier, ReportComment, ReportType
 from fastapi.encoders import jsonable_encoder
 
@@ -147,6 +149,57 @@ async def test_invalid_report_data():
 
 
 @pytest.mark.anyio
+async def test_signing_material_mismatch_raises_signing_error():
+    """A signing key/certificate mismatch (e.g. caught mid-rotation) is a
+    distinct failure from a malformed report: it reflects the state of the
+    signing material, not the input, so it must surface as
+    GeneratorSigningError rather than GeneratorGenerationError."""
+
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
+
+    storage = create_new_mock_storage()
+    generator = AIMBOMGenerator(storage)
+
+    with patch(
+        "app.services.signing.sign_report",
+        side_effect=SigningError("Signing key and certificate do not match"),
+    ):
+        with pytest.raises(GeneratorSigningError):
+            await generator.generate(
+                model_uuid,
+                model_version,
+                GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
+            )
+
+
+@pytest.mark.anyio
+async def test_deprecate_invalid_new_report_data_is_rejected():
+    # The update path must validate new reports through the same
+    # _validate_reports used for new generations -- it used to skip the
+    # generic CycloneDX check and only run the report-specific Pydantic
+    # model.
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
+
+    storage = create_new_mock_storage()
+    storage.data[
+        f"reports/{model_uuid}/{model_version}/risk_report_updated.json"
+    ] = {"invalid": "schema"}
+
+    generator = AIMBOMGenerator(storage)
+
+    with pytest.raises(GeneratorGenerationError):
+        await generator.generate(
+            model_uuid,
+            model_version,
+            GenerationMetadata(
+                **get_generation_metadata_deprecation(model_uuid, model_version)
+            ),
+        )
+
+
+@pytest.mark.anyio
 async def test_deprecate_success():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
@@ -200,7 +253,7 @@ async def test_deprecate_success():
     )
 
     assert references[ReportComment.RISK_REPORT].url == (
-        "urn:cdx:689d20e1-38b1-4c07-bdcb-b5736440c2f7/1"
+        "urn:cdx:689d20e1-38b1-4c07-bdcb-b5736440c2f7/2"
     )
 
     # Check that the external references in each tiered AIMBOM have the expected reference types
