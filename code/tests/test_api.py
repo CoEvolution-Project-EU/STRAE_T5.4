@@ -4,6 +4,7 @@ import pytest
 from app.clients.storage_client import get_storage_client
 from app.main import app
 from app.services.generator import (
+    AIMBOMGenerator,
     GeneratorGenerationError,
     GeneratorSigningError,
     GeneratorStorageError,
@@ -104,7 +105,7 @@ async def test_generate_aimbom_no_reports():
 
 @pytest.mark.anyio
 async def test_generate_aimbom_storage_error():
-    mock_generator = MagicMock()
+    mock_generator = MagicMock(spec=AIMBOMGenerator)
     mock_generator.generate = AsyncMock(
         side_effect=GeneratorStorageError("Failed to retrieve reports from MinIO")
     )
@@ -123,7 +124,7 @@ async def test_generate_aimbom_storage_error():
 
 @pytest.mark.anyio
 async def test_generate_aimbom_signing_error():
-    mock_generator = MagicMock()
+    mock_generator = MagicMock(spec=AIMBOMGenerator)
     mock_generator.generate = AsyncMock(
         side_effect=GeneratorSigningError("Signing key and certificate do not match")
     )
@@ -142,7 +143,7 @@ async def test_generate_aimbom_signing_error():
 
 @pytest.mark.anyio
 async def test_generate_aimbom_generation_error():
-    mock_generator = MagicMock()
+    mock_generator = MagicMock(spec=AIMBOMGenerator)
     mock_generator.generate = AsyncMock(
         side_effect=GeneratorGenerationError("Generated AIMBOM is invalid")
     )
@@ -161,7 +162,7 @@ async def test_generate_aimbom_generation_error():
 
 @pytest.mark.anyio
 async def test_generate_aimbom_unexpected_error():
-    mock_generator = MagicMock()
+    mock_generator = MagicMock(spec=AIMBOMGenerator)
     mock_generator.generate = AsyncMock(side_effect=RuntimeError("boom"))
     app.dependency_overrides[get_generator] = lambda: mock_generator
 

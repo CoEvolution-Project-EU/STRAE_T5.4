@@ -258,6 +258,9 @@ async def test_create_updated_aimbom_increments_version_and_replaces_changed_ref
     for comment in unchanged_comments:
         assert references[comment].url == original_references[comment].url
 
+    # Check that the re-signed AIMBOM's signature is valid and can be verified
+    assert verify_signature(jsonable_encoder(aimbom, exclude_none=True)) is True
+
 
 def test_create_tiered_aimbom_filters_references_and_clears_signature():
     storage = create_empty_mock_storage()
@@ -287,26 +290,6 @@ def test_create_tiered_aimbom_filters_references_and_clears_signature():
     assert tier1.signature is None
     assert tier2.signature is None
     assert tier3.signature is not None
-
-
-def test_filter_aimbom_references_keeps_only_requested_comments():
-    storage = create_empty_mock_storage()
-    generator = AIMBOMGenerator(storage)
-
-    aimbom = AIMBOM(**load_json(AIMBOMS_DIR / "aimbom.json"))
-
-    filtered = generator._filter_aimbom_references(
-        aimbom, {ReportComment.EU_AI_ACT, ReportComment.RISK_REPORT}
-    )
-
-    assert {ref.comment for ref in filtered.external_references} == {
-        ReportComment.EU_AI_ACT,
-        ReportComment.RISK_REPORT,
-    }
-    assert filtered.signature is None
-    # The original AIMBOM instance is left untouched.
-    assert aimbom.signature is not None
-    assert len(aimbom.external_references) > len(filtered.external_references)
 
 
 def test_validate_aimbom_raises_generation_error_on_invalid_schema():
