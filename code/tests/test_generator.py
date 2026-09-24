@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from app.clients.storage_client import StorageClient, StorageConnectionError
+from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
 from app.services.generator import (
     AIMBOMGenerator,
@@ -11,16 +12,25 @@ from app.services.generator import (
     GeneratorStorageError,
 )
 from app.services.signing import SigningError
-from app.utils.utils import AIMBOMTier, ReportComment, ReportType
+from app.utils.utils import (
+    REPORT_MODELS,
+    TIER_REPORT_COMMENTS,
+    AIMBOMTier,
+    ReportComment,
+    ReportType,
+)
 from fastapi.encoders import jsonable_encoder
 
 from tests.utils import (
+    AIMBOMS_DIR,
     MODEL_UUID,
     MODEL_VERSION,
+    REPORTS_DIR,
     create_empty_mock_storage,
     create_new_mock_storage,
     get_generation_metadata,
     get_generation_metadata_deprecation,
+    load_json,
     verify_signature,
 )
 
@@ -197,6 +207,103 @@ async def test_deprecate_invalid_new_report_data_is_rejected():
                 **get_generation_metadata_deprecation(model_uuid, model_version)
             ),
         )
+
+
+@pytest.mark.anyio
+async def test_create_updated_aimbom_increments_version_and_replaces_changed_refs():
+    storage = create_empty_mock_storage()
+    generator = AIMBOMGenerator(storage)
+
+    previous_aimbom = AIMBOM(**load_json(AIMBOMS_DIR / "aimbom.json"))
+    original_references = {
+        ref.comment: ref for ref in previous_aimbom.external_references
+    }
+
+    new_reports = {
+        ReportType.ASSESSMENTS: REPORT_MODELS[ReportType.ASSESSMENTS].model_validate(
+            load_json(REPORTS_DIR / "assessment_report_updated.json")
+        ),
+        ReportType.RISK_REPORT: REPORT_MODELS[ReportType.RISK_REPORT].model_validate(
+            load_json(REPORTS_DIR / "risk_report_updated.json")
+        ),
+    }
+
+    tiered_aimbom = await generator._create_updated_aimbom(
+        previous_aimbom, new_reports
+    )
+    aimbom = tiered_aimbom[AIMBOMTier.TIER_3]
+
+    # The version is incremented, but the serial number stays the same.
+    assert aimbom.version == previous_aimbom.version + 1
+    assert aimbom.serial_number == previous_aimbom.serial_number
+
+    references = {ref.comment: ref for ref in aimbom.external_references}
+
+    # Changed report types point at their new report's serial number/version.
+    assert references[ReportComment.ASSESSMENTS].url == (
+        "urn:cdx:bbc77e3c-ec17-42b1-af15-580626ea66d7/2"
+    )
+    assert references[ReportComment.RISK_REPORT].url == (
+        "urn:cdx:689d20e1-38b1-4c07-bdcb-b5736440c2f7/2"
+    )
+
+    # Unchanged report types keep their original external reference untouched.
+    unchanged_comments = [
+        ReportComment.AI_MODEL_INFO,
+        ReportComment.DATASETS,
+        ReportComment.DEFENCES,
+        ReportComment.EU_AI_ACT,
+        ReportComment.GADGETS,
+    ]
+    for comment in unchanged_comments:
+        assert references[comment].url == original_references[comment].url
+
+    # Check that the re-signed AIMBOM's signature is valid and can be verified
+    assert verify_signature(jsonable_encoder(aimbom, exclude_none=True)) is True
+
+
+def test_create_tiered_aimbom_filters_references_and_clears_signature():
+    storage = create_empty_mock_storage()
+    generator = AIMBOMGenerator(storage)
+
+    aimbom = AIMBOM(**load_json(AIMBOMS_DIR / "aimbom.json"))
+    assert aimbom.signature is not None
+
+    tiered_aimbom = generator._create_tiered_aimbom(aimbom)
+
+    tier1 = tiered_aimbom[AIMBOMTier.TIER_1]
+    tier2 = tiered_aimbom[AIMBOMTier.TIER_2]
+    tier3 = tiered_aimbom[AIMBOMTier.TIER_3]
+
+    tier1_comments = {ref.comment for ref in tier1.external_references}
+    tier2_comments = {ref.comment for ref in tier2.external_references}
+    tier3_comments = {ref.comment for ref in tier3.external_references}
+
+    # Each tier only retains the references defined for it in TIER_REPORT_COMMENTS.
+    assert tier1_comments == TIER_REPORT_COMMENTS[AIMBOMTier.TIER_1]
+    assert tier2_comments == TIER_REPORT_COMMENTS[AIMBOMTier.TIER_2]
+    # Tier 3 is the full, unfiltered AIMBOM.
+    assert tier3_comments == {ref.comment for ref in aimbom.external_references}
+
+    # The signature is no longer valid once references are filtered out, so
+    # it must be cleared for the filtered tiers but kept for Tier 3.
+    assert tier1.signature is None
+    assert tier2.signature is None
+    assert tier3.signature is not None
+
+
+def test_validate_aimbom_raises_generation_error_on_invalid_schema():
+    storage = create_empty_mock_storage()
+    generator = AIMBOMGenerator(storage)
+
+    aimbom = AIMBOM(**load_json(AIMBOMS_DIR / "aimbom.json"))
+
+    with patch(
+        "app.services.generator.validation.cdx_validate_dict",
+        side_effect=ValueError("CycloneDX validation failed"),
+    ):
+        with pytest.raises(GeneratorGenerationError):
+            generator._validate_aimbom(aimbom)
 
 
 @pytest.mark.anyio
