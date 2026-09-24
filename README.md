@@ -8,8 +8,6 @@ The Security, Trust, Robustness Assurance Engine (STRAE) serves as the orchestra
 [![MinIO](https://img.shields.io/badge/MinIO-7.2.20-red)](https://min.io) 
 [![Kafka](https://img.shields.io/badge/Kafka-aiokafka%20%280.14.0%29-purple)](https://github.com/aio-libs/aiokafka) 
 [![Docker Compose](https://img.shields.io/badge/Docker%20Compose-latest-blue)](https://docs.docker.com/compose/)
-[![HTTPX](https://img.shields.io/badge/HTTPX-0.28.1-lightgrey)](https://www.python-httpx.org) 
-[![pytest](https://img.shields.io/badge/pytest-9.0.2-9cf)](https://pytest.org) 
 
 ## Key Functionalities
 

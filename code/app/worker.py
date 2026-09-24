@@ -49,6 +49,12 @@ def _extract_previous_aimbom_and_reports(
     `changedReports` are used as the changed reports. For any other event
     type, `reports` is used directly and there is no previous AIMBOM.
 
+    This only checks the structural shape needed to build a
+    `GenerationMetadata` instance (e.g. that `aimbom_report` is present, so
+    it can be popped out as `previous_aimbom`). Whether the *right* reports
+    are present for an update (currently the assessment and risk reports)
+    is enforced by `GenerationMetadata` itself.
+
     Args:
         event: The raw, JSON-decoded Kafka event.
 
@@ -67,12 +73,10 @@ def _extract_previous_aimbom_and_reports(
         if (
             not isinstance(changed_reports, dict)
             or "aimbom_report" not in changed_reports
-            or "assessment_report" not in changed_reports
         ):
             raise WorkerInvalidPayloadError(
                 f"'{settings.UPDATED_AIMBOM_EVENT}' event requires a "
-                "'changedReports.aimbom_report' and a "
-                "'changedReports.assessment_report' field"
+                "'changedReports.aimbom_report' field"
             )
 
         # Copy to avoid mutating the original Kafka message value.

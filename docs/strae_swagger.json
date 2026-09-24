@@ -306,6 +306,9 @@
                         "reports": {
                             "assessment_report": {
                                 "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report_2.json"
+                            },
+                            "risk_report": {
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json"
                             }
                         }
                     }

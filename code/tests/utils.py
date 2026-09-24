@@ -46,6 +46,10 @@ def create_new_mock_storage():
         f"reports/{MODEL_UUID}/{MODEL_VERSION}/assessment_report_updated.json"
     ] = load_json(REPORTS_DIR / "assessment_report_updated.json")
 
+    storage.data[
+        f"reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report_updated.json"
+    ] = load_json(REPORTS_DIR / "risk_report_updated.json")
+
     storage.data[f"aimboms/{MODEL_UUID}/{MODEL_VERSION}/aimbom.json"] = load_json(
         AIMBOMS_DIR / "aimbom.json"
     )
@@ -75,6 +79,9 @@ def get_generation_metadata_deprecation(model_uuid: str, model_version: str):
         "reports": {
             "assessment_report": {
                 "download_url": f"reports/{model_uuid}/{model_version}/assessment_report_updated.json"
+            },
+            "risk_report": {
+                "download_url": f"reports/{model_uuid}/{model_version}/risk_report_updated.json"
             },
         },
     }

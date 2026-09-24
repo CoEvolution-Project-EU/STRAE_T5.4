@@ -174,6 +174,32 @@ async def test_signing_material_mismatch_raises_signing_error():
 
 
 @pytest.mark.anyio
+async def test_deprecate_invalid_new_report_data_is_rejected():
+    # The update path must validate new reports through the same
+    # _validate_reports used for new generations -- it used to skip the
+    # generic CycloneDX check and only run the report-specific Pydantic
+    # model.
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
+
+    storage = create_new_mock_storage()
+    storage.data[
+        f"reports/{model_uuid}/{model_version}/risk_report_updated.json"
+    ] = {"invalid": "schema"}
+
+    generator = AIMBOMGenerator(storage)
+
+    with pytest.raises(GeneratorGenerationError):
+        await generator.generate(
+            model_uuid,
+            model_version,
+            GenerationMetadata(
+                **get_generation_metadata_deprecation(model_uuid, model_version)
+            ),
+        )
+
+
+@pytest.mark.anyio
 async def test_deprecate_success():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
@@ -227,7 +253,7 @@ async def test_deprecate_success():
     )
 
     assert references[ReportComment.RISK_REPORT].url == (
-        "urn:cdx:689d20e1-38b1-4c07-bdcb-b5736440c2f7/1"
+        "urn:cdx:689d20e1-38b1-4c07-bdcb-b5736440c2f7/2"
     )
 
     # Check that the external references in each tiered AIMBOM have the expected reference types

@@ -143,6 +143,28 @@ async def test_updated_event_missing_aimbom_report_is_committed_and_skipped():
 
 
 @pytest.mark.anyio
+async def test_updated_event_missing_risk_report_is_committed_and_skipped():
+    consumer = FakeConsumer(
+        [
+            base_event(
+                event="updated-aimbom-requested",
+                changedReports={
+                    "aimbom_report": {"download_url": "aimboms/x/1.0/aimbom.json"},
+                    "assessment_report": {"download_url": "reports/x/1.0/a.json"},
+                    # no "risk_report"
+                },
+            )
+        ]
+    )
+    generator = make_generator()
+
+    await consume_messages(consumer, generator)
+
+    assert consumer.commit_calls == 1
+    generator.generate.assert_not_called()
+
+
+@pytest.mark.anyio
 async def test_reports_failing_schema_validation_is_committed_and_skipped():
     # "reports" is an object but has a value that cannot be parsed as a
     # ReportDetails entry, so GenerationMetadata(...) construction fails.
