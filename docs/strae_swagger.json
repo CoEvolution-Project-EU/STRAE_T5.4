@@ -311,6 +311,22 @@
                                 "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json"
                             }
                         }
+                    },
+                    {
+                        "previous_aimbom": {
+                            "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json"
+                        },
+                        "reports": {
+                            "assessment_report": {
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report_2.json"
+                            },
+                            "gadgets_report": {
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/gadgets_report_2.json"
+                            },
+                            "risk_report": {
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json"
+                            }
+                        }
                     }
                 ]
             },
@@ -495,6 +511,7 @@
                         ]
                     }
                 },
+                "additionalProperties": false,
                 "type": "object",
                 "title": "Reports"
             },

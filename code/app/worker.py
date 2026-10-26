@@ -51,8 +51,9 @@ def _extract_previous_aimbom_and_reports(
     This only checks the structural shape needed to build a
     `GenerationMetadata` instance (e.g. that `aimbom_report` is present, so
     it can be popped out as `previous_aimbom`). Whether the *right* reports
-    are present for an update (currently the assessment and risk reports)
-    is enforced by `GenerationMetadata` itself.
+    are present for an update (currently the required assessment and risk
+    reports, plus an optional gadgets report) is enforced by
+    `GenerationMetadata` itself.
 
     Args:
         event: The raw, JSON-decoded Kafka event.

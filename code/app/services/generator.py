@@ -27,8 +27,9 @@ from app.services import signing, validation
 from app.utils.utils import (
     REPORT_MODELS,
     REPORT_TO_COMMENT,
+    OPTIONAL_UPDATABLE_REPORT_TYPES,
     REPORT_TYPES,
-    UPDATABLE_REPORT_TYPES,
+    REQUIRED_UPDATABLE_REPORT_TYPES,
     ReportModel,
     ReportType,
     utc_now_datetime,
@@ -126,11 +127,14 @@ class AIMBOMGenerator:
             )
 
             # Fetch and validate the updated reports for the given model UUID and version
-            # (see UPDATABLE_REPORT_TYPES for which reports are expected to change).
+            # (see REQUIRED_UPDATABLE_REPORT_TYPES and OPTIONAL_UPDATABLE_REPORT_TYPES for
+            # which reports are expected to change). Optional reports are only validated
+            # when they were provided.
             new_raw_reports = await self._fetch_raw_reports(generation_metadata)
-            new_reports = self._validate_reports(
-                new_raw_reports, UPDATABLE_REPORT_TYPES
+            report_types = REQUIRED_UPDATABLE_REPORT_TYPES + tuple(
+                t for t in OPTIONAL_UPDATABLE_REPORT_TYPES if t.value in new_raw_reports
             )
+            new_reports = self._validate_reports(new_raw_reports, report_types)
 
             # Create a new updated AIMBOM with the updated reports and increment the version number.
             aimbom = await self._create_updated_aimbom(
@@ -335,7 +339,8 @@ class AIMBOMGenerator:
             raw_reports: A mapping of report type value to raw JSON dictionaries.
             report_types: Which report types to validate -- `REPORT_TYPES`
                 for a new generation (every report type), or
-                `UPDATABLE_REPORT_TYPES` for an AIMBOM update.
+                `REQUIRED_UPDATABLE_REPORT_TYPES` plus any provided
+                `OPTIONAL_UPDATABLE_REPORT_TYPES` for an AIMBOM update.
 
         Returns:
             A mapping of `ReportType` to validated `ReportModel` instances,
