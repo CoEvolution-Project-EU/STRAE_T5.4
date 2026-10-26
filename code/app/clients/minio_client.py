@@ -16,7 +16,7 @@ from app.clients.storage_client import (
 from app.core.config import settings
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
-from app.utils.utils import AIMBOMTier, uuid_from_serial_number
+from app.utils.utils import uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
 
@@ -198,22 +198,19 @@ class MinioClient(StorageClient):
         self,
         model_uuid: str,
         model_version: str,
-        tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
+        aimbom: AIMBOM,
     ):
-        for tier, aimbom in tiered_aimbom.items():
-            logger.debug(
-                "Saving AIMBOM tier %s to bucket for model_uuid=%s, model_version=%s, serial_number=%s",
-                tier.value,
-                model_uuid,
-                model_version,
-                aimbom.serial_number,
-            )
-
-            await asyncify(self.upload_json)(
-                bucket_name=settings.AIMBOMS_BUCKET,
-                object_name=f"{model_uuid}/{model_version}/{uuid_from_serial_number(aimbom.serial_number)}-v{aimbom.version}-{tier.value}.json",
-                data=jsonable_encoder(aimbom, exclude_none=True),
-            )
+        logger.debug(
+            "Saving AIMBOM to bucket for model_uuid=%s, model_version=%s, serial_number=%s",
+            model_uuid,
+            model_version,
+            aimbom.serial_number,
+        )
+        await asyncify(self.upload_json)(
+            bucket_name=settings.AIMBOMS_BUCKET,
+            object_name=f"{model_uuid}/{model_version}/{uuid_from_serial_number(aimbom.serial_number)}-v{aimbom.version}.json",
+            data=jsonable_encoder(aimbom, exclude_none=True),
+        )
 
 
 @lru_cache

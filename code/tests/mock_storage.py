@@ -3,7 +3,6 @@ from typing import Dict
 from app.clients.storage_client import StorageClient, StorageOperationError
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
-from app.utils.utils import AIMBOMTier
 
 
 class MockStorageClient(StorageClient):
@@ -40,8 +39,6 @@ class MockStorageClient(StorageClient):
         self,
         model_uuid: str,
         model_version: str,
-        tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
+        aimbom: AIMBOM,
     ):
-        self.data[f"aimboms/{model_uuid}/{model_version}/aimbom"] = tiered_aimbom[
-            AIMBOMTier.TIER_3
-        ].model_dump()
+        self.data[f"aimboms/{model_uuid}/{model_version}/aimbom"] = aimbom.model_dump()

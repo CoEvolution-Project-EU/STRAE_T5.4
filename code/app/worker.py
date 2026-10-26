@@ -19,7 +19,6 @@ from app.services.generator import (
     GeneratorSigningError,
     GeneratorStorageError,
 )
-from app.utils.utils import AIMBOMTier
 
 # Configure logging
 log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)
@@ -183,7 +182,7 @@ async def consume_messages(
 
                 continue
 
-            tiered_aimbom = await generator.generate(
+            aimbom = await generator.generate(
                 event["model_uuid"],
                 event["version"],
                 generation_metadata,
@@ -193,7 +192,7 @@ async def consume_messages(
                 "AIMBOM generated successfully: model_uuid=%s, model_version=%s, serial_number=%s",
                 event["model_uuid"],
                 event["version"],
-                tiered_aimbom[AIMBOMTier.TIER_1].serial_number,
+                aimbom.serial_number,
             )
 
             # Commit ONLY after successful processing
