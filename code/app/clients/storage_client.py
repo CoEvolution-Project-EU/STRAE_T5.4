@@ -4,7 +4,6 @@ from typing import Dict
 from fastapi import Request
 
 from app.models.aimbom import AIMBOM
-from app.utils.utils import AIMBOMTier
 
 
 class StorageError(Exception):
@@ -38,7 +37,7 @@ class StorageClient(ABC):
         self,
         model_uuid: str,
         model_version: str,
-        tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
+        aimbom: AIMBOM,
     ): ...
 
 

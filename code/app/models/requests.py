@@ -110,7 +110,7 @@ class GenerationMetadata(BaseModel):
                 },
                 {
                     "previous_aimbom": {
-                        "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1-tier-3.json"
+                        "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json"
                     },
                     "reports": {
                         "assessment_report": {

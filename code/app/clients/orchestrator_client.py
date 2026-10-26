@@ -14,7 +14,7 @@ from app.core.auth import OrchestratorAuth
 from app.core.config import settings
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
-from app.utils.utils import AIMBOMTier, uuid_from_serial_number
+from app.utils.utils import uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
 
@@ -111,14 +111,14 @@ class OrchestratorClient:
         self,
         model_uuid: str,
         model_version: str,
-        tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
+        aimbom: AIMBOM,
     ):
-        """Upload generated AIMBOM documents to the orchestrator.
+        """Upload a generated AIMBOM document to the orchestrator.
 
         Args:
             model_uuid: Model UUID used for logging/context only.
             model_version: Model version used for logging/context only.
-            tiered_aimbom: Mapping of AIMBOM tiers to AIMBOM payloads.
+            aimbom: The generated AIMBOM instance.
 
         Raises:
             StorageAuthError: On authentication failures.
@@ -145,48 +145,44 @@ class OrchestratorClient:
                 # "tags": "aimbom,generated",
             }
 
-            # TODO: Upload AIMBOMs concurrently
-            for tier, aimbom in tiered_aimbom.items():
-                logger.info(
-                    "Uploading AIMBOM tier %s for model_uuid=%s model_version=%s",
-                    tier.value,
-                    model_uuid,
-                    model_version,
-                )
+            logger.info(
+                "Uploading AIMBOM for model_uuid=%s model_version=%s",
+                model_uuid,
+                model_version,
+            )
 
-                # Convert AIMBOM to JSON bytes
-                aimbom_json = json.dumps(
-                    jsonable_encoder(aimbom, exclude_none=True),
-                )
+            # Convert AIMBOM to JSON bytes
+            aimbom_json = json.dumps(
+                jsonable_encoder(aimbom, exclude_none=True),
+            )
 
-                filename = f"model-{model_uuid}-{model_version}-aimbom-{uuid_from_serial_number(aimbom.serial_number)}-v{aimbom.version}-{tier.value}.json"
+            filename = f"model-{model_uuid}-{model_version}-aimbom-{uuid_from_serial_number(aimbom.serial_number)}-v{aimbom.version}.json"
 
-                files = [
+            files = [
+                (
+                    "files",
                     (
-                        "files",
-                        (
-                            filename,
-                            aimbom_json.encode("utf-8"),
-                            "application/vnd.cyclonedx+json",
-                        ),
-                    )
-                ]
-
-                response = await self.client.post(
-                    "/files/upload",
-                    headers=headers,
-                    files=files,
-                    data=data,
+                        filename,
+                        aimbom_json.encode("utf-8"),
+                        "application/vnd.cyclonedx+json",
+                    ),
                 )
+            ]
 
-                response.raise_for_status()
+            response = await self.client.post(
+                "/files/upload",
+                headers=headers,
+                files=files,
+                data=data,
+            )
 
-                logger.info(
-                    "AIMBOM tier %s uploaded successfully model_uuid=%s model_version=%s",
-                    tier.value,
-                    model_uuid,
-                    model_version,
-                )
+            response.raise_for_status()
+
+            logger.info(
+                "AIMBOM uploaded successfully model_uuid=%s model_version=%s",
+                model_uuid,
+                model_version,
+            )
 
         except httpx.RequestError as e:
             logger.error(

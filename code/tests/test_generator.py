@@ -14,8 +14,6 @@ from app.services.generator import (
 from app.services.signing import SigningError
 from app.utils.utils import (
     REPORT_MODELS,
-    TIER_REPORT_COMMENTS,
-    AIMBOMTier,
     ReportComment,
     ReportType,
 )
@@ -43,21 +41,17 @@ async def test_generate_success():
     storage = create_new_mock_storage()
     generator = AIMBOMGenerator(storage)
 
-    tiered_aimbom = await generator.generate(
+    aimbom = await generator.generate(
         model_uuid,
         model_version,
         GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
     )
 
-    aimbom_tier3 = tiered_aimbom[AIMBOMTier.TIER_3]
-    aimbom_tier2 = tiered_aimbom[AIMBOMTier.TIER_2]
-    aimbom_tier1 = tiered_aimbom[AIMBOMTier.TIER_1]
-
     # Check that the serial numbers are valid URNs
-    assert aimbom_tier3.serial_number.startswith("urn:uuid:")
+    assert aimbom.serial_number.startswith("urn:uuid:")
 
     # Check that the external references urls are as expected
-    references = {ref.comment: ref for ref in aimbom_tier3.external_references}
+    references = {ref.comment: ref for ref in aimbom.external_references}
 
     assert references[ReportComment.AI_MODEL_INFO].url == (
         "urn:cdx:2d2e6ba3-b9f2-4865-a182-9d31ea4d2f9e/1"
@@ -87,21 +81,8 @@ async def test_generate_success():
         "urn:cdx:689d20e1-38b1-4c07-bdcb-b5736440c2f7/1"
     )
 
-    # Check that the external references in each tiered AIMBOM have the expected reference types
-    tier2_comments = {ref.comment for ref in aimbom_tier2.external_references}
-    assert tier2_comments == {
-        ReportComment.EU_AI_ACT,
-        ReportComment.RISK_REPORT,
-        ReportComment.ASSESSMENTS,
-        ReportComment.DEFENCES,
-        ReportComment.GADGETS,
-    }
-
-    tier1_comments = {ref.comment for ref in aimbom_tier1.external_references}
-    assert tier1_comments == {ReportComment.EU_AI_ACT}
-
     # Check that the generated AIMBOM signature is valid and can be verified
-    assert verify_signature(jsonable_encoder(aimbom_tier3, exclude_none=True)) is True
+    assert verify_signature(jsonable_encoder(aimbom, exclude_none=True)) is True
 
 
 @pytest.mark.anyio
@@ -228,10 +209,7 @@ async def test_create_updated_aimbom_increments_version_and_replaces_changed_ref
         ),
     }
 
-    tiered_aimbom = await generator._create_updated_aimbom(
-        previous_aimbom, new_reports
-    )
-    aimbom = tiered_aimbom[AIMBOMTier.TIER_3]
+    aimbom = await generator._create_updated_aimbom(previous_aimbom, new_reports)
 
     # The version is incremented, but the serial number stays the same.
     assert aimbom.version == previous_aimbom.version + 1
@@ -262,36 +240,6 @@ async def test_create_updated_aimbom_increments_version_and_replaces_changed_ref
     assert verify_signature(jsonable_encoder(aimbom, exclude_none=True)) is True
 
 
-def test_create_tiered_aimbom_filters_references_and_clears_signature():
-    storage = create_empty_mock_storage()
-    generator = AIMBOMGenerator(storage)
-
-    aimbom = AIMBOM(**load_json(AIMBOMS_DIR / "aimbom.json"))
-    assert aimbom.signature is not None
-
-    tiered_aimbom = generator._create_tiered_aimbom(aimbom)
-
-    tier1 = tiered_aimbom[AIMBOMTier.TIER_1]
-    tier2 = tiered_aimbom[AIMBOMTier.TIER_2]
-    tier3 = tiered_aimbom[AIMBOMTier.TIER_3]
-
-    tier1_comments = {ref.comment for ref in tier1.external_references}
-    tier2_comments = {ref.comment for ref in tier2.external_references}
-    tier3_comments = {ref.comment for ref in tier3.external_references}
-
-    # Each tier only retains the references defined for it in TIER_REPORT_COMMENTS.
-    assert tier1_comments == TIER_REPORT_COMMENTS[AIMBOMTier.TIER_1]
-    assert tier2_comments == TIER_REPORT_COMMENTS[AIMBOMTier.TIER_2]
-    # Tier 3 is the full, unfiltered AIMBOM.
-    assert tier3_comments == {ref.comment for ref in aimbom.external_references}
-
-    # The signature is no longer valid once references are filtered out, so
-    # it must be cleared for the filtered tiers but kept for Tier 3.
-    assert tier1.signature is None
-    assert tier2.signature is None
-    assert tier3.signature is not None
-
-
 def test_validate_aimbom_raises_generation_error_on_invalid_schema():
     storage = create_empty_mock_storage()
     generator = AIMBOMGenerator(storage)
@@ -314,7 +262,7 @@ async def test_deprecate_success():
     storage = create_new_mock_storage()
     generator = AIMBOMGenerator(storage)
 
-    tiered_aimbom = await generator.generate(
+    aimbom = await generator.generate(
         model_uuid,
         model_version,
         GenerationMetadata(
@@ -322,18 +270,14 @@ async def test_deprecate_success():
         ),
     )
 
-    aimbom_tier3 = tiered_aimbom[AIMBOMTier.TIER_3]
-    aimbom_tier2 = tiered_aimbom[AIMBOMTier.TIER_2]
-    aimbom_tier1 = tiered_aimbom[AIMBOMTier.TIER_1]
-
     # Check that the serial numbers are valid URNs
-    assert aimbom_tier3.serial_number.startswith("urn:uuid:")
+    assert aimbom.serial_number.startswith("urn:uuid:")
 
     # Check that the version of the generated AIMBOM is incremented
-    assert aimbom_tier3.version == 2
+    assert aimbom.version == 2
 
     # Check that the external references urls are as expected
-    references = {ref.comment: ref for ref in aimbom_tier3.external_references}
+    references = {ref.comment: ref for ref in aimbom.external_references}
 
     assert references[ReportComment.AI_MODEL_INFO].url == (
         "urn:cdx:2d2e6ba3-b9f2-4865-a182-9d31ea4d2f9e/1"
@@ -363,18 +307,5 @@ async def test_deprecate_success():
         "urn:cdx:689d20e1-38b1-4c07-bdcb-b5736440c2f7/2"
     )
 
-    # Check that the external references in each tiered AIMBOM have the expected reference types
-    tier2_comments = {ref.comment for ref in aimbom_tier2.external_references}
-    assert tier2_comments == {
-        ReportComment.EU_AI_ACT,
-        ReportComment.RISK_REPORT,
-        ReportComment.ASSESSMENTS,
-        ReportComment.DEFENCES,
-        ReportComment.GADGETS,
-    }
-
-    tier1_comments = {ref.comment for ref in aimbom_tier1.external_references}
-    assert tier1_comments == {ReportComment.EU_AI_ACT}
-
     # Check that the generated AIMBOM signature is valid and can be verified
-    assert verify_signature(jsonable_encoder(aimbom_tier3, exclude_none=True)) is True
+    assert verify_signature(jsonable_encoder(aimbom, exclude_none=True)) is True

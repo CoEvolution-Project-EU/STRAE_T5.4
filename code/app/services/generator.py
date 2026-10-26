@@ -28,10 +28,7 @@ from app.utils.utils import (
     REPORT_MODELS,
     REPORT_TO_COMMENT,
     REPORT_TYPES,
-    TIER_REPORT_COMMENTS,
     UPDATABLE_REPORT_TYPES,
-    AIMBOMTier,
-    ReportComment,
     ReportModel,
     ReportType,
     utc_now_datetime,
@@ -92,11 +89,11 @@ class AIMBOMGenerator:
         model_uuid: str,
         model_version: str,
         generation_metadata: GenerationMetadata,
-    ) -> Dict[AIMBOMTier, AIMBOM]:
+    ) -> AIMBOM:
         """Run the full AIMBOM generation pipeline.
 
         This retrieves reports for the given model, constructs an AIMBOM from
-        those reports, signs and validates it, and persists tiered AIMBOMs to
+        those reports, signs and validates it, and persists the AIMBOM to
         the configured storage backend.
 
         Args:
@@ -136,7 +133,7 @@ class AIMBOMGenerator:
             )
 
             # Create a new updated AIMBOM with the updated reports and increment the version number.
-            tiered_aimbom = await self._create_updated_aimbom(
+            aimbom = await self._create_updated_aimbom(
                 previous_aimbom,
                 new_reports,
             )
@@ -155,17 +152,17 @@ class AIMBOMGenerator:
             # Validate and parse each retrieved report, ensuring they are compliant with the CycloneDX schema
             # and our specific report models.
             reports = self._validate_reports(raw_reports, REPORT_TYPES)
-            tiered_aimbom = self._create_aimbom_from_reports(reports)
+            aimbom = self._create_aimbom_from_reports(reports)
 
         # Save the generated AIMBOM to the configured storage backend (MinIO or Orchestrator).
-        await self._save_aimbom(model_uuid, model_version, tiered_aimbom)
+        await self._save_aimbom(model_uuid, model_version, aimbom)
 
         logger.debug(
             "Generation completed model_uuid=%s, model_version=%s",
             model_uuid,
             model_version,
         )
-        return tiered_aimbom
+        return aimbom
 
     async def _get_previous_aimbom(
         self,
@@ -202,7 +199,7 @@ class AIMBOMGenerator:
         self,
         previous_aimbom: AIMBOM,
         new_reports: Dict[ReportType, ReportModel],
-    ) -> Dict[AIMBOMTier, AIMBOM]:
+    ) -> AIMBOM:
         """Create an updated AIMBOM based on the previous AIMBOM and the changed reports.
 
         Args:
@@ -240,7 +237,7 @@ class AIMBOMGenerator:
         # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.
         self._validate_aimbom(aimbom)
 
-        return self._create_tiered_aimbom(aimbom)
+        return aimbom
 
     async def _fetch_raw_reports(
         self,
@@ -489,73 +486,9 @@ class AIMBOMGenerator:
                 f"Generated AIMBOM is invalid: {str(e)}"
             ) from e
 
-    def _filter_aimbom_references(
-        self, aimbom: AIMBOM, references_to_keep: set[ReportComment]
-    ) -> AIMBOM:
-        """
-        Filter AIMBOM external references based on specified references.
-        Remove signature from the  AIMBOM, as it is no longer valid after filtering.
-
-        Args:
-            aimbom: The original `AIMBOM` instance.
-            references_to_keep: A set of `ReportComment` values to retain in the external references.
-
-        Returns:
-            A new `AIMBOM` instance with filtered external references and no signature.
-        """
-
-        # NOTE: We are removing the signature from the AIMBOM after filtering the external
-        # references because the signature is no longer valid after filtering. The signature
-        # is generated over the entire AIMBOM, and if we remove any external references, the
-        # signature will not match the new AIMBOM.
-        return aimbom.model_copy(
-            update={
-                "external_references": [
-                    ref
-                    for ref in aimbom.external_references
-                    if ref.comment in references_to_keep
-                ],
-                "signature": None,
-            }
-        )
-
-    def _create_tiered_aimbom(self, aimbom: AIMBOM) -> Dict[AIMBOMTier, AIMBOM]:
-        """Create a dictionary of tiered AIMBOMs from the full AIMBOM.
-
-        Args:
-            aimbom: The full Tier 3 `AIMBOM` instance.
-
-        Returns:
-            A dictionary mapping `AIMBOMTier` to the corresponding tiered `AIMBOM` instances.
-
-        Raises:
-            GeneratorGenerationError: If tiered AIMBOM creation fails.
-        """
-
-        logger.debug(
-            "Creating tiered AIMBOMs from full AIMBOM with serial_number=%s",
-            aimbom.serial_number,
-        )
-
-        try:
-            return {
-                AIMBOMTier.TIER_1: self._filter_aimbom_references(
-                    aimbom, TIER_REPORT_COMMENTS[AIMBOMTier.TIER_1]
-                ),
-                AIMBOMTier.TIER_2: self._filter_aimbom_references(
-                    aimbom, TIER_REPORT_COMMENTS[AIMBOMTier.TIER_2]
-                ),
-                AIMBOMTier.TIER_3: aimbom,
-            }
-        except Exception as e:
-            logger.error("Error creating tiered AIMBOM", exc_info=True)
-            raise GeneratorGenerationError(
-                f"Failed to create tiered AIMBOM: {str(e)}"
-            ) from e
-
     def _create_aimbom_from_reports(
         self, reports: Dict[ReportType, ReportModel]
-    ) -> Dict[AIMBOMTier, AIMBOM]:
+    ) -> AIMBOM:
         """Construct an `AIMBOM` object from validated reports.
 
         Args:
@@ -590,28 +523,25 @@ class AIMBOMGenerator:
             ) from e
 
         # Sign the AIMBOM to ensure its integrity and authenticity.
-        # NOTE: We sign the AIMBOM before creating the Tiers. In Tiers 1-2 we remove the signature.
-        # TODO:Maybe sign each Tier separately, but this would require a new signature for each Tier
-        # and the signature would be different for each Tier.
         aimbom = self._sign_aimbom(aimbom)
 
         # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.
         self._validate_aimbom(aimbom)
 
-        return self._create_tiered_aimbom(aimbom)
+        return aimbom
 
     async def _save_aimbom(
         self,
         model_uuid: str,
         model_version: str,
-        tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
+        aimbom: AIMBOM,
     ):
-        """Persist tiered AIMBOMs to the configured storage backend.
+        """Persist the AIMBOM to the configured storage backend.
 
         Args:
-            model_uuid: Model UUID to associate with stored AIMBOMs.
-            model_version: Model version to associate with stored AIMBOMs.
-            tiered_aimbom: The tiered `AIMBOM` instances to store.
+            model_uuid: Model UUID to associate with the stored AIMBOM.
+            model_version: Model version to associate with the stored AIMBOM.
+            aimbom: The `AIMBOM` instance to store.
 
         Returns:
             None
@@ -629,7 +559,7 @@ class AIMBOMGenerator:
             await self.client.save_aimbom(
                 model_uuid=model_uuid,
                 model_version=model_version,
-                tiered_aimbom=tiered_aimbom,
+                aimbom=aimbom,
             )
             logger.debug("AIMBOM saved successfully")
         except StorageError as e:

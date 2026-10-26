@@ -8,7 +8,6 @@ from app.services.generator import (
     GeneratorSigningError,
     GeneratorStorageError,
 )
-from app.utils.utils import AIMBOMTier
 from app.worker import consume_messages
 
 from tests.utils import (
@@ -48,9 +47,9 @@ def make_generator(side_effect=None, return_value=None):
     if side_effect is not None:
         generator.generate.side_effect = side_effect
     else:
-        generator.generate.return_value = return_value or {
-            AIMBOMTier.TIER_1: AsyncMock(serial_number="urn:uuid:test")
-        }
+        generator.generate.return_value = return_value or AsyncMock(
+            serial_number="urn:uuid:test"
+        )
     return generator
 
 
