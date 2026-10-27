@@ -15,6 +15,7 @@ from tests.utils import (
     MODEL_VERSION,
     get_generation_metadata,
     get_generation_metadata_deprecation,
+    get_generation_metadata_deprecation_with_gadgets,
 )
 
 
@@ -198,6 +199,34 @@ async def test_valid_new_event_calls_generator_and_commits():
 @pytest.mark.anyio
 async def test_valid_updated_event_calls_generator_and_commits():
     metadata = get_generation_metadata_deprecation(MODEL_UUID, MODEL_VERSION)
+    changed_reports = dict(metadata["reports"])
+    changed_reports["aimbom_report"] = metadata["previous_aimbom"]
+
+    consumer = FakeConsumer(
+        [
+            base_event(
+                event="updated-aimbom-requested",
+                changedReports=changed_reports,
+            )
+        ]
+    )
+    generator = make_generator()
+
+    await consume_messages(consumer, generator)
+
+    assert consumer.commit_calls == 1
+    generator.generate.assert_awaited_once_with(
+        MODEL_UUID,
+        MODEL_VERSION,
+        GenerationMetadata(**metadata),
+    )
+
+
+@pytest.mark.anyio
+async def test_valid_updated_event_with_gadgets_report_calls_generator_and_commits():
+    metadata = get_generation_metadata_deprecation_with_gadgets(
+        MODEL_UUID, MODEL_VERSION
+    )
     changed_reports = dict(metadata["reports"])
     changed_reports["aimbom_report"] = metadata["previous_aimbom"]
 

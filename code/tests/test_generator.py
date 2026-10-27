@@ -28,6 +28,7 @@ from tests.utils import (
     create_new_mock_storage,
     get_generation_metadata,
     get_generation_metadata_deprecation,
+    get_generation_metadata_deprecation_with_gadgets,
     load_json,
     verify_signature,
 )
@@ -309,3 +310,115 @@ async def test_deprecate_success():
 
     # Check that the generated AIMBOM signature is valid and can be verified
     assert verify_signature(jsonable_encoder(aimbom, exclude_none=True)) is True
+
+
+@pytest.mark.anyio
+async def test_deprecate_with_gadgets_report_success():
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
+
+    storage = create_new_mock_storage()
+    generator = AIMBOMGenerator(storage)
+
+    previous_aimbom = AIMBOM(**load_json(AIMBOMS_DIR / "aimbom.json"))
+    original_references = {
+        ref.comment: ref for ref in previous_aimbom.external_references
+    }
+
+    aimbom = await generator.generate(
+        model_uuid,
+        model_version,
+        GenerationMetadata(
+            **get_generation_metadata_deprecation_with_gadgets(
+                model_uuid, model_version
+            )
+        ),
+    )
+
+    # The version is incremented, but the serial number stays the same.
+    assert aimbom.version == previous_aimbom.version + 1
+    assert aimbom.serial_number == previous_aimbom.serial_number
+
+    references = {ref.comment: ref for ref in aimbom.external_references}
+
+    # Changed report types point at their new report's serial number/version.
+    assert references[ReportComment.ASSESSMENTS].url == (
+        "urn:cdx:bbc77e3c-ec17-42b1-af15-580626ea66d7/2"
+    )
+    assert references[ReportComment.RISK_REPORT].url == (
+        "urn:cdx:689d20e1-38b1-4c07-bdcb-b5736440c2f7/2"
+    )
+    assert references[ReportComment.GADGETS].url == (
+        "urn:cdx:52c57fd2-b03a-44c1-b9c0-7c5f7d2a8666/2"
+    )
+
+    # Unchanged report types keep their original external reference untouched.
+    unchanged_comments = [
+        ReportComment.AI_MODEL_INFO,
+        ReportComment.DATASETS,
+        ReportComment.DEFENCES,
+        ReportComment.EU_AI_ACT,
+    ]
+    for comment in unchanged_comments:
+        assert references[comment].url == original_references[comment].url
+
+    # Each report type still has exactly one external reference.
+    assert len(aimbom.external_references) == len(
+        previous_aimbom.external_references
+    )
+
+    # Check that the re-signed AIMBOM's signature is valid and can be verified
+    assert verify_signature(jsonable_encoder(aimbom, exclude_none=True)) is True
+
+
+@pytest.mark.anyio
+async def test_deprecate_without_gadgets_report_keeps_previous_gadgets_ref():
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
+
+    storage = create_new_mock_storage()
+    generator = AIMBOMGenerator(storage)
+
+    previous_aimbom = AIMBOM(**load_json(AIMBOMS_DIR / "aimbom.json"))
+    original_references = {
+        ref.comment: ref for ref in previous_aimbom.external_references
+    }
+
+    aimbom = await generator.generate(
+        model_uuid,
+        model_version,
+        GenerationMetadata(
+            **get_generation_metadata_deprecation(model_uuid, model_version)
+        ),
+    )
+
+    references = {ref.comment: ref for ref in aimbom.external_references}
+
+    assert (
+        references[ReportComment.GADGETS].url
+        == original_references[ReportComment.GADGETS].url
+    )
+
+
+@pytest.mark.anyio
+async def test_deprecate_invalid_gadgets_report_data_is_rejected():
+    model_uuid = MODEL_UUID
+    model_version = MODEL_VERSION
+
+    storage = create_new_mock_storage()
+    storage.data[
+        f"reports/{model_uuid}/{model_version}/gadgets_report_updated.json"
+    ] = {"invalid": "schema"}
+
+    generator = AIMBOMGenerator(storage)
+
+    with pytest.raises(GeneratorGenerationError):
+        await generator.generate(
+            model_uuid,
+            model_version,
+            GenerationMetadata(
+                **get_generation_metadata_deprecation_with_gadgets(
+                    model_uuid, model_version
+                )
+            ),
+        )

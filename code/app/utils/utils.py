@@ -82,9 +82,11 @@ REPORT_TYPES = (
 )
 
 
-# Report types expected to change when updating an existing AIMBOM.
-# TODO: Check whether the defence or any other report should also be updatable.
-UPDATABLE_REPORT_TYPES = (ReportType.ASSESSMENTS, ReportType.RISK_REPORT)
+# Report types that must be present when updating (deprecating) an existing AIMBOM.
+REQUIRED_UPDATABLE_REPORT_TYPES = (ReportType.ASSESSMENTS, ReportType.RISK_REPORT)
+
+# Report types that may be present when updating (deprecating) an existing AIMBOM.
+OPTIONAL_UPDATABLE_REPORT_TYPES = (ReportType.GADGETS,)
 
 
 REPORT_TO_COMMENT = {

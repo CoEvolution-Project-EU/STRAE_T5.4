@@ -50,6 +50,10 @@ def create_new_mock_storage():
         f"reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report_updated.json"
     ] = load_json(REPORTS_DIR / "risk_report_updated.json")
 
+    storage.data[
+        f"reports/{MODEL_UUID}/{MODEL_VERSION}/gadgets_report_updated.json"
+    ] = load_json(REPORTS_DIR / "gadgets_report_updated.json")
+
     storage.data[f"aimboms/{MODEL_UUID}/{MODEL_VERSION}/aimbom.json"] = load_json(
         AIMBOMS_DIR / "aimbom.json"
     )
@@ -85,6 +89,17 @@ def get_generation_metadata_deprecation(model_uuid: str, model_version: str):
             },
         },
     }
+
+
+def get_generation_metadata_deprecation_with_gadgets(
+    model_uuid: str, model_version: str
+):
+    metadata = get_generation_metadata_deprecation(model_uuid, model_version)
+    metadata["reports"]["gadgets_report"] = {
+        "download_url": f"reports/{model_uuid}/{model_version}/gadgets_report_updated.json"
+    }
+
+    return metadata
 
 
 # ============Signing utility functions for tests============
