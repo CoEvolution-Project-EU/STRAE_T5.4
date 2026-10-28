@@ -1,8 +1,12 @@
 from typing import Dict
 
-from app.clients.storage_client import StorageClient, StorageOperationError
+from app.clients.storage_client import (
+    StorageClient,
+    StorageOperationError,
+    UploadedFile,
+)
 from app.models.aimbom import AIMBOM
-from app.models.requests import GenerationMetadata
+from app.models.requests import GenerationMetadata, UploadReportMetadata
 
 
 class MockStorageClient(StorageClient):
@@ -14,6 +18,23 @@ class MockStorageClient(StorageClient):
         if report is None:
             raise StorageOperationError(f"Report not found for URL: {download_url}")
         return report
+
+    async def save_file(
+        self,
+        file: Dict,
+        filename: str,
+        upload_report_metadata: UploadReportMetadata,
+    ) -> UploadedFile:
+        self.data[
+            f"{upload_report_metadata.bucket}/{upload_report_metadata.model_uuid}/"
+            f"{upload_report_metadata.version}/{filename}"
+        ] = file
+
+        return UploadedFile(
+            filename=filename,
+            pool=upload_report_metadata.pool,
+            bucket=upload_report_metadata.bucket,
+        )
 
     async def get_reports_for_model(
         self,

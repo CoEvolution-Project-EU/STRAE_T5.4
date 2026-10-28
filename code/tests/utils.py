@@ -64,9 +64,10 @@ def create_new_mock_storage():
 def get_generation_metadata(model_uuid: str, model_version: str):
     reports = {
         report_type.value: {
+            "filename": f"{report_type.value}.json",
             "download_url": get_url_for_report_type(
                 model_uuid, model_version, report_type
-            )
+            ),
         }
         for report_type in ReportType
     }
@@ -85,14 +86,17 @@ def get_generation_metadata_deprecation(model_uuid: str, model_version: str):
         "model_uuid": model_uuid,
         "version": model_version,
         "previous_aimbom": {
-            "download_url": f"aimboms/{model_uuid}/{model_version}/aimbom.json"
+            "filename": "aimbom.json",
+            "download_url": f"aimboms/{model_uuid}/{model_version}/aimbom.json",
         },
         "reports": {
             "assessment_report": {
-                "download_url": f"reports/{model_uuid}/{model_version}/assessment_report_updated.json"
+                "filename": "assessment_report_updated.json",
+                "download_url": f"reports/{model_uuid}/{model_version}/assessment_report_updated.json",
             },
             "risk_report": {
-                "download_url": f"reports/{model_uuid}/{model_version}/risk_report_updated.json"
+                "filename": "risk_report_updated.json",
+                "download_url": f"reports/{model_uuid}/{model_version}/risk_report_updated.json",
             },
         },
     }
@@ -103,7 +107,8 @@ def get_generation_metadata_deprecation_with_gadgets(
 ):
     metadata = get_generation_metadata_deprecation(model_uuid, model_version)
     metadata["reports"]["gadgets_report"] = {
-        "download_url": f"reports/{model_uuid}/{model_version}/gadgets_report_updated.json"
+        "filename": "gadgets_report_updated.json",
+        "download_url": f"reports/{model_uuid}/{model_version}/gadgets_report_updated.json",
     }
 
     return metadata

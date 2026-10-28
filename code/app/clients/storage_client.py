@@ -2,8 +2,11 @@ from abc import ABC, abstractmethod
 from typing import Dict
 
 from fastapi import Request
+from pydantic import BaseModel
 
 from app.models.aimbom import AIMBOM
+from app.models.requests import UploadReportMetadata
+from app.models.responses import UploadedFile
 
 
 class StorageError(Exception):
@@ -18,6 +21,10 @@ class StorageOperationError(StorageError):
     """Generic failure during storage operation."""
 
 
+class StorageInvalidFileError(StorageOperationError):
+    """Retrieved file is not valid JSON."""
+
+
 class StorageAuthError(StorageError):
     """Authentication failure."""
 
@@ -25,6 +32,14 @@ class StorageAuthError(StorageError):
 class StorageClient(ABC):
     @abstractmethod
     async def get_file_from_url(self, download_url: str) -> Dict: ...
+
+    @abstractmethod
+    async def save_file(
+        self,
+        file: Dict,
+        filename: str,
+        upload_report_metadata: UploadReportMetadata,
+    ) -> UploadedFile: ...
 
     @abstractmethod
     async def get_reports_for_model(

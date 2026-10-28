@@ -11,11 +11,13 @@ from minio import Minio, S3Error
 from app.clients.storage_client import (
     StorageClient,
     StorageConnectionError,
+    StorageInvalidFileError,
     StorageOperationError,
+    UploadedFile,
 )
 from app.core.config import settings
 from app.models.aimbom import AIMBOM
-from app.models.requests import GenerationMetadata
+from app.models.requests import GenerationMetadata, UploadReportMetadata
 from app.utils.utils import uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
@@ -111,6 +113,7 @@ class MinioClient(StorageClient):
         Raises:
             StorageOperationError: On S3 errors.
             StorageConnectionError: On transport/connection errors.
+            StorageInvalidFileError: If the object is not valid JSON.
 
         Ensures the response stream is properly closed after reading.
         """
@@ -130,7 +133,12 @@ class MinioClient(StorageClient):
                 raise StorageConnectionError(
                     f"Failed to retrieve object '{object_name}' from bucket '{bucket_name}': {e}"
                 ) from e
-            return json.loads(response.read())
+            try:
+                return json.loads(response.read())
+            except ValueError as e:
+                raise StorageInvalidFileError(
+                    f"Object '{object_name}' in bucket '{bucket_name}' is not valid JSON: {e}"
+                ) from e
         finally:
             if response:
                 response.close()
@@ -159,6 +167,47 @@ class MinioClient(StorageClient):
         return await asyncify(self.get_json)(
             bucket_name=bucket_name,
             object_name=object_name,
+        )
+
+    async def save_file(
+        self,
+        file: Dict,
+        filename: str,
+        upload_report_metadata: UploadReportMetadata,
+    ) -> UploadedFile:
+        """Upload a file to the reports bucket under `{model_uuid}/{version}/{bucket}`.
+
+        MinIO doesn't use `pool` or `tags`, and the given `filename` is replaced
+        by the object name.
+
+        Args:
+            file: JSON-serializable payload to store.
+            filename: Name of the file. Unused, see above.
+            upload_report_metadata: Destination of the uploaded file.
+
+        Returns:
+            The location of the uploaded file.
+        """
+
+        logger.debug(
+            "Saving file to bucket=%s for model_uuid=%s, model_version=%s",
+            upload_report_metadata.bucket,
+            upload_report_metadata.model_uuid,
+            upload_report_metadata.version,
+        )
+
+        filename = f"{upload_report_metadata.model_uuid}/{upload_report_metadata.version}/{upload_report_metadata.bucket}"
+
+        await asyncify(self.upload_json)(
+            bucket_name=settings.REPORTS_BUCKET,
+            object_name=f"{upload_report_metadata.model_uuid}/{upload_report_metadata.version}/{upload_report_metadata.bucket}",
+            data=file,
+        )
+
+        return UploadedFile(
+            filename=filename,
+            pool=upload_report_metadata.pool,
+            bucket=upload_report_metadata.bucket,
         )
 
     async def get_reports_for_model(

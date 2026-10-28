@@ -8,12 +8,14 @@ from fastapi.encoders import jsonable_encoder
 from app.clients.storage_client import (
     StorageAuthError,
     StorageConnectionError,
+    StorageInvalidFileError,
     StorageOperationError,
+    UploadedFile,
 )
 from app.core.auth import OrchestratorAuth
 from app.core.config import settings
 from app.models.aimbom import AIMBOM
-from app.models.requests import GenerationMetadata
+from app.models.requests import GenerationMetadata, UploadReportMetadata
 from app.utils.utils import uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
@@ -62,6 +64,15 @@ class OrchestratorClient:
             raise StorageOperationError(
                 f"Orchestrator returned {e.response.status_code}"
             ) from e
+        except ValueError as e:
+            logger.error(
+                "File downloaded from %s is not valid JSON",
+                download_url,
+                exc_info=True,
+            )
+            raise StorageInvalidFileError(
+                f"File downloaded from '{download_url}' is not valid JSON: {e}"
+            ) from e
         except Exception as e:
             logger.error(
                 "Unexpected error while downloading file from %s",
@@ -69,6 +80,136 @@ class OrchestratorClient:
                 exc_info=True,
             )
             raise StorageOperationError(str(e)) from e
+
+    async def save_file(
+        self,
+        file: Dict,
+        filename: str,
+        upload_report_metadata: UploadReportMetadata,
+    ) -> UploadedFile:
+        """Upload a file to the orchestrator.
+
+        Args:
+            file: JSON-serializable payload to upload.
+            filename: Name of the uploaded file.
+            upload_report_metadata: Destination `pool` / `bucket`, model and tags.
+
+        Returns:
+            The location of the uploaded file.
+
+        Raises:
+            StorageAuthError: On authentication failures.
+            StorageConnectionError: On connection issues.
+            StorageOperationError: On non-2xx HTTP responses or unexpected errors.
+        """
+
+        try:
+            token = await self.auth.get_token()
+            headers = {"Authorization": f"Bearer {token}"}
+        except Exception as e:
+            logger.error(
+                "Authentication error while uploading file",
+                exc_info=True,
+            )
+            raise StorageAuthError("Failed to authenticate with orchestrator") from e
+
+        try:
+            data = {
+                "pool": upload_report_metadata.pool,
+                "bucket": upload_report_metadata.bucket,
+                "model_uuid": upload_report_metadata.model_uuid,
+                "version": upload_report_metadata.version,
+            }
+            if upload_report_metadata.tags:
+                data["tags"] = upload_report_metadata.tags
+
+            logger.info(
+                "Uploading file=%s for model_uuid=%s model_version=%s",
+                filename,
+                upload_report_metadata.model_uuid,
+                upload_report_metadata.version,
+            )
+
+            files = [
+                (
+                    "files",
+                    (
+                        filename,
+                        json.dumps(file).encode("utf-8"),
+                        "application/vnd.cyclonedx+json",
+                    ),
+                )
+            ]
+
+            response = await self.client.post(
+                "/files/upload",
+                headers=headers,
+                files=files,
+                data=data,
+            )
+
+            response.raise_for_status()
+
+            logger.info(
+                "File uploaded successfully file=%s model_uuid=%s model_version=%s",
+                filename,
+                upload_report_metadata.model_uuid,
+                upload_report_metadata.version,
+            )
+
+        except httpx.RequestError as e:
+            logger.error(
+                "Connection error while uploading file",
+                exc_info=True,
+            )
+
+            raise StorageConnectionError(str(e)) from e
+
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                "Upload failed with status_code=%s response=%s",
+                e.response.status_code,
+                e.response.text,
+                exc_info=True,
+            )
+
+            raise StorageOperationError(
+                f"Orchestrator returned {e.response.status_code}"
+            ) from e
+
+        except Exception as e:
+            logger.error(
+                "Unexpected error while uploading file",
+                exc_info=True,
+            )
+
+            raise StorageOperationError(str(e)) from e
+
+        return UploadedFile(
+            id=self._get_uploaded_file_id(response),
+            filename=filename,
+            pool=upload_report_metadata.pool,
+            bucket=upload_report_metadata.bucket,
+        )
+
+    @staticmethod
+    def _get_uploaded_file_id(response: httpx.Response) -> str | None:
+        """Return the `_id` of the uploaded file from the upload response, if any."""
+
+        # TODO: Confirm the response format of `/files/upload`.
+        try:
+            body = response.json()
+        except ValueError:
+            return None
+
+        if isinstance(body, dict) and isinstance(body.get("files"), list):
+            body = body["files"]
+        if isinstance(body, list):
+            body = body[0] if body else None
+        if isinstance(body, dict) and body.get("_id") is not None:
+            return str(body["_id"])
+
+        return None
 
     async def get_reports_for_model(
         self,

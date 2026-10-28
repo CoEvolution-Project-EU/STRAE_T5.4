@@ -4,13 +4,12 @@ from typing import Annotated, Dict
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from app.core.config import settings
-from app.models.requests import GenerationMetadata
+from app.models.requests import GenerationMetadata, SigningMetadata
 from app.models.responses import (
     AIMBOMGeneratedResponse,
     SignedReportResponse,
     StatusResponse,
 )
-from app.services import signing
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
@@ -18,6 +17,15 @@ from app.services.generator import (
     GeneratorSigningError,
     GeneratorStorageError,
     get_generator,
+)
+from app.services.report_signer import (
+    ReportSigner,
+    ReportSignerInvalidFileError,
+    ReportSignerMissingReportError,
+    ReportSignerProcessingError,
+    ReportSignerSigningError,
+    ReportSignerStorageError,
+    get_signer,
 )
 from app.utils.utils import uuid_from_serial_number
 
@@ -49,9 +57,11 @@ def get_status():
 @router.post(
     "/sign",
     response_model=SignedReportResponse,
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_201_CREATED,
 )
-def sign_report(report: Dict):
+async def sign_report(
+    signing_metadata: SigningMetadata, signer: ReportSigner = Depends(get_signer)
+):
     """
     Digitally sign a report using the configured signing certificate and private key.
 
@@ -60,37 +70,85 @@ def sign_report(report: Dict):
 
     **Request Body**
 
-    `report`: A JSON report to be signed.
+    `signing_metadata`: Metadata describing the report to be signed.
 
     **Response**
 
-    Returns the signed report together with a confirmation message.
+    Returns the location of the uploaded signed report.
     """
 
-    logger.info("Report signing requested")
+    logger.info(
+        "Report signing requested for model_uuid=%s, model_version=%s",
+        signing_metadata.model_uuid,
+        signing_metadata.version,
+    )
+
     try:
-        # NOTE: Maybe use asyncer to avoid blocking the event loop,
-        # especially if signing is slow with loading key/certificate operations.
-        signed_report = signing.sign_report(report)
-        logger.info("Report signed successfully")
-        return SignedReportResponse(
-            detail="Report signed successfully",
-            signed_report=signed_report,
+        uploaded_file = await signer.sign_and_upload(signing_metadata)
+    except ReportSignerMissingReportError as e:
+        logger.warning(
+            "Missing report for model_uuid=%s: %s", signing_metadata.model_uuid, e
         )
-    except signing.SigningError as e:
-        logger.error("Signing material mismatch", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except ReportSignerInvalidFileError as e:
+        logger.warning(
+            "Invalid report for model_uuid=%s: %s", signing_metadata.model_uuid, e
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        )
+    except ReportSignerStorageError as e:
+        logger.error(
+            "Storage error for model_uuid=%s",
+            signing_metadata.model_uuid,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
         )
+    except ReportSignerSigningError as e:
+        logger.error(
+            "Signing material error for model_uuid=%s",
+            signing_metadata.model_uuid,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        )
+    except ReportSignerProcessingError as e:
+        logger.error(
+            "Report signing error for model_uuid=%s",
+            signing_metadata.model_uuid,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
     except Exception as e:
-        logger.error("Error signing report", exc_info=True)
+        logger.exception("Unexpected error during report signing")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
+    logger.info(
+        "Report signed: model_uuid=%s, model_version=%s",
+        signing_metadata.model_uuid,
+        signing_metadata.version,
+    )
+
+    return SignedReportResponse(
+        detail="Report signed successfully",
+        id=uploaded_file.id,
+        filename=uploaded_file.filename,
+        pool=uploaded_file.pool,
+        bucket=uploaded_file.bucket,
+        model_uuid=signing_metadata.model_uuid,
+        model_version=signing_metadata.version,
+    )
+
 
 @router.post(
-    "/generate/{model_uuid}/{model_version}",
+    "/generate",
     response_model=AIMBOMGeneratedResponse,
     status_code=status.HTTP_201_CREATED,
 )
