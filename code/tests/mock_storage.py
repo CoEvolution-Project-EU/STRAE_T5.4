@@ -1,10 +1,6 @@
 from typing import Dict
 
-from app.clients.storage_client import (
-    StorageClient,
-    StorageOperationError,
-    UploadedFile,
-)
+from app.clients.storage_client import StorageClient, StorageOperationError
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata, UploadReportMetadata
 
@@ -24,17 +20,11 @@ class MockStorageClient(StorageClient):
         file: Dict,
         filename: str,
         upload_report_metadata: UploadReportMetadata,
-    ) -> UploadedFile:
+    ):
         self.data[
             f"{upload_report_metadata.bucket}/{upload_report_metadata.model_uuid}/"
             f"{upload_report_metadata.version}/{filename}"
         ] = file
-
-        return UploadedFile(
-            filename=filename,
-            pool=upload_report_metadata.pool,
-            bucket=upload_report_metadata.bucket,
-        )
 
     async def get_reports_for_model(
         self,

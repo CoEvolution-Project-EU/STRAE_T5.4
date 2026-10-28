@@ -119,7 +119,7 @@ async def test_generate_aimbom_success():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{model_uuid}/{model_version}",
+            "/api/generate",
             json=get_generation_metadata(model_uuid, model_version),
         )
 
@@ -139,7 +139,7 @@ async def test_generate_aimbom_no_reports():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{model_uuid}/{model_version}",
+            "/api/generate",
             json=get_generation_metadata(model_uuid, model_version),
         )
     assert response.status_code == 409
@@ -157,7 +157,7 @@ async def test_generate_aimbom_storage_error():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{MODEL_UUID}/{MODEL_VERSION}",
+            "/api/generate",
             json=get_generation_metadata(MODEL_UUID, MODEL_VERSION),
         )
 
@@ -176,7 +176,7 @@ async def test_generate_aimbom_signing_error():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{MODEL_UUID}/{MODEL_VERSION}",
+            "/api/generate",
             json=get_generation_metadata(MODEL_UUID, MODEL_VERSION),
         )
 
@@ -195,7 +195,7 @@ async def test_generate_aimbom_generation_error():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{MODEL_UUID}/{MODEL_VERSION}",
+            "/api/generate",
             json=get_generation_metadata(MODEL_UUID, MODEL_VERSION),
         )
 
@@ -212,7 +212,7 @@ async def test_generate_aimbom_unexpected_error():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{MODEL_UUID}/{MODEL_VERSION}",
+            "/api/generate",
             json=get_generation_metadata(MODEL_UUID, MODEL_VERSION),
         )
 
@@ -228,7 +228,7 @@ async def test_deprecate_aimbom_success():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{model_uuid}/{model_version}",
+            "/api/generate",
             json=get_generation_metadata_deprecation(model_uuid, model_version),
         )
 
@@ -248,7 +248,7 @@ async def test_deprecate_aimbom_with_gadgets_report_success():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{model_uuid}/{model_version}",
+            "/api/generate",
             json=get_generation_metadata_deprecation_with_gadgets(
                 model_uuid, model_version
             ),

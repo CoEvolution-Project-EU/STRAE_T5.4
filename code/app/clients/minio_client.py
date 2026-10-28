@@ -13,7 +13,6 @@ from app.clients.storage_client import (
     StorageConnectionError,
     StorageInvalidFileError,
     StorageOperationError,
-    UploadedFile,
 )
 from app.core.config import settings
 from app.models.aimbom import AIMBOM
@@ -174,19 +173,15 @@ class MinioClient(StorageClient):
         file: Dict,
         filename: str,
         upload_report_metadata: UploadReportMetadata,
-    ) -> UploadedFile:
+    ):
         """Upload a file to the reports bucket under `{model_uuid}/{version}/{bucket}`.
 
-        MinIO doesn't use `pool` or `tags`, and the given `filename` is replaced
-        by the object name.
+        MinIO doesn't use `pool`, `tags` or `filename`.
 
         Args:
             file: JSON-serializable payload to store.
             filename: Name of the file. Unused, see above.
             upload_report_metadata: Destination of the uploaded file.
-
-        Returns:
-            The location of the uploaded file.
         """
 
         logger.debug(
@@ -196,18 +191,10 @@ class MinioClient(StorageClient):
             upload_report_metadata.version,
         )
 
-        filename = f"{upload_report_metadata.model_uuid}/{upload_report_metadata.version}/{upload_report_metadata.bucket}"
-
         await asyncify(self.upload_json)(
             bucket_name=settings.REPORTS_BUCKET,
             object_name=f"{upload_report_metadata.model_uuid}/{upload_report_metadata.version}/{upload_report_metadata.bucket}",
             data=file,
-        )
-
-        return UploadedFile(
-            filename=filename,
-            pool=upload_report_metadata.pool,
-            bucket=upload_report_metadata.bucket,
         )
 
     async def get_reports_for_model(

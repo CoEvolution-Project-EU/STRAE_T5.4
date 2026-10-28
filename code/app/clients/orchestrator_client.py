@@ -10,7 +10,6 @@ from app.clients.storage_client import (
     StorageConnectionError,
     StorageInvalidFileError,
     StorageOperationError,
-    UploadedFile,
 )
 from app.core.auth import OrchestratorAuth
 from app.core.config import settings
@@ -86,16 +85,13 @@ class OrchestratorClient:
         file: Dict,
         filename: str,
         upload_report_metadata: UploadReportMetadata,
-    ) -> UploadedFile:
+    ):
         """Upload a file to the orchestrator.
 
         Args:
             file: JSON-serializable payload to upload.
             filename: Name of the uploaded file.
             upload_report_metadata: Destination `pool` / `bucket`, model and tags.
-
-        Returns:
-            The location of the uploaded file.
 
         Raises:
             StorageAuthError: On authentication failures.
@@ -184,32 +180,6 @@ class OrchestratorClient:
             )
 
             raise StorageOperationError(str(e)) from e
-
-        return UploadedFile(
-            id=self._get_uploaded_file_id(response),
-            filename=filename,
-            pool=upload_report_metadata.pool,
-            bucket=upload_report_metadata.bucket,
-        )
-
-    @staticmethod
-    def _get_uploaded_file_id(response: httpx.Response) -> str | None:
-        """Return the `_id` of the uploaded file from the upload response, if any."""
-
-        # TODO: Confirm the response format of `/files/upload`.
-        try:
-            body = response.json()
-        except ValueError:
-            return None
-
-        if isinstance(body, dict) and isinstance(body.get("files"), list):
-            body = body["files"]
-        if isinstance(body, list):
-            body = body[0] if body else None
-        if isinstance(body, dict) and body.get("_id") is not None:
-            return str(body["_id"])
-
-        return None
 
     async def get_reports_for_model(
         self,

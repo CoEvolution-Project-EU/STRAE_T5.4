@@ -2,11 +2,9 @@ from abc import ABC, abstractmethod
 from typing import Dict
 
 from fastapi import Request
-from pydantic import BaseModel
 
 from app.models.aimbom import AIMBOM
 from app.models.requests import UploadReportMetadata
-from app.models.responses import UploadedFile
 
 
 class StorageError(Exception):
@@ -39,7 +37,7 @@ class StorageClient(ABC):
         file: Dict,
         filename: str,
         upload_report_metadata: UploadReportMetadata,
-    ) -> UploadedFile: ...
+    ): ...
 
     @abstractmethod
     async def get_reports_for_model(

@@ -9,7 +9,6 @@ from app.clients.storage_client import (
     StorageError,
     StorageInvalidFileError,
     StorageOperationError,
-    UploadedFile,
     get_storage_client,
 )
 from app.models.requests import SigningMetadata
@@ -60,16 +59,13 @@ class ReportSigner:
     def __init__(self, client: StorageClient):
         self.client = client
 
-    async def sign_and_upload(self, signing_metadata: SigningMetadata) -> UploadedFile:
+    async def sign_and_upload(self, signing_metadata: SigningMetadata):
         """Download a report, sign it and upload the signed report to the
         configured storage backend.
 
         Args:
             signing_metadata: Metadata describing the report to sign and the
                 destination where the signed report should be uploaded.
-
-        Returns:
-            The location of the uploaded signed report.
 
         Raises:
             ReportSignerMissingReportError: When the report cannot be found.
@@ -92,16 +88,13 @@ class ReportSigner:
 
         report = await self._fetch_report(file.download_url)
         signed_report = self._sign_report(report)
-        uploaded_file = await self._save_report(
-            signed_report, filename, signing_metadata
-        )
+        await self._save_report(signed_report, filename, signing_metadata)
 
         logger.debug(
             "Signing completed model_uuid=%s, model_version=%s",
             signing_metadata.model_uuid,
             signing_metadata.version,
         )
-        return uploaded_file
 
     async def _fetch_report(self, download_url: str) -> Dict:
         """Retrieve the report to sign from the storage backend.
@@ -190,7 +183,7 @@ class ReportSigner:
 
     async def _save_report(
         self, signed_report: Dict, filename: str, signing_metadata: SigningMetadata
-    ) -> UploadedFile:
+    ):
         """Persist the signed report to the configured storage backend.
 
         Args:
@@ -199,21 +192,17 @@ class ReportSigner:
             signing_metadata: Metadata describing where the signed report
                 should be uploaded.
 
-        Returns:
-            The location of the uploaded signed report.
-
         Raises:
             ReportSignerStorageError: If storage operations fail.
         """
 
         try:
-            uploaded_file = await self.client.save_file(
+            await self.client.save_file(
                 file=signed_report,
                 filename=filename,
                 upload_report_metadata=signing_metadata,
             )
             logger.debug("Signed report saved successfully")
-            return uploaded_file
         except StorageError as e:
             logger.error("Error saving signed report", exc_info=True)
             raise ReportSignerStorageError(
