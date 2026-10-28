@@ -99,87 +99,31 @@ class OrchestratorClient:
             StorageOperationError: On non-2xx HTTP responses or unexpected errors.
         """
 
-        try:
-            token = await self.auth.get_token()
-            headers = {"Authorization": f"Bearer {token}"}
-        except Exception as e:
-            logger.error(
-                "Authentication error while uploading file",
-                exc_info=True,
-            )
-            raise StorageAuthError("Failed to authenticate with orchestrator") from e
+        logger.info(
+            "Uploading file=%s for model_uuid=%s model_version=%s",
+            filename,
+            upload_report_metadata.model_uuid,
+            upload_report_metadata.version,
+        )
 
-        try:
-            data = {
+        await self._upload_file(
+            filename=filename,
+            file=file,
+            data={
                 "pool": upload_report_metadata.pool,
                 "bucket": upload_report_metadata.bucket,
                 "model_uuid": upload_report_metadata.model_uuid,
                 "version": upload_report_metadata.version,
-            }
-            if upload_report_metadata.tags:
-                data["tags"] = upload_report_metadata.tags
+                "tags": upload_report_metadata.tags,
+            },
+        )
 
-            logger.info(
-                "Uploading file=%s for model_uuid=%s model_version=%s",
-                filename,
-                upload_report_metadata.model_uuid,
-                upload_report_metadata.version,
-            )
-
-            files = [
-                (
-                    "files",
-                    (
-                        filename,
-                        json.dumps(file).encode("utf-8"),
-                        "application/vnd.cyclonedx+json",
-                    ),
-                )
-            ]
-
-            response = await self.client.post(
-                "/files/upload",
-                headers=headers,
-                files=files,
-                data=data,
-            )
-
-            response.raise_for_status()
-
-            logger.info(
-                "File uploaded successfully file=%s model_uuid=%s model_version=%s",
-                filename,
-                upload_report_metadata.model_uuid,
-                upload_report_metadata.version,
-            )
-
-        except httpx.RequestError as e:
-            logger.error(
-                "Connection error while uploading file",
-                exc_info=True,
-            )
-
-            raise StorageConnectionError(str(e)) from e
-
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                "Upload failed with status_code=%s response=%s",
-                e.response.status_code,
-                e.response.text,
-                exc_info=True,
-            )
-
-            raise StorageOperationError(
-                f"Orchestrator returned {e.response.status_code}"
-            ) from e
-
-        except Exception as e:
-            logger.error(
-                "Unexpected error while uploading file",
-                exc_info=True,
-            )
-
-            raise StorageOperationError(str(e)) from e
+        logger.info(
+            "File uploaded successfully file=%s model_uuid=%s model_version=%s",
+            filename,
+            upload_report_metadata.model_uuid,
+            upload_report_metadata.version,
+        )
 
     async def get_reports_for_model(
         self,
@@ -224,12 +168,49 @@ class OrchestratorClient:
         model_version: str,
         aimbom: AIMBOM,
     ):
-        """Upload a generated AIMBOM document to the orchestrator.
+        """Upload an AIMBOM to the orchestrator.
 
         Args:
-            model_uuid: Model UUID used for logging/context only.
-            model_version: Model version used for logging/context only.
-            aimbom: The generated AIMBOM instance.
+            model_uuid: The UUID of the model.
+            model_version: The version of the model.
+            aimbom: The AIMBOM object to upload.
+
+        Raises:
+            StorageAuthError: On authentication failures.
+            StorageConnectionError: On connection issues.
+            StorageOperationError: On non-2xx HTTP responses or unexpected errors.
+        """
+
+        logger.info(
+            "Uploading AIMBOM for model_uuid=%s model_version=%s",
+            model_uuid,
+            model_version,
+        )
+
+        await self._upload_file(
+            filename=f"model-{model_uuid}-{model_version}-aimbom-{uuid_from_serial_number(aimbom.serial_number)}-v{aimbom.version}.json",
+            file=jsonable_encoder(aimbom, exclude_none=True),
+            data={
+                "pool": settings.POOL_NAME,
+                "bucket": settings.BUCKET_NAME,
+                "model_uuid": model_uuid,
+                "version": model_version,
+            },
+        )
+
+        logger.info(
+            "AIMBOM uploaded successfully model_uuid=%s model_version=%s",
+            model_uuid,
+            model_version,
+        )
+
+    async def _upload_file(self, filename: str, file: Dict, data: Dict):
+        """Upload a file to the orchestrator.
+
+        Args:
+            filename: Name of the file to upload.
+            file: JSON-serializable payload to upload.
+            data: Additional form data to send with the request.
 
         Raises:
             StorageAuthError: On authentication failures.
@@ -242,39 +223,18 @@ class OrchestratorClient:
             headers = {"Authorization": f"Bearer {token}"}
         except Exception as e:
             logger.error(
-                "Authentication error while saving AIMBOM",
+                "Authentication error while saving file",
                 exc_info=True,
             )
             raise StorageAuthError("Failed to authenticate with orchestrator") from e
 
         try:
-            data = {
-                "pool": settings.POOL_NAME,
-                "bucket": settings.BUCKET_NAME,
-                "model_uuid": model_uuid,
-                "version": model_version,
-                # "tags": "aimbom,generated",
-            }
-
-            logger.info(
-                "Uploading AIMBOM for model_uuid=%s model_version=%s",
-                model_uuid,
-                model_version,
-            )
-
-            # Convert AIMBOM to JSON bytes
-            aimbom_json = json.dumps(
-                jsonable_encoder(aimbom, exclude_none=True),
-            )
-
-            filename = f"model-{model_uuid}-{model_version}-aimbom-{uuid_from_serial_number(aimbom.serial_number)}-v{aimbom.version}.json"
-
             files = [
                 (
                     "files",
                     (
                         filename,
-                        aimbom_json.encode("utf-8"),
+                        json.dumps(file).encode("utf-8"),
                         "application/vnd.cyclonedx+json",
                     ),
                 )
@@ -289,15 +249,9 @@ class OrchestratorClient:
 
             response.raise_for_status()
 
-            logger.info(
-                "AIMBOM uploaded successfully model_uuid=%s model_version=%s",
-                model_uuid,
-                model_version,
-            )
-
         except httpx.RequestError as e:
             logger.error(
-                "Connection error while uploading AIMBOM",
+                "Connection error while uploading file",
                 exc_info=True,
             )
 
@@ -317,7 +271,7 @@ class OrchestratorClient:
 
         except Exception as e:
             logger.error(
-                "Unexpected error while uploading AIMBOM",
+                "Unexpected error while uploading file",
                 exc_info=True,
             )
 
