@@ -95,17 +95,6 @@ def sign_report(report: Dict):
     status_code=status.HTTP_201_CREATED,
 )
 async def generate_aimbom(
-    model_uuid: Annotated[
-        str,
-        Path(
-            description="Unique identifier of the AI model",
-            example="e6a0d3f2-085a-4a32-8844-454666b293b1",
-        ),
-    ],
-    model_version: Annotated[
-        str,
-        Path(description="Version of the AI model", example="v1.0"),
-    ],
     generation_metadata: GenerationMetadata,
     generator: AIMBOMGenerator = Depends(get_generator),
 ):
@@ -115,16 +104,10 @@ async def generate_aimbom(
     This endpoint aggregates the provided security reports and generates
     an AI Model Bill of Materials (AIMBOM).
 
-    **Path Parameters**
-
-    `model_uuid`: Unique identifier of the AI model.
-
-    `model_version`: Version of the AI model.
-
     **Request Body**
 
-    `generation_metadata`: Metadata describing the reports that should be
-    included in the generated AIMBOM.
+    `generation_metadata`: Metadata describing the unique identifier and the
+    version of the AI model and the reports that should be included in the generated AIMBOM.
 
     **Response**
 
@@ -133,32 +116,40 @@ async def generate_aimbom(
 
     logger.info(
         "AIMBOM generation requested for model_uuid=%s, model_version=%s",
-        model_uuid,
-        model_version,
+        generation_metadata.model_uuid,
+        generation_metadata.version,
     )
 
     try:
-        aimbom = await generator.generate(
-            model_uuid, model_version, generation_metadata
-        )
+        aimbom = await generator.generate(generation_metadata)
     except GeneratorMissingReportError as e:
-        logger.warning("Missing reports for model_uuid=%s: %s", model_uuid, e)
+        logger.warning(
+            "Missing reports for model_uuid=%s: %s", generation_metadata.model_uuid, e
+        )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except GeneratorStorageError as e:
-        logger.error("Storage error for model_uuid=%s", model_uuid, exc_info=True)
+        logger.error(
+            "Storage error for model_uuid=%s",
+            generation_metadata.model_uuid,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
         )
     except GeneratorSigningError as e:
         logger.error(
-            "Signing material error for model_uuid=%s", model_uuid, exc_info=True
+            "Signing material error for model_uuid=%s",
+            generation_metadata.model_uuid,
+            exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
         )
     except GeneratorGenerationError as e:
         logger.error(
-            "AIMBOM generation error for model_uuid=%s", model_uuid, exc_info=True
+            "AIMBOM generation error for model_uuid=%s",
+            generation_metadata.model_uuid,
+            exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -173,8 +164,8 @@ async def generate_aimbom(
 
     logger.info(
         "AIMBOM generated: model_uuid=%s, model_version=%s, serial_number=%s",
-        model_uuid,
-        model_version,
+        generation_metadata.model_uuid,
+        generation_metadata.version,
         aimbom_uuid,
     )
 
@@ -182,6 +173,6 @@ async def generate_aimbom(
         detail="AIMBOM generated successfully",
         aimbom_uuid=aimbom_uuid,
         aimbom_version=aimbom.version,
-        model_uuid=model_uuid,
-        model_version=model_version,
+        model_uuid=generation_metadata.model_uuid,
+        model_version=generation_metadata.version,
     )

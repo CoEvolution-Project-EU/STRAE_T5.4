@@ -33,6 +33,8 @@ class Reports(BaseModel):
 
 
 class GenerationMetadata(BaseModel):
+    model_uuid: str
+    version: str
     previous_aimbom: ReportDetails | None = None
     reports: Reports
 
@@ -98,6 +100,8 @@ class GenerationMetadata(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
+                    "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                    "version": "v1.0",
                     "reports": {
                         "risk_report": {
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report.json",
@@ -123,6 +127,8 @@ class GenerationMetadata(BaseModel):
                     },
                 },
                 {
+                    "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                    "version": "v1.0",
                     "previous_aimbom": {
                         "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json"
                     },
@@ -136,6 +142,8 @@ class GenerationMetadata(BaseModel):
                     },
                 },
                 {
+                    "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                    "version": "v1.0",
                     "previous_aimbom": {
                         "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json"
                     },
@@ -154,3 +162,12 @@ class GenerationMetadata(BaseModel):
             ]
         }
     }
+
+
+class SigningMetadata(BaseModel):
+    model_uuid: str
+    version: str
+    pool: str
+    bucket: str
+    tags: list[str] = []
+    files: list[ReportDetails] = Field(min_length=1)

@@ -25,9 +25,9 @@ from app.models.aimbom import (
 from app.models.requests import GenerationMetadata
 from app.services import signing, validation
 from app.utils.utils import (
+    OPTIONAL_UPDATABLE_REPORT_TYPES,
     REPORT_MODELS,
     REPORT_TO_COMMENT,
-    OPTIONAL_UPDATABLE_REPORT_TYPES,
     REPORT_TYPES,
     REQUIRED_UPDATABLE_REPORT_TYPES,
     ReportModel,
@@ -87,8 +87,6 @@ class AIMBOMGenerator:
 
     async def generate(
         self,
-        model_uuid: str,
-        model_version: str,
         generation_metadata: GenerationMetadata,
     ) -> AIMBOM:
         """Run the full AIMBOM generation pipeline.
@@ -98,10 +96,8 @@ class AIMBOMGenerator:
         the configured storage backend.
 
         Args:
-            model_uuid: Unique identifier of the AI model.
-            model_version: Version string of the AI model.
-            generation_metadata: Optional metadata used to fetch reports from an
-                external orchestrator.
+            `generation_metadata`: Metadata describing the unique identifier and
+            the version of the AI model and the reports that should be included in the generated AIMBOM.
 
         Returns:
             The generated `AIMBOM` instance.
@@ -109,16 +105,16 @@ class AIMBOMGenerator:
 
         logger.debug(
             "Starting generation pipeline model_uuid=%s, model_version=%s",
-            model_uuid,
-            model_version,
+            generation_metadata.model_uuid,
+            generation_metadata.version,
         )
 
         if generation_metadata.previous_aimbom is not None:
             logger.info(
                 "Previous AIMBOM exists for model_uuid=%s, model_version=%s. "
                 "Generating new version of AIMBOM.",
-                model_uuid,
-                model_version,
+                generation_metadata.model_uuid,
+                generation_metadata.version,
             )
 
             # Load previous AIMBOM.
@@ -146,8 +142,8 @@ class AIMBOMGenerator:
             logger.info(
                 "No previous AIMBOM exists for model_uuid=%s, model_version=%s. "
                 "Generating new AIMBOM.",
-                model_uuid,
-                model_version,
+                generation_metadata.model_uuid,
+                generation_metadata.version,
             )
 
             # Fetch reports from the storage backend using the provided model UUID, version and generation metadata.
@@ -159,12 +155,14 @@ class AIMBOMGenerator:
             aimbom = self._create_aimbom_from_reports(reports)
 
         # Save the generated AIMBOM to the configured storage backend (MinIO or Orchestrator).
-        await self._save_aimbom(model_uuid, model_version, aimbom)
+        await self._save_aimbom(
+            generation_metadata.model_uuid, generation_metadata.version, aimbom
+        )
 
         logger.debug(
             "Generation completed model_uuid=%s, model_version=%s",
-            model_uuid,
-            model_version,
+            generation_metadata.model_uuid,
+            generation_metadata.version,
         )
         return aimbom
 

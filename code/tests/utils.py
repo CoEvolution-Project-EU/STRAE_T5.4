@@ -71,12 +71,19 @@ def get_generation_metadata(model_uuid: str, model_version: str):
         for report_type in ReportType
     }
 
-    return {"previous_aimbom": None, "reports": reports}
+    return {
+        "model_uuid": model_uuid,
+        "version": model_version,
+        "previous_aimbom": None,
+        "reports": reports,
+    }
 
 
 def get_generation_metadata_deprecation(model_uuid: str, model_version: str):
 
     return {
+        "model_uuid": model_uuid,
+        "version": model_version,
         "previous_aimbom": {
             "download_url": f"aimboms/{model_uuid}/{model_version}/aimbom.json"
         },

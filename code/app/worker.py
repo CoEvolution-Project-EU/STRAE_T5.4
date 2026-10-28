@@ -168,6 +168,8 @@ async def consume_messages(
                 previous_aimbom, reports = _extract_previous_aimbom_and_reports(event)
 
                 generation_metadata = GenerationMetadata(
+                    model_uuid=event["model_uuid"],
+                    version=event["version"],
                     previous_aimbom=previous_aimbom,
                     reports=reports,
                 )
@@ -184,8 +186,6 @@ async def consume_messages(
                 continue
 
             aimbom = await generator.generate(
-                event["model_uuid"],
-                event["version"],
                 generation_metadata,
             )
 

@@ -190,9 +190,7 @@ async def test_valid_new_event_calls_generator_and_commits():
 
     assert consumer.commit_calls == 1
     generator.generate.assert_awaited_once_with(
-        MODEL_UUID,
-        MODEL_VERSION,
-        GenerationMetadata(previous_aimbom=None, reports=metadata["reports"]),
+        GenerationMetadata(**metadata),
     )
 
 
@@ -216,8 +214,6 @@ async def test_valid_updated_event_calls_generator_and_commits():
 
     assert consumer.commit_calls == 1
     generator.generate.assert_awaited_once_with(
-        MODEL_UUID,
-        MODEL_VERSION,
         GenerationMetadata(**metadata),
     )
 
@@ -244,8 +240,6 @@ async def test_valid_updated_event_with_gadgets_report_calls_generator_and_commi
 
     assert consumer.commit_calls == 1
     generator.generate.assert_awaited_once_with(
-        MODEL_UUID,
-        MODEL_VERSION,
         GenerationMetadata(**metadata),
     )
 
