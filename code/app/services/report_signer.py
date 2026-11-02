@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import Dict
 
 from fastapi import Depends
@@ -65,11 +66,21 @@ class ReportSignerProcessingError(ReportSignerError):
     pass
 
 
+@dataclass
+class SigningResult:
+    """How many files of a signing request were signed."""
+
+    # Files signed and uploaded by this request.
+    signed: int = 0
+    # Files the storage backend reported as already signed.
+    already_signed: int = 0
+
+
 class ReportSigner:
     def __init__(self, client: StorageClient):
         self.client = client
 
-    async def sign_and_upload(self, signing_metadata: SigningMetadata):
+    async def sign_and_upload(self, signing_metadata: SigningMetadata) -> SigningResult:
         """Download, sign and upload every file of a signing request.
 
         Each file is uploaded separately to `target_pool` / `target_bucket`,
@@ -85,6 +96,9 @@ class ReportSigner:
         Args:
             signing_metadata: Metadata describing the files to sign and the
                 destination where the signed files should be uploaded.
+
+        Returns:
+            How many files were signed, and how many were already signed.
 
         Raises:
             ReportSignerMissingReportError: When a report cannot be found.
@@ -104,13 +118,17 @@ class ReportSigner:
             len(signing_metadata.files),
         )
 
+        result = SigningResult()
         failures: list[ReportSignerError] = []
 
         for file in signing_metadata.files:
             try:
                 report = await self._fetch_report(file.download_url)
                 signed_report = self._sign_report(report)
-                await self._save_report(signed_report, file, signing_metadata)
+                if await self._save_report(signed_report, file, signing_metadata):
+                    result.signed += 1
+                else:
+                    result.already_signed += 1
             except (
                 ReportSignerMissingReportError,
                 ReportSignerInvalidFileError,
@@ -137,16 +155,7 @@ class ReportSigner:
             signing_metadata.version,
         )
 
-    async def _sign_and_upload_file(
-        self, file: SigningFile, signing_metadata: SigningMetadata
-    ):
-        """Download, sign and upload a single file.
-
-        Args:
-            file: The file to sign.
-            signing_metadata: Metadata describing where the signed file should
-                be uploaded.
-        """
+        return result
 
     async def _fetch_report(self, download_url: str) -> Dict:
         """Retrieve the report to sign from the storage backend.
@@ -237,7 +246,7 @@ class ReportSigner:
         signed_report: Dict,
         file: SigningFile,
         signing_metadata: SigningMetadata,
-    ):
+    ) -> bool:
         """Persist the signed report to the configured storage backend.
 
         Args:
@@ -245,6 +254,10 @@ class ReportSigner:
             file: The original file the signed report is a copy of.
             signing_metadata: Metadata describing where the signed report
                 should be uploaded.
+
+        Returns:
+            `True` if the signed report was uploaded, `False` if the original
+            had already been signed.
 
         Raises:
             ReportSignerUploadRejectedError: If the storage backend rejects the
@@ -268,6 +281,7 @@ class ReportSigner:
                 upload_report_metadata=upload_report_metadata,
             )
             logger.debug("Signed report saved successfully file=%s", file.filename)
+            return True
         except StorageConflictError:
             # Already signed, e.g. by an earlier attempt of this request.
             logger.info(
@@ -275,6 +289,7 @@ class ReportSigner:
                 file.filename,
                 file.id,
             )
+            return False
         except StorageBadRequestError as e:
             logger.warning(
                 "Signed report rejected file=%s original_file_id=%s: %s",

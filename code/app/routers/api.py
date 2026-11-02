@@ -89,7 +89,7 @@ async def sign_report(
     )
 
     try:
-        await signer.sign_and_upload(signing_metadata)
+        result = await signer.sign_and_upload(signing_metadata)
     except ReportSignerMissingReportError as e:
         logger.warning(
             "Missing report for model_uuid=%s: %s", signing_metadata.model_uuid, e
@@ -136,10 +136,12 @@ async def sign_report(
         )
 
     logger.info(
-        "Reports signed: model_uuid=%s, model_version=%s, files=%d",
+        "Signing request completed: model_uuid=%s, model_version=%s, "
+        "signed=%d, already_signed=%d",
         signing_metadata.model_uuid,
         signing_metadata.version,
-        len(signing_metadata.files),
+        result.signed,
+        result.already_signed,
     )
 
     return SignedReportResponse(

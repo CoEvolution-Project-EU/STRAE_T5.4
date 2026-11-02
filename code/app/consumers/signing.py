@@ -46,7 +46,7 @@ async def handle_signing_event(event: dict, signer: ReportSigner):
         return
 
     try:
-        await signer.sign_and_upload(signing_metadata)
+        result = await signer.sign_and_upload(signing_metadata)
 
     except (
         ReportSignerMissingReportError,
@@ -83,8 +83,10 @@ async def handle_signing_event(event: dict, signer: ReportSigner):
         return
 
     logger.info(
-        "Reports signed successfully: model_uuid=%s, model_version=%s, files=%d",
+        "Signing request completed: model_uuid=%s, model_version=%s, "
+        "signed=%d, already_signed=%d",
         signing_metadata.model_uuid,
         signing_metadata.version,
-        len(signing_metadata.files),
+        result.signed,
+        result.already_signed,
     )

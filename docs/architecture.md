@@ -44,6 +44,7 @@ A signing request has the same format on the Kafka topic and on the `/api/sign` 
   "version": "v1.0",
   "target_pool": "RP",
   "target_bucket": "risk-reports",
+  "tags": ["assessment", "security"],
   "files": [
     {
       "_id": "6ae735e37ceea4671026265d",
@@ -55,7 +56,7 @@ A signing request has the same format on the Kafka topic and on the `/api/sign` 
 }
 ```
 
-The Kafka event also carries fields that signing doesn't use (`event`, `model_name`, `pool`, `tags`, ...), which are ignored.
+`tags` is optional and is sent with every signed copy as a comma-separated string. The Kafka event also carries fields that signing doesn't use (`event`, `model_name`, `pool`, ...), which are ignored.
 
 For each entry in `files`, the Report Signer (`services/report_signer.py`):
 

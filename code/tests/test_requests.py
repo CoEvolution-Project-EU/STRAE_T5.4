@@ -174,7 +174,7 @@ def test_reports_with_unknown_key_is_invalid():
 
 
 def test_signing_event_is_valid():
-    # Fields that aren't needed for signing (e.g. "tags", "pool") are ignored.
+    # Fields that aren't needed for signing (e.g. "event", "pool") are ignored.
     metadata = SigningMetadata.model_validate(
         get_signing_event("reports/a.json", "reports/b.json")
     )
@@ -206,3 +206,15 @@ def test_signing_event_file_missing_field_is_invalid(field):
 
     with pytest.raises(ValidationError, match=field):
         SigningMetadata.model_validate(event)
+
+
+def test_signing_event_without_tags_is_valid():
+    event = get_signing_event("reports/a.json")
+    del event["tags"]
+
+    assert SigningMetadata.model_validate(event).tags == []
+
+
+def test_signing_metadata_example_is_valid():
+    for example in SigningMetadata.model_json_schema()["examples"]:
+        SigningMetadata.model_validate(example)

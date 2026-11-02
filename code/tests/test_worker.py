@@ -17,6 +17,7 @@ from app.services.report_signer import (
     ReportSignerSigningError,
     ReportSignerStorageError,
     ReportSignerUploadRejectedError,
+    SigningResult,
 )
 from aiokafka import TopicPartition
 from app.consumers.generation import handle_generation_event
@@ -95,6 +96,7 @@ def make_generator(side_effect=None, return_value=None):
 def make_signer(side_effect=None):
     signer = AsyncMock()
     signer.sign_and_upload.side_effect = side_effect
+    signer.sign_and_upload.return_value = SigningResult(signed=1)
     return signer
 
 
@@ -422,6 +424,21 @@ async def test_signing_event_calls_signer_and_commits():
     signer.sign_and_upload.assert_awaited_once_with(
         SigningMetadata.model_validate(event)
     )
+
+
+@pytest.mark.anyio
+async def test_signing_event_logs_signed_counts(caplog):
+    consumer = FakeConsumer(
+        [get_signing_event("reports/a.json", "reports/b.json")],
+        topic=settings.KAFKA_SIGNING_TOPIC,
+    )
+    signer = make_signer()
+    signer.sign_and_upload.return_value = SigningResult(signed=1, already_signed=1)
+
+    with caplog.at_level("INFO", logger="app.consumers.signing"):
+        await run_signing(consumer, signer)
+
+    assert "signed=1, already_signed=1" in caplog.text
 
 
 @pytest.mark.anyio

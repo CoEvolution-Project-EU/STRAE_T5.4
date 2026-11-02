@@ -195,15 +195,16 @@ class SigningFile(ReportDetails):
 class SigningMetadata(BaseModel):
     """A signing request, in the format of the `strae_sign_requests` Kafka event.
 
-    Other fields of the event (`event`, `model_name`, `pool`, `tags`, ...) are
-    not needed for signing and are ignored.
+    `tags` are sent with every signed copy, comma-separated. Other fields of
+    the event (`event`, `model_name`, `pool`, ...) are not needed for signing
+    and are ignored.
     """
 
     model_uuid: str
     version: str
     target_pool: str
     target_bucket: str
-    tags: list[str]
+    tags: list[str] = []
     files: list[SigningFile] = Field(min_length=1)
 
     model_config = {
@@ -214,6 +215,7 @@ class SigningMetadata(BaseModel):
                     "version": "v1.0",
                     "target_pool": "RP",
                     "target_bucket": "user-assessments",
+                    "tags": [],
                     "files": [
                         {
                             "_id": "6ae735e37ceea4671026265d",

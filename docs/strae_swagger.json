@@ -644,7 +644,8 @@
                             "type": "string"
                         },
                         "type": "array",
-                        "title": "Tags"
+                        "title": "Tags",
+                        "default": []
                     },
                     "files": {
                         "items": {
@@ -661,11 +662,10 @@
                     "version",
                     "target_pool",
                     "target_bucket",
-                    "tags",
                     "files"
                 ],
                 "title": "SigningMetadata",
-                "description": "A signing request, in the format of the `strae_sign_requests` Kafka event.\n\nOther fields of the event (`event`, `model_name`, `pool`, `tags`, ...) are\nnot needed for signing and are ignored.",
+                "description": "A signing request, in the format of the `strae_sign_requests` Kafka event.\n\n`tags` are sent with every signed copy, comma-separated. Other fields of\nthe event (`event`, `model_name`, `pool`, ...) are not needed for signing\nand are ignored.",
                 "examples": [
                     {
                         "files": [
@@ -677,6 +677,7 @@
                             }
                         ],
                         "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                        "tags": [],
                         "target_bucket": "user-assessments",
                         "target_pool": "RP",
                         "version": "v1.0"
