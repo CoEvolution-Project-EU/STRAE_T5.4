@@ -24,9 +24,55 @@ When a model UUID and version already has an AIMBOM associated with it, STRAE do
 
 This allows the CoEvolution Hub to keep a single AIMBOM lineage per model, with each update producing a new version rather than a disconnected artifact.
 
+## Report Signing
+
+Every report uploaded to the CoEvolution Hub must be signed by STRAE before it reaches its final bucket. The Orchestrator first stores an uploaded report in a pending bucket (`<bucket>-pending`) and publishes a signing request on the `strae_sign_requests` Kafka topic. STRAE then signs the report and uploads the signed copy to the final bucket:
+
+```text
+report uploaded → <bucket>-pending
+        ↓
+Orchestrator → strae_sign_requests
+        ↓
+STRAE: download → sign → upload the signed copy to <bucket> with original_file_id
+```
+
+A signing request has the same format on the Kafka topic and on the `/api/sign` endpoint:
+
+```json
+{
+  "model_uuid": "c83a24fc-75cc-4343-ac88-819ec36d5842",
+  "version": "v1.0",
+  "target_pool": "RP",
+  "target_bucket": "risk-reports",
+  "files": [
+    {
+      "_id": "6ae735e37ceea4671026265d",
+      "bucket": "risk-reports-pending",
+      "filename": "risk-report.json",
+      "download_url": "https://aegis.coevolution-project.eu/api/v1/files/download/6ae735e37ceea4671026265d"
+    }
+  ]
+}
+```
+
+The Kafka event also carries fields that signing doesn't use (`event`, `model_name`, `pool`, `tags`, ...), which are ignored.
+
+For each entry in `files`, the Report Signer (`services/report_signer.py`):
+
+1. Downloads the file from its `download_url`. The file must be a JSON object.
+2. Signs it with the configured signing key and certificate.
+3. Uploads the signed copy to `target_pool` / `target_bucket` for `model_uuid` / `version`, with `original_file_id` set to the file's `_id`. Each file is uploaded in its own request.
+
+How the outcome of each file is handled:
+
+- **Already signed:** if the Orchestrator answers `409`, the original has already been signed (e.g. by an earlier attempt of the same request). STRAE treats the file as done, so a request can safely be sent again.
+- **Rejected:** if the Orchestrator answers `400` (e.g. the original doesn't belong to the given model version or bucket), the upload is rejected.
+- **Problems with one file** (missing, not a JSON object, rejected) don't stop the remaining files from being signed. They are reported together once all files have been processed.
+- **Storage and signing material errors** affect every file, so processing stops at the first one.
+
 ## System Overview
 
-STRAE is organized as a modular FastAPI application with a clear separation between HTTP entrypoints, background processing, external integrations, and domain services. The API layer accepts generation and signing requests, while a dedicated worker handles asynchronous generation jobs from a message broker. Shared services are responsible for validation, generation, signing, authentication, storage access, and orchestration with external systems.
+STRAE is organized as a modular FastAPI application with a clear separation between HTTP entrypoints, background processing, external integrations, and domain services. The API layer accepts generation and signing requests, while a dedicated worker handles the same requests asynchronously from Kafka. Both entrypoints call the same services, which are responsible for validation, generation, signing, authentication, storage access, and orchestration with external systems.
 
 ## Core Components
 
@@ -34,11 +80,12 @@ STRAE is organized as a modular FastAPI application with a clear separation betw
 - AIMBOM Generator: Consolidates validated report payloads into the structured AIMBOM schema used by STRAE and ensures the final artifact follows the expected format.
 - Report Gathering: Retrieves report payloads from the orchestrator/storage backend, resolves download URLs, and ensures all required source documents are available before generation.
 - Signing: Applies digital signing to reports and generated AIMBOMs as needed, ensuring integrity and provenance for downstream consumers.
-- Worker process: Consumes generation tasks from Kafka, decouples asynchronous execution from the API, and retries or skips work based on failure type.
+- Report Signer: Downloads the reports of a signing request, signs them and uploads the signed copies to their final bucket (see [Report Signing](#report-signing)).
+- Worker process: Consumes AIMBOM generation and report signing requests from Kafka, decoupling asynchronous execution from the API. The Kafka-specific event handling lives in `app/consumers/`.
 
 ## Request and Processing Flow
 
-1. A client submits a generation request through the API with a model UUID, model version, and generation metadata (a set of report references and, optionally, a reference to a previous AIMBOM for that model).
+1. A client submits a generation request through the API with generation metadata: the model UUID and version, a set of report references and, optionally, a reference to a previous AIMBOM for that model.
 2. The application downloads the referenced reports (and the previous AIMBOM, if provided) from the configured storage/orchestrator source.
 3. Each report is validated for schema compliance, completeness, and integrity before being used in AIMBOM generation.
 4. The generator either builds a new AIMBOM from the validated reports, or, if a previous AIMBOM was supplied, produces an updated version of it that reflects the changed reports. The output is signed in both cases.
@@ -49,25 +96,59 @@ STRAE is organized as a modular FastAPI application with a clear separation betw
 | Endpoint | Method | Description | Input | Output |
 |----------|--------|-------------|-------|--------|
 | `/api/status` | GET | Health check endpoint for the STRAE API | - | Health status and version information |
-| `/api/sign` | POST | Signs a provided report payload | Report payload (JSON) | Signed report |
-| `/api/generate` | POST | Generates an AIMBOM for a given model UUID and version by aggregating reports from the configured storage backend, or produces an updated version of an existing AIMBOM when `previous_aimbom` is provided in the `generation_metadata` | `model_uuid`, `model_version`, `generation_metadata` | Confirmation message, AIMBOM identifier and version |
+| `/api/sign` | POST | Downloads, signs and uploads the files of a signing request (see [Report Signing](#report-signing)) | `signing_metadata`: `model_uuid`, `version`, `target_pool`, `target_bucket`, `files` | Confirmation message, destination and the signed files (`original_file_id`, `filename`) |
+| `/api/generate` | POST | Generates an AIMBOM for a given model UUID and version by aggregating reports from the configured storage backend, or produces an updated version of an existing AIMBOM when `previous_aimbom` is provided in the `generation_metadata` | `generation_metadata`: `model_uuid`, `version`, `reports` and optionally `previous_aimbom` | Confirmation message, AIMBOM identifier and version |
+
+`/api/sign` maps errors to status codes as follows: a missing report returns `409`, an invalid file or a rejected upload returns `422`, storage and signing material errors return `503`, and any other error returns `500`.
 
 ## Kafka Worker
 
-The Kafka worker enables asynchronous AIMBOM generation by decoupling request submission from processing. It consumes generation tasks from a configured Kafka topic and executes them independently of the API layer.
+The Kafka worker (`python -m app.worker`) processes AIMBOM generation and report signing requests asynchronously, decoupled from the API. It runs one consumer per topic, each in its own consumer group, so the two topics are read and committed independently and a slow request on one topic never delays the other:
 
-For each message, the worker validates the payload, retrieves the required reports through the orchestrator integration layer, triggers the AIMBOM generation pipeline, and persists the resulting artifact in the Security Assurance Pool. Successful processing commits the Kafka offset, while recoverable errors can defer commitment to support retry behavior. Invalid or malformed messages are discarded to avoid blocking the queue.
+| Topic (setting) | Consumer group (setting) | `auto_offset_reset` (setting) | Handler |
+|---|---|---|---|
+| `strae` (`KAFKA_TOPIC`) | `strae` (`KAFKA_GROUP_ID`) | `latest` (`KAFKA_AUTO_OFFSET_RESET`) | `consumers/generation.py` |
+| `strae_sign_requests` (`KAFKA_SIGNING_TOPIC`) | `strae-signing` (`KAFKA_SIGNING_GROUP_ID`) | `earliest` (`KAFKA_SIGNING_AUTO_OFFSET_RESET`) | `consumers/signing.py` |
 
-The worker branches on the event's `event` field:
+`auto_offset_reset` only applies when a consumer group has no committed offset, i.e. the first time it starts, or after its offsets have expired:
+
+- **AIMBOM generation** uses `latest`, because generation isn't safe to repeat: processing old requests again would create duplicate AIMBOM versions.
+- **Report signing** uses `earliest`, because a skipped request would leave its report in the pending bucket. Repeating a signing request is safe, since already signed files are skipped. Note that changing `KAFKA_SIGNING_GROUP_ID` creates a new group, which processes everything still in the topic again.
+
+### Commits and Error Handling
+
+Every message is committed once it has been processed, whether it succeeded or not, so a failing message never blocks the queue. Only the message's own partition is committed. Failures are logged and not retried, like in the other CoEvolution components:
+
+- **Invalid payloads** (not JSON, not a JSON object, missing or invalid fields) are logged and skipped.
+- **Errors caused by the request** (e.g. a missing or invalid report) are logged.
+- **Errors not caused by the request** (storage or connection errors, signing material errors, unexpected errors) are logged as `request dropped`, together with the full event, so the request can be sent again. For signing, the request can also be replayed by resetting the consumer group's offset (see [Deployment](deployment.md#replaying-dropped-signing-requests)).
+
+### AIMBOM Generation Events
+
+The generation handler branches on the event's `event` field:
 
 - For a new AIMBOM request, the reports to use are read from the event's `reports` field.
-- For an `updated-aimbom-requested` event, an existing AIMBOM should be deprecated/updated instead. The event's `changedReports` contains a reference to the previous AIMBOM (`aimbom_report`) plus the reports that changed; the worker extracts `aimbom_report` as `previous_aimbom` and passes the remaining changed reports to the generator, which produces a new, incremented version of the AIMBOM.
+- For an `updated-aimbom-requested` event, an existing AIMBOM should be deprecated/updated instead. The event's `changedReports` contains a reference to the previous AIMBOM (`aimbom_report`) plus the reports that changed; the handler extracts `aimbom_report` as `previous_aimbom` and passes the remaining changed reports to the generator, which produces a new, incremented version of the AIMBOM.
 
-### Kafka Worker Processing Flow
-1. Consume message from Kafka topic
+Processing flow:
+
+1. Consume message from the `strae` topic
 2. Validate payload (`model_uuid`, `version`)
 3. Determine event type and derive `previous_aimbom`/`reports` from `reports` (new AIMBOM) or `changedReports` (AIMBOM update)
 4. Retrieve the required reports (and previous AIMBOM, if any) via the orchestrator API
 5. Execute AIMBOM generation or update
 6. Store the generated/updated AIMBOM in the security assurance pool
-7. Commit Kafka offset on success or controlled failure
+7. Commit the Kafka offset
+
+### Report Signing Events
+
+Processing flow:
+
+1. Consume message from the `strae_sign_requests` topic
+2. Validate the payload as a signing request (`model_uuid`, `version`, `target_pool`, `target_bucket`, and `_id`, `filename`, `download_url` for each file)
+3. Download, sign and upload each file (see [Report Signing](#report-signing))
+4. Commit the Kafka offset
+
+## Logging
+
+Each layer (storage clients, services) logs a single line when an error occurs. The full traceback is logged only once, where the error is finally handled: in the API route or the Kafka handler. Since every error is raised from the one underneath it, that traceback shows the whole chain, e.g. from the HTTP connection error up to the signing error.
