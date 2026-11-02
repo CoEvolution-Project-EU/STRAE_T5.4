@@ -193,7 +193,7 @@ class MinioClient(StorageClient):
 
         await asyncify(self.upload_json)(
             bucket_name=settings.REPORTS_BUCKET,
-            object_name=f"{upload_report_metadata.model_uuid}/{upload_report_metadata.version}/{upload_report_metadata.bucket}",
+            object_name=f"{upload_report_metadata.model_uuid}/{upload_report_metadata.version}/{upload_report_metadata.bucket}.json",
             data=file,
         )
 

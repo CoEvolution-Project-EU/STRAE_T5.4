@@ -19,6 +19,7 @@ from tests.utils import (
     get_generation_metadata,
     get_generation_metadata_deprecation,
     get_generation_metadata_deprecation_with_gadgets,
+    get_signing_event,
     verify_signature,
 )
 
@@ -48,41 +49,58 @@ async def test_get_status():
     assert "version" in data
 
 
-def _signing_metadata(download_url: str):
-    return {
-        "model_uuid": MODEL_UUID,
-        "version": MODEL_VERSION,
-        "pool": "TRP",
-        "bucket": "signed-reports",
-        "files": [{"filename": "risk_report.json", "download_url": download_url}],
-    }
+REPORT_URL = f"reports/{MODEL_UUID}/{MODEL_VERSION}"
 
 
 @pytest.mark.anyio
 async def test_sign_report(get_mock_storage):
-    download_url = f"reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report.json"
+    download_url = f"{REPORT_URL}/risk_report.json"
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
-        response = await ac.post(
-            "/api/sign", json=_signing_metadata(download_url)
-        )
+        response = await ac.post("/api/sign", json=get_signing_event(download_url))
 
     assert response.status_code == 201
     data = response.json()
-    assert data["detail"] == "Report signed successfully"
-    assert data["filename"] == "risk_report.json"
-    assert data["pool"] == "TRP"
-    assert data["bucket"] == "signed-reports"
+    assert data["detail"] == "Reports signed successfully"
+    assert data["target_pool"] == "RP"
+    assert data["target_bucket"] == "risk-reports"
     assert data["model_uuid"] == MODEL_UUID
     assert data["model_version"] == MODEL_VERSION
+    assert data["files"] == [
+        {"original_file_id": "original-0", "filename": "risk_report.json"}
+    ]
 
     # Check that the uploaded report is signed and its signature can be verified
     signed_report = get_mock_storage.data[
-        f"signed-reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report.json"
+        f"risk-reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report.json"
     ]
     assert verify_signature(signed_report) is True
+
+
+@pytest.mark.anyio
+async def test_sign_multiple_reports(get_mock_storage):
+    event = get_signing_event(
+        f"{REPORT_URL}/risk_report.json", f"{REPORT_URL}/assessment_report.json"
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post("/api/sign", json=event)
+
+    assert response.status_code == 201
+    assert [file["filename"] for file in response.json()["files"]] == [
+        "risk_report.json",
+        "assessment_report.json",
+    ]
+
+    for filename in ("risk_report.json", "assessment_report.json"):
+        signed_report = get_mock_storage.data[
+            f"risk-reports/{MODEL_UUID}/{MODEL_VERSION}/{filename}"
+        ]
+        assert verify_signature(signed_report) is True
 
 
 @pytest.mark.anyio
@@ -91,10 +109,29 @@ async def test_sign_report_missing_report():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            "/api/sign", json=_signing_metadata("reports/missing.json")
+            "/api/sign", json=get_signing_event("reports/missing.json")
         )
 
     assert response.status_code == 409
+
+
+@pytest.mark.anyio
+async def test_sign_report_missing_report_still_signs_other_files(get_mock_storage):
+    event = get_signing_event(
+        "reports/missing.json", f"{REPORT_URL}/risk_report.json"
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post("/api/sign", json=event)
+
+    assert response.status_code == 409
+    assert "reports/missing.json" in response.json()["detail"]
+    assert (
+        f"risk-reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report.json"
+        in get_mock_storage.data
+    )
 
 
 @pytest.mark.anyio
@@ -105,7 +142,20 @@ async def test_sign_report_invalid_file(get_mock_storage):
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
-        response = await ac.post("/api/sign", json=_signing_metadata(download_url))
+        response = await ac.post("/api/sign", json=get_signing_event(download_url))
+
+    assert response.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_sign_report_missing_original_file_id_is_invalid():
+    event = get_signing_event(f"{REPORT_URL}/risk_report.json")
+    del event["files"][0]["_id"]
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post("/api/sign", json=event)
 
     assert response.status_code == 422
 

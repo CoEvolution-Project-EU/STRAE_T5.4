@@ -114,6 +114,33 @@ def get_generation_metadata_deprecation_with_gadgets(
     return metadata
 
 
+def get_signing_event(*download_urls: str):
+    """Return a `strae_sign_requests` event for the given download URLs."""
+
+    return {
+        "event": "strae_sign_requests",
+        "model_name": "MyModel",
+        "model_uuid": MODEL_UUID,
+        "version": MODEL_VERSION,
+        "uploadedBy": "coevolution_user",
+        "uploadedAt": "2026-11-01T12:51:47.754Z",
+        "pool": "RP",
+        "target_pool": "RP",
+        "target_bucket": "risk-reports",
+        "tags": [],
+        "total_files": len(download_urls),
+        "files": [
+            {
+                "_id": f"original-{index}",
+                "bucket": "risk-reports-pending",
+                "filename": download_url.rsplit("/", 1)[-1],
+                "download_url": download_url,
+            }
+            for index, download_url in enumerate(download_urls)
+        ],
+    }
+
+
 # ============Signing utility functions for tests============
 
 

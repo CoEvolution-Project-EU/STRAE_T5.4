@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.models.requests import GenerationMetadata, SigningMetadata
 from app.models.responses import (
     AIMBOMGeneratedResponse,
+    SignedFile,
     SignedReportResponse,
     StatusResponse,
 )
@@ -25,6 +26,7 @@ from app.services.report_signer import (
     ReportSignerProcessingError,
     ReportSignerSigningError,
     ReportSignerStorageError,
+    ReportSignerUploadRejectedError,
     get_signer,
 )
 from app.utils.utils import uuid_from_serial_number
@@ -63,24 +65,27 @@ async def sign_report(
     signing_metadata: SigningMetadata, signer: ReportSigner = Depends(get_signer)
 ):
     """
-    Digitally sign a report using the configured signing certificate and private key.
+    Digitally sign reports using the configured signing certificate and private key.
 
-    This endpoint applies a cryptographic signature to the provided report,
-    allowing consumers to verify its authenticity and integrity.
+    Each file is downloaded, signed and uploaded to `target_pool` /
+    `target_bucket` as a signed copy of the original. Files that have already
+    been signed are treated as done.
 
     **Request Body**
 
-    `signing_metadata`: Metadata describing the report to be signed.
+    `signing_metadata`: The files to sign and where to upload the signed
+    copies, in the format of the `strae_sign_requests` Kafka event.
 
     **Response**
 
-    Returns the location of the uploaded signed report.
+    Returns the destination and the files that were signed.
     """
 
     logger.info(
-        "Report signing requested for model_uuid=%s, model_version=%s",
+        "Report signing requested for model_uuid=%s, model_version=%s, files=%d",
         signing_metadata.model_uuid,
         signing_metadata.version,
+        len(signing_metadata.files),
     )
 
     try:
@@ -90,7 +95,7 @@ async def sign_report(
             "Missing report for model_uuid=%s: %s", signing_metadata.model_uuid, e
         )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
-    except ReportSignerInvalidFileError as e:
+    except (ReportSignerInvalidFileError, ReportSignerUploadRejectedError) as e:
         logger.warning(
             "Invalid report for model_uuid=%s: %s", signing_metadata.model_uuid, e
         )
@@ -131,18 +136,22 @@ async def sign_report(
         )
 
     logger.info(
-        "Report signed: model_uuid=%s, model_version=%s",
+        "Reports signed: model_uuid=%s, model_version=%s, files=%d",
         signing_metadata.model_uuid,
         signing_metadata.version,
+        len(signing_metadata.files),
     )
 
     return SignedReportResponse(
-        detail="Report signed successfully",
-        filename=signing_metadata.files[0].filename,
-        pool=signing_metadata.pool,
-        bucket=signing_metadata.bucket,
+        detail="Reports signed successfully",
         model_uuid=signing_metadata.model_uuid,
         model_version=signing_metadata.version,
+        target_pool=signing_metadata.target_pool,
+        target_bucket=signing_metadata.target_bucket,
+        files=[
+            SignedFile(original_file_id=file.id, filename=file.filename)
+            for file in signing_metadata.files
+        ],
     )
 
 

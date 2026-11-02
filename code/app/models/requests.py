@@ -183,10 +183,28 @@ class UploadReportMetadata(BaseModel):
     pool: str
     bucket: str
     tags: str | None = None
+    # ID of the unsigned original, sent with every signed copy.
+    original_file_id: str
 
 
-class SigningMetadata(UploadReportMetadata):
-    files: list[ReportDetails] = Field(min_length=1, max_length=1)
+class SigningFile(ReportDetails):
+    # The orchestrator needs the original's ID to accept the signed copy.
+    id: str = Field(alias="_id")
+
+
+class SigningMetadata(BaseModel):
+    """A signing request, in the format of the `strae_sign_requests` Kafka event.
+
+    Other fields of the event (`event`, `model_name`, `pool`, `tags`, ...) are
+    not needed for signing and are ignored.
+    """
+
+    model_uuid: str
+    version: str
+    target_pool: str
+    target_bucket: str
+    tags: list[str]
+    files: list[SigningFile] = Field(min_length=1)
 
     model_config = {
         "json_schema_extra": {
@@ -194,10 +212,12 @@ class SigningMetadata(UploadReportMetadata):
                 {
                     "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
                     "version": "v1.0",
-                    "pool": "RP",
-                    "bucket": "user-assessments",
+                    "target_pool": "RP",
+                    "target_bucket": "user-assessments",
                     "files": [
                         {
+                            "_id": "6ae735e37ceea4671026265d",
+                            "bucket": "user-assessments",
                             "filename": "user-assessments.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/user-assessments.json",
                         },

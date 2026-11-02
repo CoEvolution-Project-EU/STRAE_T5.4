@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,8 +23,17 @@ class Settings(BaseSettings):
 
     # Kafka configuration (from .env)
     KAFKA_TOPIC: str = "strae"
+    KAFKA_SIGNING_TOPIC: str = "strae_sign_requests"
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
     KAFKA_GROUP_ID: str = "strae"
+    KAFKA_SIGNING_GROUP_ID: str = "strae-signing"
+    # Where a consumer group starts when it has no committed offset (first
+    # start, or its offsets expired). AIMBOM generation isn't safe to repeat,
+    # so it skips old requests. Signing is (already signed files return 409),
+    # and a skipped request would leave its report pending, so it processes
+    # everything still in the topic.
+    KAFKA_AUTO_OFFSET_RESET: Literal["earliest", "latest"] = "latest"
+    KAFKA_SIGNING_AUTO_OFFSET_RESET: Literal["earliest", "latest"] = "earliest"
 
     ORCHESTRATOR_API_BASE_URL: str = "https://aegis.coevolution-project.eu/api/v1/"
 

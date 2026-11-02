@@ -7,6 +7,8 @@ from fastapi.encoders import jsonable_encoder
 
 from app.clients.storage_client import (
     StorageAuthError,
+    StorageBadRequestError,
+    StorageConflictError,
     StorageConnectionError,
     StorageInvalidFileError,
     StorageOperationError,
@@ -48,9 +50,9 @@ class OrchestratorClient:
             return response.json()
         except httpx.RequestError as e:
             logger.error(
-                "Connection error while downloading file from %s",
+                "Connection error while downloading file from %s: %s",
                 download_url,
-                exc_info=True,
+                e,
             )
             raise StorageConnectionError(str(e)) from e
         except httpx.HTTPStatusError as e:
@@ -58,25 +60,24 @@ class OrchestratorClient:
                 "HTTP error while downloading file from %s status_code=%s",
                 download_url,
                 e.response.status_code,
-                exc_info=True,
             )
             raise StorageOperationError(
                 f"Orchestrator returned {e.response.status_code}"
             ) from e
         except ValueError as e:
             logger.error(
-                "File downloaded from %s is not valid JSON",
+                "File downloaded from %s is not valid JSON: %s",
                 download_url,
-                exc_info=True,
+                e,
             )
             raise StorageInvalidFileError(
                 f"File downloaded from '{download_url}' is not valid JSON: {e}"
             ) from e
         except Exception as e:
             logger.error(
-                "Unexpected error while downloading file from %s",
+                "Unexpected error while downloading file from %s: %s",
                 download_url,
-                exc_info=True,
+                e,
             )
             raise StorageOperationError(str(e)) from e
 
@@ -91,12 +92,15 @@ class OrchestratorClient:
         Args:
             file: JSON-serializable payload to upload.
             filename: Name of the uploaded file.
-            upload_report_metadata: Destination `pool` / `bucket`, model and tags.
+            upload_report_metadata: Destination `pool` / `bucket`, model, tags and
+                the ID of the original the file is a signed copy of.
 
         Raises:
             StorageAuthError: On authentication failures.
             StorageConnectionError: On connection issues.
-            StorageOperationError: On non-2xx HTTP responses or unexpected errors.
+            StorageConflictError: If the original has already been signed (409).
+            StorageBadRequestError: If the orchestrator rejects the fields (400).
+            StorageOperationError: On other non-2xx HTTP responses or unexpected errors.
         """
 
         logger.info(
@@ -106,17 +110,16 @@ class OrchestratorClient:
             upload_report_metadata.version,
         )
 
-        await self._upload_file(
-            filename=filename,
-            file=file,
-            data={
-                "pool": upload_report_metadata.pool,
-                "bucket": upload_report_metadata.bucket,
-                "model_uuid": upload_report_metadata.model_uuid,
-                "version": upload_report_metadata.version,
-                "tags": upload_report_metadata.tags,
-            },
-        )
+        data = {
+            "pool": upload_report_metadata.pool,
+            "bucket": upload_report_metadata.bucket,
+            "model_uuid": upload_report_metadata.model_uuid,
+            "version": upload_report_metadata.version,
+            "tags": upload_report_metadata.tags,
+            "original_file_id": upload_report_metadata.original_file_id,
+        }
+
+        await self._upload_file(filename=filename, file=file, data=data)
 
         logger.info(
             "File uploaded successfully file=%s model_uuid=%s model_version=%s",
@@ -215,7 +218,9 @@ class OrchestratorClient:
         Raises:
             StorageAuthError: On authentication failures.
             StorageConnectionError: On connection issues.
-            StorageOperationError: On non-2xx HTTP responses or unexpected errors.
+            StorageConflictError: On a 409 response.
+            StorageBadRequestError: On a 400 response.
+            StorageOperationError: On other non-2xx HTTP responses or unexpected errors.
         """
 
         try:
@@ -223,8 +228,8 @@ class OrchestratorClient:
             headers = {"Authorization": f"Bearer {token}"}
         except Exception as e:
             logger.error(
-                "Authentication error while saving file",
-                exc_info=True,
+                "Authentication error while saving file: %s",
+                e,
             )
             raise StorageAuthError("Failed to authenticate with orchestrator") from e
 
@@ -251,19 +256,34 @@ class OrchestratorClient:
 
         except httpx.RequestError as e:
             logger.error(
-                "Connection error while uploading file",
-                exc_info=True,
+                "Connection error while uploading file: %s",
+                e,
             )
 
             raise StorageConnectionError(str(e)) from e
 
         except httpx.HTTPStatusError as e:
+            if e.response.status_code == httpx.codes.CONFLICT:
+                logger.info(
+                    "Orchestrator already has file=%s response=%s",
+                    filename,
+                    e.response.text,
+                )
+
+                raise StorageConflictError(
+                    f"Orchestrator returned {e.response.status_code}: {e.response.text}"
+                ) from e
+
             logger.error(
                 "Upload failed with status_code=%s response=%s",
                 e.response.status_code,
                 e.response.text,
-                exc_info=True,
             )
+
+            if e.response.status_code == httpx.codes.BAD_REQUEST:
+                raise StorageBadRequestError(
+                    f"Orchestrator returned {e.response.status_code}: {e.response.text}"
+                ) from e
 
             raise StorageOperationError(
                 f"Orchestrator returned {e.response.status_code}"
@@ -271,8 +291,8 @@ class OrchestratorClient:
 
         except Exception as e:
             logger.error(
-                "Unexpected error while uploading file",
-                exc_info=True,
+                "Unexpected error while uploading file: %s",
+                e,
             )
 
             raise StorageOperationError(str(e)) from e

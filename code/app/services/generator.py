@@ -183,15 +183,16 @@ class AIMBOMGenerator:
             return AIMBOM(**previous_aimbom)
         except StorageConnectionError as e:
             logger.error(
-                "Storage connection error retrieving previous AIMBOM",
-                exc_info=True,
+                "Storage connection error retrieving previous AIMBOM: %s",
+                e,
             )
             raise GeneratorStorageError(
                 f"Failed to retrieve previous AIMBOM from storage: {str(e)}"
             ) from e
         except StorageOperationError as e:
             logger.warning(
-                "No previous AIMBOM found",
+                "No previous AIMBOM found: %s",
+                e,
             )
             raise GeneratorStorageError(
                 f"Failed to retrieve previous AIMBOM from storage: {str(e)}"
@@ -263,16 +264,16 @@ class AIMBOMGenerator:
             return await self.client.get_reports_for_model(generation_metadata)
         except StorageConnectionError as e:
             logger.error(
-                "Storage connection error retrieving reports",
-                exc_info=True,
+                "Storage connection error retrieving reports: %s",
+                e,
             )
             raise GeneratorStorageError(
                 f"Failed to retrieve reports from MinIO storage: {str(e)}"
             ) from e
         except StorageOperationError as e:
             logger.warning(
-                "Missing reports",
-                exc_info=True,
+                "Missing reports: %s",
+                e,
             )
             raise GeneratorMissingReportError(
                 f"Required reports are missing: {str(e)}"
@@ -397,7 +398,7 @@ class AIMBOMGenerator:
                 ],
             )
         except Exception as e:
-            logger.error("Error creating AIMBOM metadata from reports", exc_info=True)
+            logger.error("Error creating AIMBOM metadata from reports: %s", e)
             raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM metadata from reports: {str(e)}"
             ) from e
@@ -430,7 +431,7 @@ class AIMBOMGenerator:
             ]
         except Exception as e:
             logger.error(
-                "Error creating AIMBOM external references from reports", exc_info=True
+                "Error creating AIMBOM external references from reports: %s", e
             )
             raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM external references from reports: {str(e)}"
@@ -462,11 +463,11 @@ class AIMBOMGenerator:
             return aimbom
         except signing.SigningError as e:
             logger.error(
-                "Signing material mismatch while signing AIMBOM", exc_info=True
+                "Signing material mismatch while signing AIMBOM: %s", e
             )
             raise GeneratorSigningError(f"Failed to sign AIMBOM: {str(e)}") from e
         except Exception as e:
-            logger.error("Error signing AIMBOM", exc_info=True)
+            logger.error("Error signing AIMBOM: %s", e)
             raise GeneratorGenerationError(f"Failed to sign AIMBOM: {str(e)}") from e
 
     def _validate_aimbom(self, aimbom: AIMBOM) -> None:
@@ -520,7 +521,7 @@ class AIMBOMGenerator:
             )
             logger.debug("AIMBOM created with serial_number=%s", aimbom.serial_number)
         except Exception as e:
-            logger.error("Error creating AIMBOM from reports", exc_info=True)
+            logger.error("Error creating AIMBOM from reports: %s", e)
             raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM from reports: {str(e)}"
             ) from e
@@ -566,7 +567,7 @@ class AIMBOMGenerator:
             )
             logger.debug("AIMBOM saved successfully")
         except StorageError as e:
-            logger.error("Error saving AIMBOM to bucket", exc_info=True)
+            logger.error("Error saving AIMBOM to bucket: %s", e)
             raise GeneratorStorageError(
                 f"Storage error while saving AIMBOM: {e}"
             ) from e

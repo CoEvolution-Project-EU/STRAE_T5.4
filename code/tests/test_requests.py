@@ -1,7 +1,9 @@
 import pytest
-from app.models.requests import GenerationMetadata
+from app.models.requests import GenerationMetadata, SigningMetadata
 from app.utils.utils import ReportType
 from pydantic import ValidationError
+
+from tests.utils import get_signing_event
 
 
 def _ids():
@@ -169,3 +171,38 @@ def test_reports_with_unknown_key_is_invalid():
                 "gadget_report": {"filename": "g.json", "download_url": "reports/x/1.0/g.json"},
             },
         )
+
+
+def test_signing_event_is_valid():
+    # Fields that aren't needed for signing (e.g. "tags", "pool") are ignored.
+    metadata = SigningMetadata.model_validate(
+        get_signing_event("reports/a.json", "reports/b.json")
+    )
+
+    assert metadata.target_bucket == "risk-reports"
+    assert [file.id for file in metadata.files] == ["original-0", "original-1"]
+
+
+@pytest.mark.parametrize("field", ["target_pool", "target_bucket", "files"])
+def test_signing_event_missing_field_is_invalid(field):
+    event = get_signing_event("reports/a.json")
+    del event[field]
+
+    with pytest.raises(ValidationError, match=field):
+        SigningMetadata.model_validate(event)
+
+
+def test_signing_event_without_files_is_invalid():
+    event = get_signing_event()
+
+    with pytest.raises(ValidationError, match="files"):
+        SigningMetadata.model_validate(event)
+
+
+@pytest.mark.parametrize("field", ["_id", "filename", "download_url"])
+def test_signing_event_file_missing_field_is_invalid(field):
+    event = get_signing_event("reports/a.json")
+    del event["files"][0][field]
+
+    with pytest.raises(ValidationError, match=field):
+        SigningMetadata.model_validate(event)

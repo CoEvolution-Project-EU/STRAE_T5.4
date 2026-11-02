@@ -3,22 +3,19 @@ import json
 import logging
 import signal
 from contextlib import suppress
+from functools import partial
+from typing import Awaitable, Callable
 
-from aiokafka import AIOKafkaConsumer
-from pydantic import ValidationError
+from aiokafka import AIOKafkaConsumer, TopicPartition
 
 from app.clients.orchestrator_client import get_orchestrator_client
+from app.consumers.generation import handle_generation_event
+from app.consumers.signing import handle_signing_event
 from app.core.config import settings
 from app.core.logging import setup_logging
-from app.models.requests import GenerationMetadata
 from app.services import signing
-from app.services.generator import (
-    AIMBOMGenerator,
-    GeneratorGenerationError,
-    GeneratorMissingReportError,
-    GeneratorSigningError,
-    GeneratorStorageError,
-)
+from app.services.generator import AIMBOMGenerator
+from app.services.report_signer import ReportSigner
 
 # Configure logging
 log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)
@@ -31,66 +28,7 @@ class WorkerShutdown(Exception):
     """Raised when the worker is shutting down."""
 
 
-class WorkerInvalidPayloadError(Exception):
-    """Raised when a Kafka event is missing fields required for its event type."""
-
-
 shutdown_event = asyncio.Event()
-
-
-def _extract_previous_aimbom_and_reports(
-    event: dict,
-) -> tuple[dict | None, dict]:
-    """Derive the `previous_aimbom` and `reports` payloads from a raw Kafka event.
-
-    For an `updated-aimbom-requested` event, the previous AIMBOM reference is
-    read from `changedReports.aimbom_report` and the remaining entries of
-    `changedReports` are used as the changed reports. For any other event
-    type, `reports` is used directly and there is no previous AIMBOM.
-
-    This only checks the structural shape needed to build a
-    `GenerationMetadata` instance (e.g. that `aimbom_report` is present, so
-    it can be popped out as `previous_aimbom`). Whether the *right* reports
-    are present for an update (currently the required assessment and risk
-    reports, plus an optional gadgets report) is enforced by
-    `GenerationMetadata` itself.
-
-    Args:
-        event: The raw, JSON-decoded Kafka event.
-
-    Returns:
-        A `(previous_aimbom, reports)` tuple of raw dicts, suitable for
-        constructing a `GenerationMetadata` instance.
-
-    Raises:
-        WorkerInvalidPayloadError: If the event is missing the fields
-            required for its declared event type.
-    """
-
-    if event.get("event") == settings.UPDATED_AIMBOM_EVENT:
-        changed_reports = event.get("changedReports")
-
-        if (
-            not isinstance(changed_reports, dict)
-            or "aimbom_report" not in changed_reports
-        ):
-            raise WorkerInvalidPayloadError(
-                f"'{settings.UPDATED_AIMBOM_EVENT}' event requires a "
-                "'changedReports.aimbom_report' field"
-            )
-
-        # Copy to avoid mutating the original Kafka message value.
-        changed_reports = dict(changed_reports)
-        previous_aimbom = changed_reports.pop("aimbom_report")
-        reports = changed_reports
-    else:
-        previous_aimbom = None
-        reports = event.get("reports")
-
-        if not isinstance(reports, dict):
-            raise WorkerInvalidPayloadError("Event requires a 'reports' field")
-
-    return previous_aimbom, reports
 
 
 def _handle_shutdown_signal():
@@ -104,15 +42,50 @@ def _handle_shutdown_signal():
     shutdown_event.set()
 
 
-async def consume_messages(
-    consumer: AIOKafkaConsumer,
-    generator: AIMBOMGenerator,
-):
-    """Consume Kafka messages and dispatch AIMBOM generation tasks.
+# Processes a JSON-decoded event
+EventHandler = Callable[[dict], Awaitable[None]]
+
+
+def _deserialize(value: bytes) -> object | None:
+    """Decode a Kafka message value as JSON.
+
+    Returns `None` for values that aren't valid JSON, instead of raising from
+    inside the consumer's iterator, so they are skipped like any other
+    non-object payload.
+    """
+
+    try:
+        return json.loads(value.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        logger.error("Failed to decode Kafka message value=%r", value[:200])
+        return None
+
+
+def _create_consumer(
+    topic: str, group_id: str, auto_offset_reset: str
+) -> AIOKafkaConsumer:
+    """Create a consumer for a single topic with manual commits."""
+
+    return AIOKafkaConsumer(
+        topic,
+        bootstrap_servers=[settings.KAFKA_BOOTSTRAP_SERVERS],
+        group_id=group_id,
+        auto_offset_reset=auto_offset_reset,
+        value_deserializer=_deserialize,
+        enable_auto_commit=False,
+    )
+
+
+async def consume_messages(consumer: AIOKafkaConsumer, handler: EventHandler):
+    """Consume Kafka messages and process each one with `handler`.
+
+    Every message is committed once it has been processed, whether it
+    succeeded or not, so a failing message never blocks the queue. Failures
+    are logged and not retried. Only the message's own partition is committed.
 
     Args:
         consumer: An `AIOKafkaConsumer` instance to read events from Kafka.
-        generator: An `AIMBOMGenerator` used to process generation requests.
+        handler: Processes an event.
 
     Returns:
         None
@@ -125,141 +98,43 @@ async def consume_messages(
         try:
             event = message.value
 
-            if not isinstance(event, dict):
+            if isinstance(event, dict):
+                await handler(event)
+            else:
                 logger.error(
-                    "Discarding non-object Kafka event payload=%r",
+                    "Discarding non-object Kafka event topic=%s payload=%r",
+                    message.topic,
                     event,
                 )
-
-                # Commit invalid messages so they do not poison the queue
-                await consumer.commit()
-
-                continue
-
-            logger.info(
-                "Received AIMBOM generation request model_uuid=%s version=%s",
-                event.get("model_uuid"),
-                event.get("version"),
-            )
-
-            # Basic payload validation
-            required_fields = [
-                "model_uuid",
-                "version",
-            ]
-
-            missing_fields = [field for field in required_fields if field not in event]
-
-            if missing_fields:
-                logger.error(
-                    "Invalid Kafka event missing fields=%s payload=%s",
-                    missing_fields,
-                    event,
-                )
-
-                # Commit invalid messages so they do not poison the queue
-                await consumer.commit()
-
-                continue
-
-            # Determine previous AIMBOM and reports based on event type, and
-            # validate the resulting shape against GenerationMetadata.
-            try:
-                previous_aimbom, reports = _extract_previous_aimbom_and_reports(event)
-
-                generation_metadata = GenerationMetadata(
-                    model_uuid=event["model_uuid"],
-                    version=event["version"],
-                    previous_aimbom=previous_aimbom,
-                    reports=reports,
-                )
-            except (WorkerInvalidPayloadError, ValidationError) as e:
-                logger.error(
-                    "Invalid Kafka event payload model_uuid=%s: %s",
-                    event.get("model_uuid"),
-                    str(e),
-                )
-
-                # Commit invalid messages so they do not poison the queue
-                await consumer.commit()
-
-                continue
-
-            aimbom = await generator.generate(
-                generation_metadata,
-            )
-
-            logger.info(
-                "AIMBOM generated successfully: model_uuid=%s, model_version=%s, serial_number=%s",
-                event["model_uuid"],
-                event["version"],
-                aimbom.serial_number,
-            )
-
-            # Commit ONLY after successful processing
-            await consumer.commit()
-
-        except GeneratorMissingReportError as e:
-            logger.warning(
-                "Missing reports for model_uuid=%s: %s",
-                event.get("model_uuid"),
-                str(e),
-            )
-
-            # Optional:
-            # do not commit if you want retries later
-            await consumer.commit()
-
-        except GeneratorStorageError:
-            logger.exception(
-                "Storage error while generating AIMBOM model_uuid=%s",
-                event.get("model_uuid"),
-            )
-
-            # No commit -> message will be retried
-
-        except GeneratorSigningError:
-            logger.exception(
-                "Signing material error while generating AIMBOM model_uuid=%s",
-                event.get("model_uuid"),
-            )
-
-            # Not the message's fault (the signing key/cert are currently
-            # mismatched, e.g. caught mid-rotation) -> no commit, retry
-            # later once the signing material is consistent again.
-
-        except GeneratorGenerationError:
-            logger.exception(
-                "Generation error for model_uuid=%s",
-                event.get("model_uuid"),
-            )
-
-            # Commit because this is likely a bad payload
-            await consumer.commit()
-
-        except json.JSONDecodeError:
-            logger.exception("Failed to decode Kafka message")
-
-            # Commit malformed messages
-            await consumer.commit()
 
         except Exception:
-            logger.exception("Unexpected error while processing Kafka message")
+            logger.exception(
+                "Unexpected error while processing Kafka message topic=%s, "
+                "request dropped event=%r",
+                message.topic,
+                message.value,
+            )
 
-            # No commit -> retry later
+        await consumer.commit(
+            {TopicPartition(message.topic, message.partition): message.offset + 1}
+        )
 
 
 async def main():
     """Entrypoint for the Kafka worker process.
 
-    Sets up the orchestrator storage client, AIMBOM generator and Kafka
-    consumer, runs the consume loop and performs clean shutdown on exit.
+    Sets up the orchestrator storage client, AIMBOM generator and report
+    signer, and runs one Kafka consumer per topic: AIMBOM generation requests
+    and report signing requests. Each consumer has its own consumer group, so
+    the two topics are committed independently. Runs until a shutdown is
+    requested or a consumer stops, then shuts down cleanly.
     """
 
     logger.info("Starting STRAE Kafka worker")
 
     client = None
-    consumer = None
+    consumers: list[AIOKafkaConsumer] = []
+    tasks: list[asyncio.Task] = []
 
     try:
         # Validate signing material
@@ -267,28 +142,62 @@ async def main():
 
         client = get_orchestrator_client()
         generator = AIMBOMGenerator(client)
+        signer = ReportSigner(client)
 
-        consumer = AIOKafkaConsumer(
-            settings.KAFKA_TOPIC,
-            bootstrap_servers=[settings.KAFKA_BOOTSTRAP_SERVERS],
-            group_id=settings.KAFKA_GROUP_ID,
-            auto_offset_reset="latest",
-            value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-            enable_auto_commit=False,
+        consumer_configs = [
+            (
+                settings.KAFKA_TOPIC,
+                settings.KAFKA_GROUP_ID,
+                settings.KAFKA_AUTO_OFFSET_RESET,
+                partial(handle_generation_event, generator=generator),
+            ),
+            (
+                settings.KAFKA_SIGNING_TOPIC,
+                settings.KAFKA_SIGNING_GROUP_ID,
+                settings.KAFKA_SIGNING_AUTO_OFFSET_RESET,
+                partial(handle_signing_event, signer=signer),
+            ),
+        ]
+
+        for topic, group_id, auto_offset_reset, handler in consumer_configs:
+            consumer = _create_consumer(topic, group_id, auto_offset_reset)
+            consumers.append(consumer)
+
+            await consumer.start()
+
+            logger.info(
+                "Kafka consumer started topic=%s group_id=%s auto_offset_reset=%s",
+                topic,
+                group_id,
+                auto_offset_reset,
+            )
+
+            tasks.append(
+                asyncio.create_task(consume_messages(consumer, handler), name=topic)
+            )
+
+        shutdown_task = asyncio.create_task(shutdown_event.wait())
+
+        done, _ = await asyncio.wait(
+            [shutdown_task, *tasks], return_when=asyncio.FIRST_COMPLETED
         )
 
-        await consumer.start()
+        # A consumer stopping on its own is a failure: stop the worker so it
+        # gets restarted, instead of running with only one of the topics.
+        for task in tasks:
+            if task in done:
+                if task.exception() is not None:
+                    logger.error(
+                        "Kafka consumer for topic=%s failed",
+                        task.get_name(),
+                        exc_info=task.exception(),
+                    )
+                else:
+                    logger.error(
+                        "Kafka consumer for topic=%s stopped", task.get_name()
+                    )
 
-        logger.info(
-            "Kafka consumer started topic=%s group_id=%s",
-            settings.KAFKA_TOPIC,
-            settings.KAFKA_GROUP_ID,
-        )
-
-        await consume_messages(
-            consumer,
-            generator,
-        )
+        shutdown_task.cancel()
 
     except asyncio.CancelledError:
         logger.info("Worker task cancelled")
@@ -299,7 +208,13 @@ async def main():
     finally:
         logger.info("Shutting down worker")
 
-        if consumer is not None:
+        for task in tasks:
+            task.cancel()
+
+        with suppress(Exception):
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        for consumer in consumers:
             logger.info("Stopping Kafka consumer")
 
             with suppress(Exception):

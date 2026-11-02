@@ -19,6 +19,14 @@ class StorageOperationError(StorageError):
     """Generic failure during storage operation."""
 
 
+class StorageConflictError(StorageOperationError):
+    """The file already exists in storage (e.g. the original was already signed)."""
+
+
+class StorageBadRequestError(StorageOperationError):
+    """The storage backend rejected the request as invalid."""
+
+
 class StorageInvalidFileError(StorageOperationError):
     """Retrieved file is not valid JSON."""
 

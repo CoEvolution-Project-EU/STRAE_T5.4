@@ -19,13 +19,18 @@ class AIMBOMGeneratedResponse(BaseModel):
     model_version: str = Field(..., min_length=1)
 
 
+class SignedFile(BaseModel):
+    original_file_id: str = Field(..., min_length=1)
+    filename: str = Field(..., min_length=1)
+
+
 class SignedReportResponse(BaseModel):
     detail: str
     model_uuid: str = Field(..., min_length=1)
     model_version: str = Field(..., min_length=1)
-    filename: str = Field(..., min_length=1)
-    pool: str = Field(..., min_length=1)
-    bucket: str = Field(..., min_length=1)
+    target_pool: str = Field(..., min_length=1)
+    target_bucket: str = Field(..., min_length=1)
+    files: list[SignedFile]
 
 
 class StatusResponse(BaseModel):

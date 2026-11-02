@@ -8,6 +8,7 @@ from app.models.requests import GenerationMetadata, UploadReportMetadata
 class MockStorageClient(StorageClient):
     def __init__(self):
         self.data = {}
+        self.uploads: list[UploadReportMetadata] = []
 
     async def get_file_from_url(self, download_url: str) -> Dict:
         report = self.data.get(download_url)
@@ -25,6 +26,7 @@ class MockStorageClient(StorageClient):
             f"{upload_report_metadata.bucket}/{upload_report_metadata.model_uuid}/"
             f"{upload_report_metadata.version}/{filename}"
         ] = file
+        self.uploads.append(upload_report_metadata)
 
     async def get_reports_for_model(
         self,
