@@ -24,10 +24,6 @@ setup_logging(log_level)
 logger = logging.getLogger(__name__)
 
 
-class WorkerShutdown(Exception):
-    """Raised when the worker is shutting down."""
-
-
 shutdown_event = asyncio.Event()
 
 
@@ -193,9 +189,7 @@ async def main():
                         exc_info=task.exception(),
                     )
                 else:
-                    logger.error(
-                        "Kafka consumer for topic=%s stopped", task.get_name()
-                    )
+                    logger.error("Kafka consumer for topic=%s stopped", task.get_name())
 
         shutdown_task.cancel()
 

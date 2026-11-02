@@ -1,7 +1,6 @@
 import logging
-from typing import Annotated, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.config import settings
 from app.models.requests import GenerationMetadata, SigningMetadata

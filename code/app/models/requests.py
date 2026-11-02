@@ -155,7 +155,8 @@ class GenerationMetadata(BaseModel):
                     "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
                     "version": "v1.0",
                     "previous_aimbom": {
-                        "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json"
+                        "filename": "previous_aimbom.json",
+                        "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json",
                     },
                     "reports": {
                         "assessment_report": {
