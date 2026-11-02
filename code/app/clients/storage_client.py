@@ -4,7 +4,7 @@ from typing import Dict
 from fastapi import Request
 
 from app.models.aimbom import AIMBOM
-from app.models.requests import UploadReportMetadata
+from app.models.storage import UploadReportMetadata
 
 
 class StorageError(Exception):

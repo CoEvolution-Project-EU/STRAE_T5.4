@@ -31,6 +31,9 @@ class SignedReportResponse(BaseModel):
     target_pool: str = Field(..., min_length=1)
     target_bucket: str = Field(..., min_length=1)
     files: list[SignedFile]
+    # Files signed by this request, and files that had already been signed.
+    signed: int
+    already_signed: int
 
 
 class StatusResponse(BaseModel):

@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from app.clients.storage_client import get_storage_client
+from app.clients.storage_client import StorageConflictError, get_storage_client
 from app.main import app
 from app.services.generator import (
     AIMBOMGenerator,
@@ -71,6 +71,8 @@ async def test_sign_report(get_mock_storage):
     assert data["files"] == [
         {"original_file_id": "original-0", "filename": "risk_report.json"}
     ]
+    assert data["signed"] == 1
+    assert data["already_signed"] == 0
 
     # Check that the uploaded report is signed and its signature can be verified
     signed_report = get_mock_storage.data[
@@ -101,6 +103,25 @@ async def test_sign_multiple_reports(get_mock_storage):
             f"risk-reports/{MODEL_UUID}/{MODEL_VERSION}/{filename}"
         ]
         assert verify_signature(signed_report) is True
+
+
+@pytest.mark.anyio
+async def test_sign_reports_counts_already_signed_files(get_mock_storage):
+    get_mock_storage.save_file = AsyncMock(
+        side_effect=[StorageConflictError("409"), None]
+    )
+    event = get_signing_event(
+        f"{REPORT_URL}/risk_report.json", f"{REPORT_URL}/assessment_report.json"
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post("/api/sign", json=event)
+
+    assert response.status_code == 201
+    assert response.json()["signed"] == 1
+    assert response.json()["already_signed"] == 1
 
 
 @pytest.mark.anyio

@@ -77,7 +77,9 @@ async def sign_report(
 
     **Response**
 
-    Returns the destination and the files that were signed.
+    Returns the destination, the files of the request, and how many of them
+    were signed by this request (`signed`) or had already been signed
+    (`already_signed`).
     """
 
     logger.info(
@@ -153,6 +155,8 @@ async def sign_report(
             SignedFile(original_file_id=file.id, filename=file.filename)
             for file in signing_metadata.files
         ],
+        signed=result.signed,
+        already_signed=result.already_signed,
     )
 
 

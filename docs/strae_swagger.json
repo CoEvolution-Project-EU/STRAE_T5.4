@@ -34,7 +34,7 @@
                     "api"
                 ],
                 "summary": "Sign Report",
-                "description": "Digitally sign reports using the configured signing certificate and private key.\n\nEach file is downloaded, signed and uploaded to `target_pool` /\n`target_bucket` as a signed copy of the original. Files that have already\nbeen signed are treated as done.\n\n**Request Body**\n\n`signing_metadata`: The files to sign and where to upload the signed\ncopies, in the format of the `strae_sign_requests` Kafka event.\n\n**Response**\n\nReturns the destination and the files that were signed.",
+                "description": "Digitally sign reports using the configured signing certificate and private key.\n\nEach file is downloaded, signed and uploaded to `target_pool` /\n`target_bucket` as a signed copy of the original. Files that have already\nbeen signed are treated as done.\n\n**Request Body**\n\n`signing_metadata`: The files to sign and where to upload the signed\ncopies, in the format of the `strae_sign_requests` Kafka event.\n\n**Response**\n\nReturns the destination, the files of the request, and how many of them\nwere signed by this request (`signed`) or had already been signed\n(`already_signed`).",
                 "operationId": "sign_report_api_sign_post",
                 "requestBody": {
                     "content": {
@@ -311,7 +311,8 @@
                     {
                         "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
                         "previous_aimbom": {
-                            "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json"
+                            "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json",
+                            "filename": "previous_aimbom.json"
                         },
                         "reports": {
                             "assessment_report": {
@@ -562,6 +563,14 @@
                         },
                         "type": "array",
                         "title": "Files"
+                    },
+                    "signed": {
+                        "type": "integer",
+                        "title": "Signed"
+                    },
+                    "already_signed": {
+                        "type": "integer",
+                        "title": "Already Signed"
                     }
                 },
                 "type": "object",
@@ -571,7 +580,9 @@
                     "model_version",
                     "target_pool",
                     "target_bucket",
-                    "files"
+                    "files",
+                    "signed",
+                    "already_signed"
                 ],
                 "title": "SignedReportResponse"
             },

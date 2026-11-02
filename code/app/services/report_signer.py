@@ -14,7 +14,8 @@ from app.clients.storage_client import (
     StorageOperationError,
     get_storage_client,
 )
-from app.models.requests import SigningFile, SigningMetadata, UploadReportMetadata
+from app.models.requests import SigningFile, SigningMetadata
+from app.models.storage import UploadReportMetadata
 from app.services import signing
 
 logger = logging.getLogger(__name__)
@@ -121,6 +122,9 @@ class ReportSigner:
         result = SigningResult()
         failures: list[ReportSignerError] = []
 
+        # TODO: Sign and upload files concurrently (asyncio.TaskGroup, limited
+        # by a semaphore), if the orchestrator sends several files per request.
+        # Storage and signing errors should still cancel the remaining files.
         for file in signing_metadata.files:
             try:
                 report = await self._fetch_report(file.download_url)

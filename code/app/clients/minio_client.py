@@ -16,7 +16,8 @@ from app.clients.storage_client import (
 )
 from app.core.config import settings
 from app.models.aimbom import AIMBOM
-from app.models.requests import GenerationMetadata, UploadReportMetadata
+from app.models.requests import GenerationMetadata
+from app.models.storage import UploadReportMetadata
 from app.utils.utils import uuid_from_serial_number
 
 logger = logging.getLogger(__name__)

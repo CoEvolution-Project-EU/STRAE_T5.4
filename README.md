@@ -35,7 +35,7 @@ STRAE_T5.4/
 │   │   │   ├── config.py              ← app configuration and settings
 │   │   │   ├── logging.py             ← logging configuration
 │   │   │   └── middleware.py          ← API middleware
-│   │   ├── models/                    ← AIMBOM and request / response schema models
+│   │   ├── models/                    ← AIMBOM, request / response and storage schema models
 │   │   ├── routers/
 │   │   │   ├── api.py                 ← public API routes
 │   │   │   └── dev.py                 ← development / debug routes

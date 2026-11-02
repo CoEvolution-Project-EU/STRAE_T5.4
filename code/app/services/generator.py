@@ -96,8 +96,9 @@ class AIMBOMGenerator:
         the configured storage backend.
 
         Args:
-            `generation_metadata`: Metadata describing the unique identifier and
-            the version of the AI model and the reports that should be included in the generated AIMBOM.
+            generation_metadata: Metadata describing the unique identifier and
+            the version of the AI model and the reports that should be included
+            in the generated AIMBOM.
 
         Returns:
             The generated `AIMBOM` instance.
@@ -462,9 +463,7 @@ class AIMBOMGenerator:
 
             return aimbom
         except signing.SigningError as e:
-            logger.error(
-                "Signing material mismatch while signing AIMBOM: %s", e
-            )
+            logger.error("Signing material mismatch while signing AIMBOM: %s", e)
             raise GeneratorSigningError(f"Failed to sign AIMBOM: {str(e)}") from e
         except Exception as e:
             logger.error("Error signing AIMBOM: %s", e)

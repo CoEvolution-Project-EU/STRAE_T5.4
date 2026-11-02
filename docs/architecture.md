@@ -97,7 +97,7 @@ STRAE is organized as a modular FastAPI application with a clear separation betw
 | Endpoint | Method | Description | Input | Output |
 |----------|--------|-------------|-------|--------|
 | `/api/status` | GET | Health check endpoint for the STRAE API | - | Health status and version information |
-| `/api/sign` | POST | Downloads, signs and uploads the files of a signing request (see [Report Signing](#report-signing)) | `signing_metadata`: `model_uuid`, `version`, `target_pool`, `target_bucket`, `files` | Confirmation message, destination and the signed files (`original_file_id`, `filename`) |
+| `/api/sign` | POST | Downloads, signs and uploads the files of a signing request (see [Report Signing](#report-signing)) | `signing_metadata`: `model_uuid`, `version`, `target_pool`, `target_bucket`, `files` | Confirmation message, destination, the files of the request (`original_file_id`, `filename`), and the `signed` and `already_signed` counts |
 | `/api/generate` | POST | Generates an AIMBOM for a given model UUID and version by aggregating reports from the configured storage backend, or produces an updated version of an existing AIMBOM when `previous_aimbom` is provided in the `generation_metadata` | `generation_metadata`: `model_uuid`, `version`, `reports` and optionally `previous_aimbom` | Confirmation message, AIMBOM identifier and version |
 
 `/api/sign` maps errors to status codes as follows: a missing report returns `409`, an invalid file or a rejected upload returns `422`, storage and signing material errors return `503`, and any other error returns `500`.
