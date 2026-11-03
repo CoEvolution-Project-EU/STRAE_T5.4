@@ -82,7 +82,7 @@ services:
       KAFKA_GROUP_ID: ""
       KAFKA_SIGNING_GROUP_ID: ""
       KAFKA_AUTO_OFFSET_RESET: "latest"
-      KAFKA_SIGNING_AUTO_OFFSET_RESET: "earliest"
+      KAFKA_SIGNING_AUTO_OFFSET_RESET: "latest"
       
       ORCHESTRATOR_API_BASE_URL: ""
       
@@ -131,9 +131,9 @@ SIGNING_CERTIFICATE_PATH=/run/secrets/signing-cert.pem
 | `KAFKA_AUTO_OFFSET_RESET` | `latest` | Where the AIMBOM generation consumer starts when its group has no committed offset |
 | `KAFKA_SIGNING_TOPIC` | `strae_sign_requests` | Topic of report signing requests |
 | `KAFKA_SIGNING_GROUP_ID` | `strae-signing` | Consumer group of the report signing consumer |
-| `KAFKA_SIGNING_AUTO_OFFSET_RESET` | `earliest` | Where the report signing consumer starts when its group has no committed offset |
+| `KAFKA_SIGNING_AUTO_OFFSET_RESET` | `latest` | Where the report signing consumer starts when its group has no committed offset |
 
-Keep the consumer group names stable between deployments. A new signing group starts from the beginning of the topic and processes every signing request still in it again (already signed files are skipped). See [Architecture](architecture.md#kafka-worker) for why the two consumers start differently.
+Keep the consumer group names stable between deployments. A new group starts at the end of its topic and skips the requests already in it. See [Architecture](architecture.md#kafka-worker) for when a group has no committed offset.
 
 Deploy the stack.
 
@@ -141,7 +141,7 @@ Deploy the stack.
 
 The worker doesn't retry failed requests. When a request fails for a reason not caused by the request itself (e.g. the Orchestrator is unreachable), the worker logs it as `request dropped` together with the full event.
 
-Signing requests are safe to process again, because already signed files are skipped. To replay them, either ask the Orchestrator team to send the events again, or move the signing consumer group back to the beginning of the topic:
+Signing requests are safe to process again, because already signed files are skipped. Replay them in the same way when signing requests were skipped because the signing group had no committed offset (e.g. on the first deployment, after changing `KAFKA_SIGNING_GROUP_ID`, or after the worker was stopped for longer than the offset retention). To replay them, either ask the Orchestrator team to send the events again, or move the signing consumer group back to the beginning of the topic:
 
 1. Stop the Kafka worker, so the consumer group has no active members.
 

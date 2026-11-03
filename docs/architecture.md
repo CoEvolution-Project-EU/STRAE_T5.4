@@ -109,12 +109,15 @@ The Kafka worker (`python -m app.worker`) processes AIMBOM generation and report
 | Topic (setting) | Consumer group (setting) | `auto_offset_reset` (setting) | Handler |
 |---|---|---|---|
 | `strae` (`KAFKA_TOPIC`) | `strae` (`KAFKA_GROUP_ID`) | `latest` (`KAFKA_AUTO_OFFSET_RESET`) | `consumers/generation.py` |
-| `strae_sign_requests` (`KAFKA_SIGNING_TOPIC`) | `strae-signing` (`KAFKA_SIGNING_GROUP_ID`) | `earliest` (`KAFKA_SIGNING_AUTO_OFFSET_RESET`) | `consumers/signing.py` |
+| `strae_sign_requests` (`KAFKA_SIGNING_TOPIC`) | `strae-signing` (`KAFKA_SIGNING_GROUP_ID`) | `latest` (`KAFKA_SIGNING_AUTO_OFFSET_RESET`) | `consumers/signing.py` |
 
-`auto_offset_reset` only applies when a consumer group has no committed offset, i.e. the first time it starts, or after its offsets have expired:
+`auto_offset_reset` only applies when a consumer group has no committed offset. Otherwise the consumer resumes from its committed offset, so requests sent while the worker is stopped are processed when it starts again. Both consumers use `latest`, so a group without a committed offset skips the requests already in the topic. This happens:
 
-- **AIMBOM generation** uses `latest`, because generation isn't safe to repeat: processing old requests again would create duplicate AIMBOM versions.
-- **Report signing** uses `earliest`, because a skipped request would leave its report in the pending bucket. Repeating a signing request is safe, since already signed files are skipped. Note that changing `KAFKA_SIGNING_GROUP_ID` creates a new group, which processes everything still in the topic again.
+- the first time the group starts, e.g. requests sent before the worker was first deployed,
+- when the group ID changes, which creates a new group,
+- when the group's offsets expire, after the group has had no members for longer than the broker's `offsets.retention.minutes` (7 days by default).
+
+AIMBOM generation requests must not be processed again, because that would create duplicate AIMBOM versions. A skipped signing request leaves its report in the pending bucket, but signing requests are safe to process again, since already signed files are skipped. They can be replayed by hand (see [Replaying dropped signing requests](deployment.md#replaying-dropped-signing-requests)).
 
 ### Commits and Error Handling
 

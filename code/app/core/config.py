@@ -27,13 +27,8 @@ class Settings(BaseSettings):
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
     KAFKA_GROUP_ID: str = "strae"
     KAFKA_SIGNING_GROUP_ID: str = "strae-signing"
-    # Where a consumer group starts when it has no committed offset (first
-    # start, or its offsets expired). AIMBOM generation isn't safe to repeat,
-    # so it skips old requests. Signing is (already signed files return 409),
-    # and a skipped request would leave its report pending, so it processes
-    # everything still in the topic.
     KAFKA_AUTO_OFFSET_RESET: Literal["earliest", "latest"] = "latest"
-    KAFKA_SIGNING_AUTO_OFFSET_RESET: Literal["earliest", "latest"] = "earliest"
+    KAFKA_SIGNING_AUTO_OFFSET_RESET: Literal["earliest", "latest"] = "latest"
 
     ORCHESTRATOR_API_BASE_URL: str = "https://aegis.coevolution-project.eu/api/v1/"
 
