@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict
+from typing import Dict, Tuple
 
 import httpx
 from fastapi.encoders import jsonable_encoder
@@ -209,6 +209,13 @@ class OrchestratorClient:
             model_uuid,
             model_version,
         )
+
+    async def get_aimbom(
+        self,
+        model_uuid: str,
+        model_version: str,
+    ) -> Tuple[Dict, Dict[str, Dict]]:
+        pass
 
     async def _upload_file(
         self,

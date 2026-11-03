@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, Tuple
 
 from fastapi import Request
 
@@ -28,6 +28,10 @@ class StorageConflictError(StorageOperationError):
 
 class StorageBadRequestError(StorageOperationError):
     """The storage backend rejected the request as invalid."""
+
+
+class StorageNotFoundError(StorageOperationError):
+    """The requested file does not exist in storage."""
 
 
 class StorageInvalidFileError(StorageOperationError):
@@ -63,6 +67,13 @@ class StorageClient(ABC):
         model_version: str,
         aimbom: AIMBOM,
     ): ...
+
+    @abstractmethod
+    async def get_aimbom(
+        self,
+        model_uuid: str,
+        model_version: str,
+    ) -> Tuple[Dict, Dict[str, Dict]]: ...
 
 
 async def get_storage_client(request: Request) -> StorageClient:

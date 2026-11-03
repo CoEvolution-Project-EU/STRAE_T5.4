@@ -13,8 +13,8 @@ from app.utils.utils import (
 class ReportDetails(BaseModel):
     id: str | None = Field(None, alias="_id")
     bucket: str | None = None
-    filename: str
-    download_url: str
+    filename: str = Field(..., min_length=1)
+    download_url: str = Field(..., min_length=1)
     createdAt: datetime | None = None
 
 
@@ -33,8 +33,8 @@ class Reports(BaseModel):
 
 
 class GenerationMetadata(BaseModel):
-    model_uuid: str
-    version: str
+    model_uuid: str = Field(..., min_length=1)
+    version: str = Field(..., min_length=1)
     previous_aimbom: ReportDetails | None = None
     reports: Reports
 
@@ -180,7 +180,7 @@ class GenerationMetadata(BaseModel):
 
 class SigningFile(ReportDetails):
     # The orchestrator needs the original's ID to accept the signed copy.
-    id: str = Field(alias="_id")
+    id: str = Field(..., min_length=1, alias="_id")
 
 
 class SigningMetadata(BaseModel):
@@ -191,10 +191,10 @@ class SigningMetadata(BaseModel):
     and are ignored.
     """
 
-    model_uuid: str
-    version: str
-    target_pool: str
-    target_bucket: str
+    model_uuid: str = Field(..., min_length=1)
+    version: str = Field(..., min_length=1)
+    target_pool: str = Field(..., min_length=1)
+    target_bucket: str = Field(..., min_length=1)
     tags: list[str] = []
     files: list[SigningFile] = Field(min_length=1)
 

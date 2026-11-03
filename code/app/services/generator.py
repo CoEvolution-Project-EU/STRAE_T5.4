@@ -23,7 +23,7 @@ from app.models.aimbom import (
     Tool,
 )
 from app.models.requests import GenerationMetadata
-from app.services import signing, validation
+from app.services import cyclonedx_validation, signing
 from app.utils.utils import (
     OPTIONAL_UPDATABLE_REPORT_TYPES,
     REPORT_MODELS,
@@ -303,7 +303,7 @@ class AIMBOMGenerator:
 
         try:
             # Generic CycloneDX validation
-            validation.cdx_validate_dict(raw_report)
+            cyclonedx_validation.cdx_validate_dict(raw_report)
 
             # Schema-specific validation
             model_cls = REPORT_MODELS[report_type]
@@ -481,7 +481,9 @@ class AIMBOMGenerator:
 
         try:
             logger.debug("Validating AIMBOM")
-            validation.cdx_validate_dict(jsonable_encoder(aimbom, exclude_none=True))
+            cyclonedx_validation.cdx_validate_dict(
+                jsonable_encoder(aimbom, exclude_none=True)
+            )
             logger.debug("AIMBOM validation successful")
         except ValueError as e:
             logger.error("AIMBOM validation failed: %s", str(e))

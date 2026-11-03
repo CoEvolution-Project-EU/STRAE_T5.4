@@ -1,11 +1,13 @@
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from app.core.config import settings
 from app.models.requests import GenerationMetadata, SigningMetadata
 from app.models.responses import (
     AIMBOMGeneratedResponse,
+    AIMBOMValidationResponse,
     SignedFile,
     SignedReportResponse,
     StatusResponse,
@@ -28,6 +30,7 @@ from app.services.report_signer import (
     ReportSignerUploadRejectedError,
     get_signer,
 )
+from app.services.validator import AIMBOMValidator, get_validator
 from app.utils.utils import uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
@@ -246,4 +249,31 @@ async def generate_aimbom(
         aimbom_version=aimbom.version,
         model_uuid=generation_metadata.model_uuid,
         model_version=generation_metadata.version,
+    )
+
+
+@router.get(
+    "/validation/{uuid}/{version}",
+    response_model=AIMBOMValidationResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def validate_aimbom(
+    uuid: Annotated[
+        str,
+        Path(
+            description="Unique identifier of the AI model",
+            example="163723c9-173b-4ce2-abc1-4de2b25a7012",
+        ),
+    ],
+    version: Annotated[
+        str,
+        Path(description="Version of the AI model", example="v1.0"),
+    ],
+    validator: AIMBOMValidator = Depends(get_validator),
+):
+    validation_result = await validator.validate_aimbom(uuid, version)
+
+    return AIMBOMValidationResponse(
+        detail="AIMBOM validation completed",
+        valid=validation_result,
     )
