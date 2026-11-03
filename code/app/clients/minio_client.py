@@ -9,6 +9,7 @@ from fastapi.encoders import jsonable_encoder
 from minio import Minio, S3Error
 
 from app.clients.storage_client import (
+    CYCLONEDX_CONTENT_TYPE,
     StorageClient,
     StorageConnectionError,
     StorageInvalidFileError,
@@ -64,13 +65,15 @@ class MinioClient(StorageClient):
         bucket_name: str,
         object_name: str,
         data: Dict,
+        content_type: str = "application/json",
     ) -> None:
-        """Upload a JSON-serializable object to MinIO as application/json.
+        """Upload a JSON-serializable object to MinIO.
 
         Args:
             bucket_name: Target bucket.
             object_name: Object key path in the bucket.
             data: JSON-serializable payload to store.
+            content_type: Content type of the stored object.
 
         Returns:
             None
@@ -85,7 +88,7 @@ class MinioClient(StorageClient):
                 object_name=object_name,
                 data=json_stream,
                 length=len(json_bytes),
-                content_type="application/vnd.cyclonedx+json",
+                content_type=content_type,
             )
         except S3Error as e:
             raise StorageOperationError(
@@ -247,6 +250,7 @@ class MinioClient(StorageClient):
             bucket_name=settings.AIMBOMS_BUCKET,
             object_name=f"{model_uuid}/{model_version}/{uuid_from_serial_number(aimbom.serial_number)}-v{aimbom.version}.json",
             data=jsonable_encoder(aimbom, exclude_none=True),
+            content_type=CYCLONEDX_CONTENT_TYPE,
         )
 
 

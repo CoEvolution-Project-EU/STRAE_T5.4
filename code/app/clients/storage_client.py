@@ -6,6 +6,9 @@ from fastapi import Request
 from app.models.aimbom import AIMBOM
 from app.models.storage import UploadReportMetadata
 
+# Content type of uploaded AIMBOMs. Other files are uploaded as plain JSON.
+CYCLONEDX_CONTENT_TYPE = "application/vnd.cyclonedx+json"
+
 
 class StorageError(Exception):
     """Base storage error."""

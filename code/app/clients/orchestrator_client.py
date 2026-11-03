@@ -6,6 +6,7 @@ import httpx
 from fastapi.encoders import jsonable_encoder
 
 from app.clients.storage_client import (
+    CYCLONEDX_CONTENT_TYPE,
     StorageAuthError,
     StorageBadRequestError,
     StorageConflictError,
@@ -200,6 +201,7 @@ class OrchestratorClient:
                 "model_uuid": model_uuid,
                 "version": model_version,
             },
+            content_type=CYCLONEDX_CONTENT_TYPE,
         )
 
         logger.info(
@@ -208,13 +210,20 @@ class OrchestratorClient:
             model_version,
         )
 
-    async def _upload_file(self, filename: str, file: Dict, data: Dict):
+    async def _upload_file(
+        self,
+        filename: str,
+        file: Dict,
+        data: Dict,
+        content_type: str = "application/json",
+    ):
         """Upload a file to the orchestrator.
 
         Args:
             filename: Name of the file to upload.
             file: JSON-serializable payload to upload.
             data: Additional form data to send with the request.
+            content_type: Content type of the uploaded file.
 
         Raises:
             StorageAuthError: On authentication failures.
@@ -241,7 +250,7 @@ class OrchestratorClient:
                     (
                         filename,
                         json.dumps(file).encode("utf-8"),
-                        "application/vnd.cyclonedx+json",
+                        content_type,
                     ),
                 )
             ]
