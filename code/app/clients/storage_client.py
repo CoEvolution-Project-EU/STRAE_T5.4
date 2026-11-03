@@ -4,6 +4,10 @@ from typing import Dict
 from fastapi import Request
 
 from app.models.aimbom import AIMBOM
+from app.models.storage import UploadReportMetadata
+
+# Content type of uploaded AIMBOMs. Other files are uploaded as plain JSON.
+CYCLONEDX_CONTENT_TYPE = "application/vnd.cyclonedx+json"
 
 
 class StorageError(Exception):
@@ -18,6 +22,18 @@ class StorageOperationError(StorageError):
     """Generic failure during storage operation."""
 
 
+class StorageConflictError(StorageOperationError):
+    """The file already exists in storage (e.g. the original was already signed)."""
+
+
+class StorageBadRequestError(StorageOperationError):
+    """The storage backend rejected the request as invalid."""
+
+
+class StorageInvalidFileError(StorageOperationError):
+    """Retrieved file is not valid JSON."""
+
+
 class StorageAuthError(StorageError):
     """Authentication failure."""
 
@@ -25,6 +41,14 @@ class StorageAuthError(StorageError):
 class StorageClient(ABC):
     @abstractmethod
     async def get_file_from_url(self, download_url: str) -> Dict: ...
+
+    @abstractmethod
+    async def save_file(
+        self,
+        file: Dict,
+        filename: str,
+        upload_report_metadata: UploadReportMetadata,
+    ): ...
 
     @abstractmethod
     async def get_reports_for_model(

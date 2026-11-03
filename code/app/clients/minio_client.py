@@ -9,13 +9,16 @@ from fastapi.encoders import jsonable_encoder
 from minio import Minio, S3Error
 
 from app.clients.storage_client import (
+    CYCLONEDX_CONTENT_TYPE,
     StorageClient,
     StorageConnectionError,
+    StorageInvalidFileError,
     StorageOperationError,
 )
 from app.core.config import settings
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
+from app.models.storage import UploadReportMetadata
 from app.utils.utils import uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
@@ -62,13 +65,15 @@ class MinioClient(StorageClient):
         bucket_name: str,
         object_name: str,
         data: Dict,
+        content_type: str = "application/json",
     ) -> None:
-        """Upload a JSON-serializable object to MinIO as application/json.
+        """Upload a JSON-serializable object to MinIO.
 
         Args:
             bucket_name: Target bucket.
             object_name: Object key path in the bucket.
             data: JSON-serializable payload to store.
+            content_type: Content type of the stored object.
 
         Returns:
             None
@@ -83,7 +88,7 @@ class MinioClient(StorageClient):
                 object_name=object_name,
                 data=json_stream,
                 length=len(json_bytes),
-                content_type="application/vnd.cyclonedx+json",
+                content_type=content_type,
             )
         except S3Error as e:
             raise StorageOperationError(
@@ -111,6 +116,7 @@ class MinioClient(StorageClient):
         Raises:
             StorageOperationError: On S3 errors.
             StorageConnectionError: On transport/connection errors.
+            StorageInvalidFileError: If the object is not valid JSON.
 
         Ensures the response stream is properly closed after reading.
         """
@@ -130,7 +136,12 @@ class MinioClient(StorageClient):
                 raise StorageConnectionError(
                     f"Failed to retrieve object '{object_name}' from bucket '{bucket_name}': {e}"
                 ) from e
-            return json.loads(response.read())
+            try:
+                return json.loads(response.read())
+            except ValueError as e:
+                raise StorageInvalidFileError(
+                    f"Object '{object_name}' in bucket '{bucket_name}' is not valid JSON: {e}"
+                ) from e
         finally:
             if response:
                 response.close()
@@ -159,6 +170,35 @@ class MinioClient(StorageClient):
         return await asyncify(self.get_json)(
             bucket_name=bucket_name,
             object_name=object_name,
+        )
+
+    async def save_file(
+        self,
+        file: Dict,
+        filename: str,
+        upload_report_metadata: UploadReportMetadata,
+    ):
+        """Upload a file to the reports bucket under `{model_uuid}/{version}/{bucket}`.
+
+        MinIO doesn't use `pool`, `tags` or `filename`.
+
+        Args:
+            file: JSON-serializable payload to store.
+            filename: Name of the file. Unused, see above.
+            upload_report_metadata: Destination of the uploaded file.
+        """
+
+        logger.debug(
+            "Saving file to bucket=%s for model_uuid=%s, model_version=%s",
+            upload_report_metadata.bucket,
+            upload_report_metadata.model_uuid,
+            upload_report_metadata.version,
+        )
+
+        await asyncify(self.upload_json)(
+            bucket_name=settings.REPORTS_BUCKET,
+            object_name=f"{upload_report_metadata.model_uuid}/{upload_report_metadata.version}/{upload_report_metadata.bucket}.json",
+            data=file,
         )
 
     async def get_reports_for_model(
@@ -210,6 +250,7 @@ class MinioClient(StorageClient):
             bucket_name=settings.AIMBOMS_BUCKET,
             object_name=f"{model_uuid}/{model_version}/{uuid_from_serial_number(aimbom.serial_number)}-v{aimbom.version}.json",
             data=jsonable_encoder(aimbom, exclude_none=True),
+            content_type=CYCLONEDX_CONTENT_TYPE,
         )
 
 

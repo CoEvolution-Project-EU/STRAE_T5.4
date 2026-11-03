@@ -43,8 +43,6 @@ async def test_generate_success():
     generator = AIMBOMGenerator(storage)
 
     aimbom = await generator.generate(
-        model_uuid,
-        model_version,
         GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
     )
 
@@ -96,8 +94,6 @@ async def test_generate_missing_reports():
 
     with pytest.raises(GeneratorMissingReportError):
         await generator.generate(
-            model_uuid,
-            model_version,
             GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
         )
 
@@ -113,8 +109,6 @@ async def test_storage_connection_failure():
 
     with pytest.raises(GeneratorStorageError):
         await generator.generate(
-            model_uuid,
-            model_version,
             GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
         )
 
@@ -134,8 +128,6 @@ async def test_invalid_report_data():
 
     with pytest.raises(GeneratorGenerationError):
         await generator.generate(
-            model_uuid,
-            model_version,
             GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
         )
 
@@ -159,8 +151,6 @@ async def test_signing_material_mismatch_raises_signing_error():
     ):
         with pytest.raises(GeneratorSigningError):
             await generator.generate(
-                model_uuid,
-                model_version,
                 GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
             )
 
@@ -183,8 +173,6 @@ async def test_deprecate_invalid_new_report_data_is_rejected():
 
     with pytest.raises(GeneratorGenerationError):
         await generator.generate(
-            model_uuid,
-            model_version,
             GenerationMetadata(
                 **get_generation_metadata_deprecation(model_uuid, model_version)
             ),
@@ -264,8 +252,6 @@ async def test_deprecate_success():
     generator = AIMBOMGenerator(storage)
 
     aimbom = await generator.generate(
-        model_uuid,
-        model_version,
         GenerationMetadata(
             **get_generation_metadata_deprecation(model_uuid, model_version)
         ),
@@ -326,8 +312,6 @@ async def test_deprecate_with_gadgets_report_success():
     }
 
     aimbom = await generator.generate(
-        model_uuid,
-        model_version,
         GenerationMetadata(
             **get_generation_metadata_deprecation_with_gadgets(
                 model_uuid, model_version
@@ -385,8 +369,6 @@ async def test_deprecate_without_gadgets_report_keeps_previous_gadgets_ref():
     }
 
     aimbom = await generator.generate(
-        model_uuid,
-        model_version,
         GenerationMetadata(
             **get_generation_metadata_deprecation(model_uuid, model_version)
         ),
@@ -414,8 +396,6 @@ async def test_deprecate_invalid_gadgets_report_data_is_rejected():
 
     with pytest.raises(GeneratorGenerationError):
         await generator.generate(
-            model_uuid,
-            model_version,
             GenerationMetadata(
                 **get_generation_metadata_deprecation_with_gadgets(
                     model_uuid, model_version

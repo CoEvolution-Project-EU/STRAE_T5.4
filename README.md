@@ -11,7 +11,7 @@ The Security, Trust, Robustness Assurance Engine (STRAE) serves as the orchestra
 
 ## Key Functionalities
 
-- **Report Signing**: Digitally sign reports and AIMBOM artifacts so downstream consumers can verify integrity and detect unauthorized modifications.
+- **Report Signing**: Sign every report uploaded to the CoEvolution Hub before it reaches its final bucket. STRAE downloads each report, signs it and uploads the signed copy, so downstream consumers can verify its integrity and detect unauthorized modifications. Generated AIMBOMs are signed as well.
 
 - **AIMBOM Generation**: Collect validated security reports from CoEvolution components and produce a single, standardized AIMBOM for each assessed AI model.
 
@@ -22,22 +22,26 @@ STRAE_T5.4/
 ├── code/
 │   ├── app/
 │   │   ├── main.py                    ← FastAPI application entrypoint
-│   │   ├── worker.py                  ← Kafka consumer entrypoint
+│   │   ├── worker.py                  ← Kafka worker entrypoint (one consumer per topic)
 │   │   ├── clients/
 │   │   │   ├── storage_client.py      ← storage client base class
 │   │   │   ├── minio_client.py        ← MinIO storage integration
 │   │   │   └── orchestrator_client.py ← orchestrator / report retrieval client
+│   │   ├── consumers/
+│   │   │   ├── generation.py          ← Kafka handler for AIMBOM generation events
+│   │   │   └── signing.py             ← Kafka handler for report signing events
 │   │   ├── core/
 │   │   │   ├── auth.py                ← authentication and authorization helpers
 │   │   │   ├── config.py              ← app configuration and settings
 │   │   │   ├── logging.py             ← logging configuration
 │   │   │   └── middleware.py          ← API middleware
-│   │   ├── models/                    ← AIMBOM and request / response schema models
+│   │   ├── models/                    ← AIMBOM, request / response and storage schema models
 │   │   ├── routers/
 │   │   │   ├── api.py                 ← public API routes
 │   │   │   └── dev.py                 ← development / debug routes
 │   │   ├── services/
 │   │   │   ├── generator.py           ← AIMBOM generation logic
+│   │   │   ├── report_signer.py       ← download → sign → upload pipeline for reports
 │   │   │   ├── signing.py             ← digital signing services
 │   │   │   └── validation.py          ← report / AIMBOM schema validation
 │   │   └── utils/

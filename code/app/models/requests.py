@@ -13,7 +13,7 @@ from app.utils.utils import (
 class ReportDetails(BaseModel):
     id: str | None = Field(None, alias="_id")
     bucket: str | None = None
-    filename: str | None = None
+    filename: str
     download_url: str
     createdAt: datetime | None = None
 
@@ -33,6 +33,8 @@ class Reports(BaseModel):
 
 
 class GenerationMetadata(BaseModel):
+    model_uuid: str
+    version: str
     previous_aimbom: ReportDetails | None = None
     reports: Reports
 
@@ -98,59 +100,122 @@ class GenerationMetadata(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
+                    "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                    "version": "v1.0",
                     "reports": {
                         "risk_report": {
+                            "filename": "risk_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report.json",
                         },
                         "assessment_report": {
+                            "filename": "assessment_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report.json",
                         },
                         "defence_report": {
+                            "filename": "defence_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/defence_report.json",
                         },
                         "gadgets_report": {
+                            "filename": "gadgets_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/gadgets_report.json",
                         },
                         "aimodelinfo_report": {
+                            "filename": "aimodelinfo_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/aimodelinfo_report.json",
                         },
                         "euaiact_report": {
+                            "filename": "euaiact_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/euaiact_report.json",
                         },
                         "datasets_report": {
+                            "filename": "datasets_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/datasets_report.json",
                         },
                     },
                 },
                 {
+                    "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                    "version": "v1.0",
                     "previous_aimbom": {
-                        "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json"
+                        "filename": "previous_aimbom.json",
+                        "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json",
                     },
                     "reports": {
                         "assessment_report": {
-                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report_2.json"
+                            "filename": "assessment_report_2.json",
+                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report_2.json",
                         },
                         "risk_report": {
-                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json"
+                            "filename": "risk_report_2.json",
+                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json",
                         },
                     },
                 },
                 {
+                    "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                    "version": "v1.0",
                     "previous_aimbom": {
-                        "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json"
+                        "filename": "previous_aimbom.json",
+                        "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json",
                     },
                     "reports": {
                         "assessment_report": {
-                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report_2.json"
+                            "filename": "assessment_report_2.json",
+                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report_2.json",
                         },
                         "risk_report": {
-                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json"
+                            "filename": "risk_report_2.json",
+                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json",
                         },
                         "gadgets_report": {
-                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/gadgets_report_2.json"
+                            "filename": "gadgets_report_2.json",
+                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/gadgets_report_2.json",
                         },
                     },
                 },
+            ]
+        }
+    }
+
+
+class SigningFile(ReportDetails):
+    # The orchestrator needs the original's ID to accept the signed copy.
+    id: str = Field(alias="_id")
+
+
+class SigningMetadata(BaseModel):
+    """A signing request, in the format of the `strae_sign_requests` Kafka event.
+
+    `tags` are sent with every signed copy, comma-separated. Other fields of
+    the event (`event`, `model_name`, `pool`, ...) are not needed for signing
+    and are ignored.
+    """
+
+    model_uuid: str
+    version: str
+    target_pool: str
+    target_bucket: str
+    tags: list[str] = []
+    files: list[SigningFile] = Field(min_length=1)
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                    "version": "v1.0",
+                    "target_pool": "RP",
+                    "target_bucket": "user-assessments",
+                    "tags": [],
+                    "files": [
+                        {
+                            "_id": "6ae735e37ceea4671026265d",
+                            "bucket": "user-assessments",
+                            "filename": "user-assessments.json",
+                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/user-assessments.json",
+                        },
+                    ],
+                }
             ]
         }
     }

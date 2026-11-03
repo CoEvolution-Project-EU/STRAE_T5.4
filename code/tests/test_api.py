@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from app.clients.storage_client import get_storage_client
+from app.clients.storage_client import StorageConflictError, get_storage_client
 from app.main import app
 from app.services.generator import (
     AIMBOMGenerator,
@@ -19,6 +19,8 @@ from tests.utils import (
     get_generation_metadata,
     get_generation_metadata_deprecation,
     get_generation_metadata_deprecation_with_gadgets,
+    get_signing_event,
+    verify_signature,
 )
 
 
@@ -47,26 +49,136 @@ async def test_get_status():
     assert "version" in data
 
 
+REPORT_URL = f"reports/{MODEL_UUID}/{MODEL_VERSION}"
+
+
 @pytest.mark.anyio
-async def test_sign_report():
-    report = {
-        "bomFormat": "CycloneDX",
-        "specVersion": "1.7",
-        "serialNumber": "urn:uuid:test",
-        "version": 1,
-    }
+async def test_sign_report(get_mock_storage):
+    download_url = f"{REPORT_URL}/risk_report.json"
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
-        response = await ac.post("/api/sign", json=report)
+        response = await ac.post("/api/sign", json=get_signing_event(download_url))
 
-    assert response.status_code == 200
+    assert response.status_code == 201
     data = response.json()
-    assert data["detail"] == "Report signed successfully"
-    assert "signed_report" in data
-    assert data["signed_report"]["signature"]["algorithm"] == "ES256"
-    assert data["signed_report"]["signature"]["value"]
+    assert data["detail"] == "Reports signed successfully"
+    assert data["target_pool"] == "RP"
+    assert data["target_bucket"] == "risk-reports"
+    assert data["model_uuid"] == MODEL_UUID
+    assert data["model_version"] == MODEL_VERSION
+    assert data["files"] == [
+        {"original_file_id": "original-0", "filename": "risk_report.json"}
+    ]
+    assert data["signed"] == 1
+    assert data["already_signed"] == 0
+
+    # Check that the uploaded report is signed and its signature can be verified
+    signed_report = get_mock_storage.data[
+        f"risk-reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report.json"
+    ]
+    assert verify_signature(signed_report) is True
+
+
+@pytest.mark.anyio
+async def test_sign_multiple_reports(get_mock_storage):
+    event = get_signing_event(
+        f"{REPORT_URL}/risk_report.json", f"{REPORT_URL}/assessment_report.json"
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post("/api/sign", json=event)
+
+    assert response.status_code == 201
+    assert [file["filename"] for file in response.json()["files"]] == [
+        "risk_report.json",
+        "assessment_report.json",
+    ]
+
+    for filename in ("risk_report.json", "assessment_report.json"):
+        signed_report = get_mock_storage.data[
+            f"risk-reports/{MODEL_UUID}/{MODEL_VERSION}/{filename}"
+        ]
+        assert verify_signature(signed_report) is True
+
+
+@pytest.mark.anyio
+async def test_sign_reports_counts_already_signed_files(get_mock_storage):
+    get_mock_storage.save_file = AsyncMock(
+        side_effect=[StorageConflictError("409"), None]
+    )
+    event = get_signing_event(
+        f"{REPORT_URL}/risk_report.json", f"{REPORT_URL}/assessment_report.json"
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post("/api/sign", json=event)
+
+    assert response.status_code == 201
+    assert response.json()["signed"] == 1
+    assert response.json()["already_signed"] == 1
+
+
+@pytest.mark.anyio
+async def test_sign_report_missing_report():
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post(
+            "/api/sign", json=get_signing_event("reports/missing.json")
+        )
+
+    assert response.status_code == 409
+
+
+@pytest.mark.anyio
+async def test_sign_report_missing_report_still_signs_other_files(get_mock_storage):
+    event = get_signing_event(
+        "reports/missing.json", f"{REPORT_URL}/risk_report.json"
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post("/api/sign", json=event)
+
+    assert response.status_code == 409
+    assert "reports/missing.json" in response.json()["detail"]
+    assert (
+        f"risk-reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report.json"
+        in get_mock_storage.data
+    )
+
+
+@pytest.mark.anyio
+async def test_sign_report_invalid_file(get_mock_storage):
+    download_url = "reports/not_an_object.json"
+    get_mock_storage.data[download_url] = ["not", "an", "object"]
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post("/api/sign", json=get_signing_event(download_url))
+
+    assert response.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_sign_report_missing_original_file_id_is_invalid():
+    event = get_signing_event(f"{REPORT_URL}/risk_report.json")
+    del event["files"][0]["_id"]
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post("/api/sign", json=event)
+
+    assert response.status_code == 422
 
 
 @pytest.mark.anyio
@@ -78,7 +190,7 @@ async def test_generate_aimbom_success():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{model_uuid}/{model_version}",
+            "/api/generate",
             json=get_generation_metadata(model_uuid, model_version),
         )
 
@@ -98,7 +210,7 @@ async def test_generate_aimbom_no_reports():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{model_uuid}/{model_version}",
+            "/api/generate",
             json=get_generation_metadata(model_uuid, model_version),
         )
     assert response.status_code == 409
@@ -116,7 +228,7 @@ async def test_generate_aimbom_storage_error():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{MODEL_UUID}/{MODEL_VERSION}",
+            "/api/generate",
             json=get_generation_metadata(MODEL_UUID, MODEL_VERSION),
         )
 
@@ -135,7 +247,7 @@ async def test_generate_aimbom_signing_error():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{MODEL_UUID}/{MODEL_VERSION}",
+            "/api/generate",
             json=get_generation_metadata(MODEL_UUID, MODEL_VERSION),
         )
 
@@ -154,7 +266,7 @@ async def test_generate_aimbom_generation_error():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{MODEL_UUID}/{MODEL_VERSION}",
+            "/api/generate",
             json=get_generation_metadata(MODEL_UUID, MODEL_VERSION),
         )
 
@@ -171,7 +283,7 @@ async def test_generate_aimbom_unexpected_error():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{MODEL_UUID}/{MODEL_VERSION}",
+            "/api/generate",
             json=get_generation_metadata(MODEL_UUID, MODEL_VERSION),
         )
 
@@ -187,7 +299,7 @@ async def test_deprecate_aimbom_success():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{model_uuid}/{model_version}",
+            "/api/generate",
             json=get_generation_metadata_deprecation(model_uuid, model_version),
         )
 
@@ -207,7 +319,7 @@ async def test_deprecate_aimbom_with_gadgets_report_success():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         response = await ac.post(
-            f"/api/generate/{model_uuid}/{model_version}",
+            "/api/generate",
             json=get_generation_metadata_deprecation_with_gadgets(
                 model_uuid, model_version
             ),

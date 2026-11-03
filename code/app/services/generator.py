@@ -25,9 +25,9 @@ from app.models.aimbom import (
 from app.models.requests import GenerationMetadata
 from app.services import signing, validation
 from app.utils.utils import (
+    OPTIONAL_UPDATABLE_REPORT_TYPES,
     REPORT_MODELS,
     REPORT_TO_COMMENT,
-    OPTIONAL_UPDATABLE_REPORT_TYPES,
     REPORT_TYPES,
     REQUIRED_UPDATABLE_REPORT_TYPES,
     ReportModel,
@@ -87,8 +87,6 @@ class AIMBOMGenerator:
 
     async def generate(
         self,
-        model_uuid: str,
-        model_version: str,
         generation_metadata: GenerationMetadata,
     ) -> AIMBOM:
         """Run the full AIMBOM generation pipeline.
@@ -98,10 +96,9 @@ class AIMBOMGenerator:
         the configured storage backend.
 
         Args:
-            model_uuid: Unique identifier of the AI model.
-            model_version: Version string of the AI model.
-            generation_metadata: Optional metadata used to fetch reports from an
-                external orchestrator.
+            generation_metadata: Metadata describing the unique identifier and
+            the version of the AI model and the reports that should be included
+            in the generated AIMBOM.
 
         Returns:
             The generated `AIMBOM` instance.
@@ -109,16 +106,16 @@ class AIMBOMGenerator:
 
         logger.debug(
             "Starting generation pipeline model_uuid=%s, model_version=%s",
-            model_uuid,
-            model_version,
+            generation_metadata.model_uuid,
+            generation_metadata.version,
         )
 
         if generation_metadata.previous_aimbom is not None:
             logger.info(
                 "Previous AIMBOM exists for model_uuid=%s, model_version=%s. "
                 "Generating new version of AIMBOM.",
-                model_uuid,
-                model_version,
+                generation_metadata.model_uuid,
+                generation_metadata.version,
             )
 
             # Load previous AIMBOM.
@@ -146,8 +143,8 @@ class AIMBOMGenerator:
             logger.info(
                 "No previous AIMBOM exists for model_uuid=%s, model_version=%s. "
                 "Generating new AIMBOM.",
-                model_uuid,
-                model_version,
+                generation_metadata.model_uuid,
+                generation_metadata.version,
             )
 
             # Fetch reports from the storage backend using the provided model UUID, version and generation metadata.
@@ -159,12 +156,14 @@ class AIMBOMGenerator:
             aimbom = self._create_aimbom_from_reports(reports)
 
         # Save the generated AIMBOM to the configured storage backend (MinIO or Orchestrator).
-        await self._save_aimbom(model_uuid, model_version, aimbom)
+        await self._save_aimbom(
+            generation_metadata.model_uuid, generation_metadata.version, aimbom
+        )
 
         logger.debug(
             "Generation completed model_uuid=%s, model_version=%s",
-            model_uuid,
-            model_version,
+            generation_metadata.model_uuid,
+            generation_metadata.version,
         )
         return aimbom
 
@@ -185,15 +184,16 @@ class AIMBOMGenerator:
             return AIMBOM(**previous_aimbom)
         except StorageConnectionError as e:
             logger.error(
-                "Storage connection error retrieving previous AIMBOM",
-                exc_info=True,
+                "Storage connection error retrieving previous AIMBOM: %s",
+                e,
             )
             raise GeneratorStorageError(
                 f"Failed to retrieve previous AIMBOM from storage: {str(e)}"
             ) from e
         except StorageOperationError as e:
             logger.warning(
-                "No previous AIMBOM found",
+                "No previous AIMBOM found: %s",
+                e,
             )
             raise GeneratorStorageError(
                 f"Failed to retrieve previous AIMBOM from storage: {str(e)}"
@@ -265,16 +265,16 @@ class AIMBOMGenerator:
             return await self.client.get_reports_for_model(generation_metadata)
         except StorageConnectionError as e:
             logger.error(
-                "Storage connection error retrieving reports",
-                exc_info=True,
+                "Storage connection error retrieving reports: %s",
+                e,
             )
             raise GeneratorStorageError(
                 f"Failed to retrieve reports from MinIO storage: {str(e)}"
             ) from e
         except StorageOperationError as e:
             logger.warning(
-                "Missing reports",
-                exc_info=True,
+                "Missing reports: %s",
+                e,
             )
             raise GeneratorMissingReportError(
                 f"Required reports are missing: {str(e)}"
@@ -399,7 +399,7 @@ class AIMBOMGenerator:
                 ],
             )
         except Exception as e:
-            logger.error("Error creating AIMBOM metadata from reports", exc_info=True)
+            logger.error("Error creating AIMBOM metadata from reports: %s", e)
             raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM metadata from reports: {str(e)}"
             ) from e
@@ -432,7 +432,7 @@ class AIMBOMGenerator:
             ]
         except Exception as e:
             logger.error(
-                "Error creating AIMBOM external references from reports", exc_info=True
+                "Error creating AIMBOM external references from reports: %s", e
             )
             raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM external references from reports: {str(e)}"
@@ -463,12 +463,10 @@ class AIMBOMGenerator:
 
             return aimbom
         except signing.SigningError as e:
-            logger.error(
-                "Signing material mismatch while signing AIMBOM", exc_info=True
-            )
+            logger.error("Signing material mismatch while signing AIMBOM: %s", e)
             raise GeneratorSigningError(f"Failed to sign AIMBOM: {str(e)}") from e
         except Exception as e:
-            logger.error("Error signing AIMBOM", exc_info=True)
+            logger.error("Error signing AIMBOM: %s", e)
             raise GeneratorGenerationError(f"Failed to sign AIMBOM: {str(e)}") from e
 
     def _validate_aimbom(self, aimbom: AIMBOM) -> None:
@@ -522,7 +520,7 @@ class AIMBOMGenerator:
             )
             logger.debug("AIMBOM created with serial_number=%s", aimbom.serial_number)
         except Exception as e:
-            logger.error("Error creating AIMBOM from reports", exc_info=True)
+            logger.error("Error creating AIMBOM from reports: %s", e)
             raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM from reports: {str(e)}"
             ) from e
@@ -568,7 +566,7 @@ class AIMBOMGenerator:
             )
             logger.debug("AIMBOM saved successfully")
         except StorageError as e:
-            logger.error("Error saving AIMBOM to bucket", exc_info=True)
+            logger.error("Error saving AIMBOM to bucket: %s", e)
             raise GeneratorStorageError(
                 f"Storage error while saving AIMBOM: {e}"
             ) from e

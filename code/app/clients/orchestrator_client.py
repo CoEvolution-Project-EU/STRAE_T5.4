@@ -6,14 +6,19 @@ import httpx
 from fastapi.encoders import jsonable_encoder
 
 from app.clients.storage_client import (
+    CYCLONEDX_CONTENT_TYPE,
     StorageAuthError,
+    StorageBadRequestError,
+    StorageConflictError,
     StorageConnectionError,
+    StorageInvalidFileError,
     StorageOperationError,
 )
 from app.core.auth import OrchestratorAuth
 from app.core.config import settings
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
+from app.models.storage import UploadReportMetadata
 from app.utils.utils import uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
@@ -47,9 +52,9 @@ class OrchestratorClient:
             return response.json()
         except httpx.RequestError as e:
             logger.error(
-                "Connection error while downloading file from %s",
+                "Connection error while downloading file from %s: %s",
                 download_url,
-                exc_info=True,
+                e,
             )
             raise StorageConnectionError(str(e)) from e
         except httpx.HTTPStatusError as e:
@@ -57,18 +62,73 @@ class OrchestratorClient:
                 "HTTP error while downloading file from %s status_code=%s",
                 download_url,
                 e.response.status_code,
-                exc_info=True,
             )
             raise StorageOperationError(
                 f"Orchestrator returned {e.response.status_code}"
             ) from e
+        except ValueError as e:
+            logger.error(
+                "File downloaded from %s is not valid JSON: %s",
+                download_url,
+                e,
+            )
+            raise StorageInvalidFileError(
+                f"File downloaded from '{download_url}' is not valid JSON: {e}"
+            ) from e
         except Exception as e:
             logger.error(
-                "Unexpected error while downloading file from %s",
+                "Unexpected error while downloading file from %s: %s",
                 download_url,
-                exc_info=True,
+                e,
             )
             raise StorageOperationError(str(e)) from e
+
+    async def save_file(
+        self,
+        file: Dict,
+        filename: str,
+        upload_report_metadata: UploadReportMetadata,
+    ):
+        """Upload a file to the orchestrator.
+
+        Args:
+            file: JSON-serializable payload to upload.
+            filename: Name of the uploaded file.
+            upload_report_metadata: Destination `pool` / `bucket`, model, tags and
+                the ID of the original the file is a signed copy of.
+
+        Raises:
+            StorageAuthError: On authentication failures.
+            StorageConnectionError: On connection issues.
+            StorageConflictError: If the original has already been signed (409).
+            StorageBadRequestError: If the orchestrator rejects the fields (400).
+            StorageOperationError: On other non-2xx HTTP responses or unexpected errors.
+        """
+
+        logger.info(
+            "Uploading file=%s for model_uuid=%s model_version=%s",
+            filename,
+            upload_report_metadata.model_uuid,
+            upload_report_metadata.version,
+        )
+
+        data = {
+            "pool": upload_report_metadata.pool,
+            "bucket": upload_report_metadata.bucket,
+            "model_uuid": upload_report_metadata.model_uuid,
+            "version": upload_report_metadata.version,
+            "tags": upload_report_metadata.tags,
+            "original_file_id": upload_report_metadata.original_file_id,
+        }
+
+        await self._upload_file(filename=filename, file=file, data=data)
+
+        logger.info(
+            "File uploaded successfully file=%s model_uuid=%s model_version=%s",
+            filename,
+            upload_report_metadata.model_uuid,
+            upload_report_metadata.version,
+        )
 
     async def get_reports_for_model(
         self,
@@ -113,12 +173,12 @@ class OrchestratorClient:
         model_version: str,
         aimbom: AIMBOM,
     ):
-        """Upload a generated AIMBOM document to the orchestrator.
+        """Upload an AIMBOM to the orchestrator.
 
         Args:
-            model_uuid: Model UUID used for logging/context only.
-            model_version: Model version used for logging/context only.
-            aimbom: The generated AIMBOM instance.
+            model_uuid: The UUID of the model.
+            model_version: The version of the model.
+            aimbom: The AIMBOM object to upload.
 
         Raises:
             StorageAuthError: On authentication failures.
@@ -126,45 +186,71 @@ class OrchestratorClient:
             StorageOperationError: On non-2xx HTTP responses or unexpected errors.
         """
 
+        logger.info(
+            "Uploading AIMBOM for model_uuid=%s model_version=%s",
+            model_uuid,
+            model_version,
+        )
+
+        await self._upload_file(
+            filename=f"model-{model_uuid}-{model_version}-aimbom-{uuid_from_serial_number(aimbom.serial_number)}-v{aimbom.version}.json",
+            file=jsonable_encoder(aimbom, exclude_none=True),
+            data={
+                "pool": settings.POOL_NAME,
+                "bucket": settings.BUCKET_NAME,
+                "model_uuid": model_uuid,
+                "version": model_version,
+            },
+            content_type=CYCLONEDX_CONTENT_TYPE,
+        )
+
+        logger.info(
+            "AIMBOM uploaded successfully model_uuid=%s model_version=%s",
+            model_uuid,
+            model_version,
+        )
+
+    async def _upload_file(
+        self,
+        filename: str,
+        file: Dict,
+        data: Dict,
+        content_type: str = "application/json",
+    ):
+        """Upload a file to the orchestrator.
+
+        Args:
+            filename: Name of the file to upload.
+            file: JSON-serializable payload to upload.
+            data: Additional form data to send with the request.
+            content_type: Content type of the uploaded file.
+
+        Raises:
+            StorageAuthError: On authentication failures.
+            StorageConnectionError: On connection issues.
+            StorageConflictError: On a 409 response.
+            StorageBadRequestError: On a 400 response.
+            StorageOperationError: On other non-2xx HTTP responses or unexpected errors.
+        """
+
         try:
             token = await self.auth.get_token()
             headers = {"Authorization": f"Bearer {token}"}
         except Exception as e:
             logger.error(
-                "Authentication error while saving AIMBOM",
-                exc_info=True,
+                "Authentication error while saving file: %s",
+                e,
             )
             raise StorageAuthError("Failed to authenticate with orchestrator") from e
 
         try:
-            data = {
-                "pool": settings.POOL_NAME,
-                "bucket": settings.BUCKET_NAME,
-                "model_uuid": model_uuid,
-                "version": model_version,
-                # "tags": "aimbom,generated",
-            }
-
-            logger.info(
-                "Uploading AIMBOM for model_uuid=%s model_version=%s",
-                model_uuid,
-                model_version,
-            )
-
-            # Convert AIMBOM to JSON bytes
-            aimbom_json = json.dumps(
-                jsonable_encoder(aimbom, exclude_none=True),
-            )
-
-            filename = f"model-{model_uuid}-{model_version}-aimbom-{uuid_from_serial_number(aimbom.serial_number)}-v{aimbom.version}.json"
-
             files = [
                 (
                     "files",
                     (
                         filename,
-                        aimbom_json.encode("utf-8"),
-                        "application/vnd.cyclonedx+json",
+                        json.dumps(file).encode("utf-8"),
+                        content_type,
                     ),
                 )
             ]
@@ -178,27 +264,36 @@ class OrchestratorClient:
 
             response.raise_for_status()
 
-            logger.info(
-                "AIMBOM uploaded successfully model_uuid=%s model_version=%s",
-                model_uuid,
-                model_version,
-            )
-
         except httpx.RequestError as e:
             logger.error(
-                "Connection error while uploading AIMBOM",
-                exc_info=True,
+                "Connection error while uploading file: %s",
+                e,
             )
 
             raise StorageConnectionError(str(e)) from e
 
         except httpx.HTTPStatusError as e:
+            if e.response.status_code == httpx.codes.CONFLICT:
+                logger.info(
+                    "Orchestrator already has file=%s response=%s",
+                    filename,
+                    e.response.text,
+                )
+
+                raise StorageConflictError(
+                    f"Orchestrator returned {e.response.status_code}: {e.response.text}"
+                ) from e
+
             logger.error(
                 "Upload failed with status_code=%s response=%s",
                 e.response.status_code,
                 e.response.text,
-                exc_info=True,
             )
+
+            if e.response.status_code == httpx.codes.BAD_REQUEST:
+                raise StorageBadRequestError(
+                    f"Orchestrator returned {e.response.status_code}: {e.response.text}"
+                ) from e
 
             raise StorageOperationError(
                 f"Orchestrator returned {e.response.status_code}"
@@ -206,8 +301,8 @@ class OrchestratorClient:
 
         except Exception as e:
             logger.error(
-                "Unexpected error while uploading AIMBOM",
-                exc_info=True,
+                "Unexpected error while uploading file: %s",
+                e,
             )
 
             raise StorageOperationError(str(e)) from e

@@ -64,28 +64,39 @@ def create_new_mock_storage():
 def get_generation_metadata(model_uuid: str, model_version: str):
     reports = {
         report_type.value: {
+            "filename": f"{report_type.value}.json",
             "download_url": get_url_for_report_type(
                 model_uuid, model_version, report_type
-            )
+            ),
         }
         for report_type in ReportType
     }
 
-    return {"previous_aimbom": None, "reports": reports}
+    return {
+        "model_uuid": model_uuid,
+        "version": model_version,
+        "previous_aimbom": None,
+        "reports": reports,
+    }
 
 
 def get_generation_metadata_deprecation(model_uuid: str, model_version: str):
 
     return {
+        "model_uuid": model_uuid,
+        "version": model_version,
         "previous_aimbom": {
-            "download_url": f"aimboms/{model_uuid}/{model_version}/aimbom.json"
+            "filename": "aimbom.json",
+            "download_url": f"aimboms/{model_uuid}/{model_version}/aimbom.json",
         },
         "reports": {
             "assessment_report": {
-                "download_url": f"reports/{model_uuid}/{model_version}/assessment_report_updated.json"
+                "filename": "assessment_report_updated.json",
+                "download_url": f"reports/{model_uuid}/{model_version}/assessment_report_updated.json",
             },
             "risk_report": {
-                "download_url": f"reports/{model_uuid}/{model_version}/risk_report_updated.json"
+                "filename": "risk_report_updated.json",
+                "download_url": f"reports/{model_uuid}/{model_version}/risk_report_updated.json",
             },
         },
     }
@@ -96,10 +107,38 @@ def get_generation_metadata_deprecation_with_gadgets(
 ):
     metadata = get_generation_metadata_deprecation(model_uuid, model_version)
     metadata["reports"]["gadgets_report"] = {
-        "download_url": f"reports/{model_uuid}/{model_version}/gadgets_report_updated.json"
+        "filename": "gadgets_report_updated.json",
+        "download_url": f"reports/{model_uuid}/{model_version}/gadgets_report_updated.json",
     }
 
     return metadata
+
+
+def get_signing_event(*download_urls: str):
+    """Return a `strae_sign_requests` event for the given download URLs."""
+
+    return {
+        "event": "strae_sign_requests",
+        "model_name": "MyModel",
+        "model_uuid": MODEL_UUID,
+        "version": MODEL_VERSION,
+        "uploadedBy": "coevolution_user",
+        "uploadedAt": "2026-11-01T12:51:47.754Z",
+        "pool": "RP",
+        "target_pool": "RP",
+        "target_bucket": "risk-reports",
+        "tags": [],
+        "total_files": len(download_urls),
+        "files": [
+            {
+                "_id": f"original-{index}",
+                "bucket": "risk-reports-pending",
+                "filename": download_url.rsplit("/", 1)[-1],
+                "download_url": download_url,
+            }
+            for index, download_url in enumerate(download_urls)
+        ],
+    }
 
 
 # ============Signing utility functions for tests============
