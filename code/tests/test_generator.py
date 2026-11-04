@@ -7,6 +7,7 @@ from app.models.requests import GenerationMetadata
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
+    GeneratorInvalidReportError,
     GeneratorMissingReportError,
     GeneratorSigningError,
     GeneratorStorageError,
@@ -126,7 +127,7 @@ async def test_invalid_report_data():
 
     generator = AIMBOMGenerator(storage)
 
-    with pytest.raises(GeneratorGenerationError):
+    with pytest.raises(GeneratorInvalidReportError):
         await generator.generate(
             GenerationMetadata(**get_generation_metadata(model_uuid, model_version)),
         )
@@ -171,7 +172,7 @@ async def test_deprecate_invalid_new_report_data_is_rejected():
 
     generator = AIMBOMGenerator(storage)
 
-    with pytest.raises(GeneratorGenerationError):
+    with pytest.raises(GeneratorInvalidReportError):
         await generator.generate(
             GenerationMetadata(
                 **get_generation_metadata_deprecation(model_uuid, model_version)
@@ -236,7 +237,7 @@ def test_validate_aimbom_raises_generation_error_on_invalid_schema():
     aimbom = AIMBOM(**load_json(AIMBOMS_DIR / "aimbom.json"))
 
     with patch(
-        "app.services.cyclonedx_validation.cdx_validate_dict",
+        "app.services.validator.cdx_validate_dict",
         side_effect=ValueError("CycloneDX validation failed"),
     ):
         with pytest.raises(GeneratorGenerationError):
@@ -394,7 +395,7 @@ async def test_deprecate_invalid_gadgets_report_data_is_rejected():
 
     generator = AIMBOMGenerator(storage)
 
-    with pytest.raises(GeneratorGenerationError):
+    with pytest.raises(GeneratorInvalidReportError):
         await generator.generate(
             GenerationMetadata(
                 **get_generation_metadata_deprecation_with_gadgets(

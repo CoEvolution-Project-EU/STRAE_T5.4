@@ -40,4 +40,3 @@ def test_validate_aimbom_accepts_siganture():
     report["signature"]["algorithm"] = "test:test:test"
 
     cyclonedx_validation.cdx_validate_dict(report)
-

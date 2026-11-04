@@ -7,6 +7,7 @@ from app.models.requests import GenerationMetadata
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
+    GeneratorInvalidReportError,
     GeneratorMissingReportError,
     GeneratorSigningError,
     GeneratorStorageError,
@@ -137,6 +138,15 @@ async def handle_generation_event(event: dict, generator: AIMBOMGenerator):
     except GeneratorMissingReportError as e:
         logger.warning(
             "Missing reports for model_uuid=%s: %s",
+            event.get("model_uuid"),
+            str(e),
+        )
+
+        return
+
+    except GeneratorInvalidReportError as e:
+        logger.warning(
+            "Invalid report for model_uuid=%s: %s",
             event.get("model_uuid"),
             str(e),
         )

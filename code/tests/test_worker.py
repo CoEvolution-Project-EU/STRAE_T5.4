@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.models.requests import GenerationMetadata, SigningMetadata
 from app.services.generator import (
     GeneratorGenerationError,
+    GeneratorInvalidReportError,
     GeneratorMissingReportError,
     GeneratorSigningError,
     GeneratorStorageError,
@@ -298,6 +299,17 @@ async def test_missing_report_error_is_committed():
     metadata = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
     consumer = FakeConsumer([base_event(reports=metadata["reports"])])
     generator = make_generator(side_effect=GeneratorMissingReportError("missing"))
+
+    await run_generation(consumer, generator)
+
+    assert consumer.commit_calls == 1
+
+
+@pytest.mark.anyio
+async def test_invalid_report_error_is_committed():
+    metadata = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
+    consumer = FakeConsumer([base_event(reports=metadata["reports"])])
+    generator = make_generator(side_effect=GeneratorInvalidReportError("bad report"))
 
     await run_generation(consumer, generator)
 

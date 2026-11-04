@@ -1,11 +1,16 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from app.clients.storage_client import StorageConflictError, get_storage_client
+from app.clients.storage_client import (
+    StorageConflictError,
+    StorageConnectionError,
+    get_storage_client,
+)
 from app.main import app
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
+    GeneratorInvalidReportError,
     GeneratorSigningError,
     GeneratorStorageError,
     get_generator,
@@ -274,6 +279,25 @@ async def test_generate_aimbom_generation_error():
 
 
 @pytest.mark.anyio
+async def test_generate_aimbom_invalid_report_error():
+    mock_generator = MagicMock(spec=AIMBOMGenerator)
+    mock_generator.generate = AsyncMock(
+        side_effect=GeneratorInvalidReportError("Report risk_report is invalid")
+    )
+    app.dependency_overrides[get_generator] = lambda: mock_generator
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post(
+            "/api/generate",
+            json=get_generation_metadata(MODEL_UUID, MODEL_VERSION),
+        )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.anyio
 async def test_generate_aimbom_unexpected_error():
     mock_generator = MagicMock(spec=AIMBOMGenerator)
     mock_generator.generate = AsyncMock(side_effect=RuntimeError("boom"))
@@ -330,3 +354,88 @@ async def test_deprecate_aimbom_with_gadgets_report_success():
     assert data["model_uuid"] == model_uuid
     assert "aimbom_uuid" in data
     assert data["aimbom_version"] == 2
+
+
+# ============ /api/validation ============
+
+VALIDATION_URL = f"/api/validation/{MODEL_UUID}/{MODEL_VERSION}"
+AIMBOM_URL = f"aimboms/{MODEL_UUID}/{MODEL_VERSION}/aimbom.json"
+
+
+async def get_validation(url: str = VALIDATION_URL):
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        return await ac.get(url)
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_valid():
+    response = await get_validation()
+
+    assert response.status_code == 200
+    assert response.json() == {"detail": "AIMBOM is valid", "valid": True}
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_not_found():
+    response = await get_validation("/api/validation/unknown/v1.0")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_invalid_aimbom_schema(get_mock_storage):
+    get_mock_storage.data[AIMBOM_URL].pop("bomFormat")
+
+    response = await get_validation()
+
+    assert response.status_code == 200
+    assert response.json()["valid"] is False
+    assert "aimbom" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_invalid_report(get_mock_storage):
+    get_mock_storage.data[f"{REPORT_URL}/risk_report.json"] = {}
+
+    response = await get_validation()
+
+    assert response.status_code == 200
+    assert response.json()["valid"] is False
+    assert "risk_report" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_missing_report(get_mock_storage):
+    del get_mock_storage.data[f"{REPORT_URL}/risk_report.json"]
+
+    response = await get_validation()
+
+    assert response.status_code == 200
+    assert response.json()["valid"] is False
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_wrong_reference(get_mock_storage):
+    get_mock_storage.data[AIMBOM_URL]["externalReferences"][0]["url"] = (
+        "urn:cdx:00000000-0000-0000-0000-000000000000/1"
+    )
+
+    response = await get_validation()
+
+    assert response.status_code == 200
+    assert response.json()["valid"] is False
+    assert "references" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_storage_unavailable(get_mock_storage):
+    get_mock_storage.get_aimbom = AsyncMock(
+        side_effect=StorageConnectionError("storage down")
+    )
+
+    response = await get_validation()
+
+    assert response.status_code == 503
+

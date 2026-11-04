@@ -357,8 +357,6 @@ class MinioClient(StorageClient):
 
         aimbom_url, report_urls = await self.get_aimbom_urls(model_uuid, model_version)
 
-        print(f"Downloading AIMBOM from {aimbom_url} and reports from {report_urls}")
-
         aimbom, *downloaded_reports = await asyncio.gather(
             self.get_file_from_url(aimbom_url),
             *(self.get_file_from_url(url) for url in report_urls.values()),
