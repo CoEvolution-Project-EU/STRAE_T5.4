@@ -294,8 +294,8 @@ async def validate_aimbom(
 
     **Response**
 
-    `valid` is `true` if every check passed. If not, `valid` is `false` and
-    `detail` describes the first problem found. Returns 404 if the model
+    `status` is `VALID` if every check passed. If not, `status` is `INVALID`
+    and `detail` describes the first problem found. Returns 404 if the model
     version has no AIMBOM and 503 if storage is unavailable.
     """
 
@@ -309,7 +309,9 @@ async def validate_aimbom(
         await validator.validate_aimbom(uuid, version)
     except ValidatorInvalidAIMBOMError as e:
         logger.warning("Invalid AIMBOM for model_uuid=%s: %s", uuid, e)
-        return AIMBOMValidationResponse(detail=str(e), valid=False)
+        return AIMBOMValidationResponse(
+            detail=str(e), model_uuid=uuid, model_version=version, status="INVALID"
+        )
     except ValidatorNotFoundError as e:
         logger.warning("AIMBOM not found for model_uuid=%s: %s", uuid, e)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -324,4 +326,9 @@ async def validate_aimbom(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-    return AIMBOMValidationResponse(detail="AIMBOM is valid", valid=True)
+    return AIMBOMValidationResponse(
+        detail="AIMBOM validation completed",
+        model_uuid=uuid,
+        model_version=version,
+        status="VALID",
+    )

@@ -369,12 +369,23 @@ async def get_validation(url: str = VALIDATION_URL):
         return await ac.get(url)
 
 
+def assert_invalid(response):
+    assert response.json()["status"] == "INVALID"
+    assert response.json()["model_uuid"] == MODEL_UUID
+    assert response.json()["model_version"] == MODEL_VERSION
+
+
 @pytest.mark.anyio
 async def test_validate_aimbom_valid():
     response = await get_validation()
 
     assert response.status_code == 200
-    assert response.json() == {"detail": "AIMBOM is valid", "valid": True}
+    assert response.json() == {
+        "detail": "AIMBOM validation completed",
+        "model_uuid": MODEL_UUID,
+        "model_version": MODEL_VERSION,
+        "status": "VALID",
+    }
 
 
 @pytest.mark.anyio
@@ -391,7 +402,7 @@ async def test_validate_aimbom_invalid_aimbom_schema(get_mock_storage):
     response = await get_validation()
 
     assert response.status_code == 200
-    assert response.json()["valid"] is False
+    assert_invalid(response)
     assert "aimbom" in response.json()["detail"]
 
 
@@ -402,7 +413,7 @@ async def test_validate_aimbom_invalid_report(get_mock_storage):
     response = await get_validation()
 
     assert response.status_code == 200
-    assert response.json()["valid"] is False
+    assert_invalid(response)
     assert "risk_report" in response.json()["detail"]
 
 
@@ -413,7 +424,7 @@ async def test_validate_aimbom_missing_report(get_mock_storage):
     response = await get_validation()
 
     assert response.status_code == 200
-    assert response.json()["valid"] is False
+    assert_invalid(response)
 
 
 @pytest.mark.anyio
@@ -425,7 +436,7 @@ async def test_validate_aimbom_wrong_reference(get_mock_storage):
     response = await get_validation()
 
     assert response.status_code == 200
-    assert response.json()["valid"] is False
+    assert_invalid(response)
     assert "references" in response.json()["detail"]
 
 

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -41,4 +43,8 @@ class StatusResponse(BaseModel):
 
 class AIMBOMValidationResponse(BaseModel):
     detail: str
-    valid: bool
+    model_uuid: str = Field(..., min_length=1)
+    model_version: str = Field(..., min_length=1)
+    status: Literal["VALID", "INVALID"] = Field(
+        ..., description="Validation status of the AIMBOM."
+    )
