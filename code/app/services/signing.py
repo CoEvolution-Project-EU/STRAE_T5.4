@@ -120,21 +120,22 @@ def get_certificate() -> x509.Certificate:
 
 def get_certificate_path(cert: x509.Certificate | None = None) -> list[str]:
     """
-    Get the base64-encoded DER representation of the certificate.
+    Get the JSF `certificatePath` of the certificate: its DER encoding as
+    unpadded base64url, like every JSF `byte[]` value.
 
     Args:
         cert: Certificate to encode. Defaults to the current
             `get_certificate()` value if not given.
 
     Returns:
-        list[str]: A list containing the base64-encoded DER representation of the certificate.
+        list[str]: A list containing the base64url DER encoding of the certificate.
     """
 
     if cert is None:
         cert = get_certificate()
 
     der_bytes = cert.public_bytes(serialization.Encoding.DER)
-    return [base64.b64encode(der_bytes).decode()]
+    return [base64.urlsafe_b64encode(der_bytes).rstrip(b"=").decode("ascii")]
 
 
 def validate_signing_material(
@@ -163,17 +164,17 @@ def validate_signing_material(
 
 
 def sign_data(private_key: ec.EllipticCurvePrivateKey, data: bytes) -> str:
-    """Sign provided bytes using ES256 and return base64(raw_r|raw_s).
+    """Sign provided bytes using ES256 and return base64url(raw_r|raw_s).
 
-    Produces a raw concatenated r||s signature encoded in base64 which is
-    commonly used in JOSE-style signatures.
+    Produces a raw concatenated r||s signature encoded as unpadded base64url,
+    as JWA (RFC 7518) and JSF require.
 
     Args:
         private_key: An ECDSA private key for signing.
         data: The bytes to sign.
 
     Returns:
-        A base64-encoded string of the raw r||s signature.
+        An unpadded base64url string of the raw r||s signature.
     """
 
     if not isinstance(private_key.curve, ec.SECP256R1):
@@ -231,7 +232,7 @@ def sign_report(report: Dict) -> Dict:
 
 
 def decode_base64url(value: str) -> bytes:
-    """Decode unpadded base64url, the encoding `sign_data` produces.
+    """Decode unpadded base64url, the encoding JSF uses for binary values.
 
     Args:
         value: The base64url string, with or without padding.
@@ -325,7 +326,9 @@ def verify_report(report: Dict) -> None:
         raise SignatureVerificationError("Signature has no certificate")
 
     try:
-        cert = x509.load_der_x509_certificate(base64.b64decode(cert_path[0]))
+        # JSF uses base64url. Standard base64 also decodes, so certificates
+        # signed before STRAE switched to base64url still verify.
+        cert = x509.load_der_x509_certificate(decode_base64url(cert_path[0]))
     except ValueError as e:
         raise SignatureVerificationError(f"Invalid signing certificate: {e}") from e
 

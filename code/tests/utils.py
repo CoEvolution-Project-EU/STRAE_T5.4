@@ -14,6 +14,7 @@ from tests.mock_storage import MockStorageClient
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "data/reports"
 AIMBOMS_DIR = Path(__file__).resolve().parent.parent / "data/aimboms"
+JSF_DIR = Path(__file__).resolve().parent.parent / "data/jsf"
 MODEL_UUID = "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
 MODEL_VERSION = "1.0"
 
@@ -178,7 +179,7 @@ def verify_es256_signature(
 def get_public_key_from_certificate_path(
     certificate_path: list[str],
 ) -> ec.EllipticCurvePublicKey:
-    cert_der = base64.b64decode(certificate_path[0])
+    cert_der = decode_base64url(certificate_path[0])
 
     certificate = x509.load_der_x509_certificate(cert_der)
 

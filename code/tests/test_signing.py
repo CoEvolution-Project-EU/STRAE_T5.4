@@ -2,7 +2,9 @@ import base64
 import os
 from datetime import datetime, timedelta, timezone
 
+import jcs
 import pytest
+from app.core.config import settings
 from app.services.signing import (
     SignatureVerificationError,
     SigningError,
@@ -22,6 +24,7 @@ from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from cryptography.x509.oid import NameOID
 
 from tests.utils import (
+    JSF_DIR,
     REPORTS_DIR,
     decode_base64url,
     load_json,
@@ -68,15 +71,19 @@ def _bump_mtime(path):
     os.utime(path, (new_mtime, new_mtime))
 
 
-def test_get_certificate_path_returns_base64_der():
+def test_get_certificate_path_returns_base64url_der():
     certificate_path = get_certificate_path()
 
     assert isinstance(certificate_path, list)
     assert len(certificate_path) == 1
 
-    der_bytes = base64.b64decode(certificate_path[0])
-    assert isinstance(der_bytes, bytes)
-    assert len(der_bytes) > 0
+    # JSF encodes binary values as unpadded base64url.
+    assert not set("+/=") & set(certificate_path[0])
+
+    der_bytes = decode_base64url(certificate_path[0])
+    with open(settings.SIGNING_CERTIFICATE_PATH, "rb") as f:
+        expected = x509.load_pem_x509_certificate(f.read())
+    assert x509.load_der_x509_certificate(der_bytes) == expected
 
 
 def test_validate_signing_material_passes_for_matching_pair():
@@ -213,6 +220,41 @@ def test_verify_report_rejects_der_encoded_signature():
 
     with pytest.raises(SignatureVerificationError, match="must be 64 bytes"):
         verify_report(signed_report)
+
+
+def test_verify_report_accepts_standard_base64_certificate():
+    # Reports signed before the switch to base64url still verify.
+    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
+    report.pop("signature")
+    certificate = decode_base64url(get_certificate_path()[0])
+    report["signature"] = {
+        "algorithm": "ES256",
+        "certificatePath": [base64.b64encode(certificate).decode()],
+    }
+    report["signature"]["value"] = sign_data(
+        get_private_key(), jcs.canonicalize(report)
+    )
+
+    verify_report(report)
+
+
+# ============ JSF specification example ============
+#
+# `p256#es256@cer.json` from https://cyberphone.github.io/doc/security/jsf.html:
+# an ES256 signature with a certificatePath, signed with the specification's
+# P-256 test key.
+
+
+def test_verify_report_accepts_jsf_specification_example():
+    verify_report(load_json(JSF_DIR / "p256_es256_certificate_path.json"))
+
+
+def test_verify_report_rejects_modified_jsf_specification_example():
+    example = load_json(JSF_DIR / "p256_es256_certificate_path.json")
+    example["name"] = "Jane"
+
+    with pytest.raises(SignatureVerificationError, match="does not match"):
+        verify_report(example)
 
 
 # ============ load_if_changed: hot-reload on file change ============
