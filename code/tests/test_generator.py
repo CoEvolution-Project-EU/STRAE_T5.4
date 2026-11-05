@@ -134,6 +134,30 @@ async def test_invalid_report_data():
 
 
 @pytest.mark.anyio
+async def test_tampered_report_signature_is_rejected():
+    storage = create_new_mock_storage()
+    risk_report_url = f"reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report.json"
+    storage.data[risk_report_url]["metadata"]["timestamp"] = "2000-01-01T00:00:00Z"
+
+    generator = AIMBOMGenerator(storage)
+
+    with pytest.raises(GeneratorInvalidReportError, match="invalid signature"):
+        await generator.generate(
+            GenerationMetadata(**get_generation_metadata(MODEL_UUID, MODEL_VERSION)),
+        )
+
+
+def test_validate_aimbom_raises_generation_error_on_invalid_signature():
+    generator = AIMBOMGenerator(create_empty_mock_storage())
+
+    aimbom = AIMBOM(**load_json(AIMBOMS_DIR / "aimbom.json"))
+    aimbom.version = 2  # No longer matches its signature
+
+    with pytest.raises(GeneratorGenerationError, match="invalid signature"):
+        generator._validate_aimbom(aimbom)
+
+
+@pytest.mark.anyio
 async def test_signing_material_mismatch_raises_signing_error():
     """A signing key/certificate mismatch (e.g. caught mid-rotation) is a
     distinct failure from a malformed report: it reflects the state of the

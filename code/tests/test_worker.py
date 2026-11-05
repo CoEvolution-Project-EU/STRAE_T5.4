@@ -2,6 +2,9 @@ from functools import partial
 from unittest.mock import AsyncMock
 
 import pytest
+from aiokafka import TopicPartition
+from app.consumers.generation import handle_generation_event
+from app.consumers.signing import handle_signing_event
 from app.core.config import settings
 from app.models.requests import GenerationMetadata, SigningMetadata
 from app.services.generator import (
@@ -20,9 +23,6 @@ from app.services.report_signer import (
     ReportSignerUploadRejectedError,
     SigningResult,
 )
-from aiokafka import TopicPartition
-from app.consumers.generation import handle_generation_event
-from app.consumers.signing import handle_signing_event
 from app.worker import _deserialize, consume_messages
 
 from tests.utils import (
@@ -70,7 +70,6 @@ class FakeConsumer:
 
     async def commit(self, offsets):
         self.commits.append(offsets)
-
 
 
 async def run_generation(consumer, generator):
@@ -390,7 +389,10 @@ async def test_commit_only_covers_the_message_partition():
 async def test_failed_message_does_not_block_subsequent_message():
     metadata = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
     consumer = FakeConsumer(
-        [base_event(reports=metadata["reports"]), base_event(reports=metadata["reports"])]
+        [
+            base_event(reports=metadata["reports"]),
+            base_event(reports=metadata["reports"]),
+        ]
     )
     generator = make_generator()
     generator.generate.side_effect = [
@@ -504,4 +506,3 @@ async def test_signing_error_is_committed(error):
     await run_signing(consumer, signer)
 
     assert consumer.commit_calls == 1
-

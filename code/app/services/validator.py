@@ -207,22 +207,6 @@ def validate_report(
             invalid.
     """
 
-    # Verified on the raw report: the model may drop or reformat fields,
-    # which would change the signed content.
-    # NOTE: Signatures are checked for integrity only. Whether the signing
-    # certificates are trusted (authenticity) is not checked yet.
-    try:
-        signing.verify_report(raw_report)
-    except signing.SignatureVerificationError as e:
-        logger.warning(
-            "Signature verification failed for report %s: %s",
-            report_type.value,
-            str(e),
-        )
-        raise ValidatorSignatureError(
-            f"Report {report_type.value} has an invalid signature: {str(e)}"
-        ) from e
-
     try:
         # Generic CycloneDX validation
         cyclonedx_validation.cdx_validate_dict(raw_report)
@@ -248,6 +232,22 @@ def validate_report(
         )
         raise ValidatorSchemaValidationError(
             f"Report {report_type.value} is invalid: {str(e)}"
+        ) from e
+
+    # Verified on the raw report: the model may drop or reformat fields,
+    # which would change the signed content.
+    # NOTE: Signatures are checked for integrity only. Whether the signing
+    # certificates are trusted (authenticity) is not checked yet.
+    try:
+        signing.verify_report(raw_report)
+    except signing.SignatureVerificationError as e:
+        logger.warning(
+            "Signature verification failed for report %s: %s",
+            report_type.value,
+            str(e),
+        )
+        raise ValidatorSignatureError(
+            f"Report {report_type.value} has an invalid signature: {str(e)}"
         ) from e
 
     return report

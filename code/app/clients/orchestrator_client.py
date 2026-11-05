@@ -1,6 +1,8 @@
+import asyncio
 import json
 import logging
 from typing import Dict, Tuple
+from urllib.parse import quote
 
 import httpx
 from fastapi.encoders import jsonable_encoder
@@ -12,6 +14,7 @@ from app.clients.storage_client import (
     StorageConflictError,
     StorageConnectionError,
     StorageInvalidFileError,
+    StorageNotFoundError,
     StorageOperationError,
 )
 from app.core.auth import OrchestratorAuth
@@ -19,7 +22,7 @@ from app.core.config import settings
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
 from app.models.storage import UploadReportMetadata
-from app.utils.utils import uuid_from_serial_number
+from app.utils.utils import ReportType, uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +218,126 @@ class OrchestratorClient:
         model_uuid: str,
         model_version: str,
     ) -> Tuple[Dict, Dict[str, Dict]]:
-        pass
+        """Retrieve a model version's latest AIMBOM and latest signed reports.
+
+        Asks the orchestrator's `GET /models/{uuid}/versions/{version}/latest`
+        endpoint for the files, then downloads them concurrently. Report
+        types the orchestrator lists as missing are left out of the result.
+
+        Args:
+            model_uuid: The UUID of the model.
+            model_version: The version of the model.
+
+        Returns:
+            The AIMBOM, and a mapping of report type value (e.g. `risk_report`)
+            to report, as in `get_reports_for_model`. Each file is parsed JSON.
+
+        Raises:
+            StorageNotFoundError: If the model version does not exist or has
+                no AIMBOM.
+            StorageConnectionError: On connection issues or 5xx responses.
+            StorageInvalidFileError: If a response is not the expected JSON.
+            StorageOperationError: On other non-2xx HTTP responses.
+        """
+
+        logger.info(
+            "Retrieving latest AIMBOM for model_uuid=%s model_version=%s",
+            model_uuid,
+            model_version,
+        )
+
+        latest = await self._get_latest_files(model_uuid, model_version)
+
+        files = latest.get("reports")
+        if not isinstance(files, dict):
+            raise StorageInvalidFileError(
+                "Orchestrator response for the latest files has no 'reports'"
+            )
+
+        aimbom_file = files.get("aimbom_report")
+        if not aimbom_file:
+            raise StorageNotFoundError(
+                f"No AIMBOM found for model_uuid='{model_uuid}', "
+                f"model_version='{model_version}'"
+            )
+
+        report_urls = {}
+        for report_type in ReportType:
+            report_file = files.get(report_type.value)
+            if not report_file:
+                logger.warning(
+                    "No %s for model_uuid=%s model_version=%s",
+                    report_type.value,
+                    model_uuid,
+                    model_version,
+                )
+                continue
+            report_urls[report_type.value] = report_file["download_url"]
+
+        aimbom, *downloaded_reports = await asyncio.gather(
+            self.get_file_from_url(aimbom_file["download_url"]),
+            *(self.get_file_from_url(url) for url in report_urls.values()),
+        )
+        # `gather` keeps the order of its arguments, so the reports line up
+        # with `report_urls`.
+        reports = dict(zip(report_urls, downloaded_reports))
+
+        logger.info(
+            "Retrieved AIMBOM and %d reports for model_uuid=%s model_version=%s",
+            len(reports),
+            model_uuid,
+            model_version,
+        )
+
+        return aimbom, reports
+
+    async def _get_latest_files(self, model_uuid: str, model_version: str) -> Dict:
+        """Get the orchestrator's latest files of a model version.
+
+        Args:
+            model_uuid: The UUID of the model.
+            model_version: The version of the model.
+
+        Returns:
+            The parsed response of `GET /models/{uuid}/versions/{version}/latest`.
+
+        Raises:
+            StorageNotFoundError: If the model version does not exist or has
+                no AIMBOM.
+            StorageConnectionError: On connection issues or 5xx responses.
+            StorageInvalidFileError: If a response is not the expected JSON.
+            StorageOperationError: On other non-2xx HTTP responses.
+        """
+
+        url = (
+            f"/models/{quote(model_uuid, safe='')}"
+            f"/versions/{quote(model_version, safe='')}/latest"
+        )
+
+        try:
+            response = await self.client.get(url)
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as e:
+            logger.error("Connection error while getting %s: %s", url, e)
+            raise StorageConnectionError(str(e)) from e
+        except httpx.HTTPStatusError as e:
+            status_code = e.response.status_code
+            logger.error("Getting %s failed with status_code=%s", url, status_code)
+            if status_code == httpx.codes.NOT_FOUND:
+                raise StorageNotFoundError(
+                    f"Model not found: model_uuid='{model_uuid}', "
+                    f"model_version='{model_version}'"
+                ) from e
+            if status_code >= 500:
+                raise StorageConnectionError(
+                    f"Orchestrator returned {status_code}"
+                ) from e
+            raise StorageOperationError(f"Orchestrator returned {status_code}") from e
+        except ValueError as e:
+            raise StorageInvalidFileError(
+                f"Orchestrator response for '{url}' is not valid JSON: {e}"
+            ) from e
 
     async def _upload_file(
         self,

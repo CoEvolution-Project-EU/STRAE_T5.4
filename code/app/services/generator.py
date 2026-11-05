@@ -380,12 +380,14 @@ class AIMBOMGenerator:
             A mapping of `ReportType` to validated `ReportModel` instances.
 
         Raises:
-            GeneratorInvalidReportError: When report validation fails.
+            GeneratorInvalidReportError: When a report fails schema validation
+                or has a missing or invalid signature.
         """
 
         try:
             return validator.validate_reports(raw_reports, report_types)
-        except validator.ValidatorSchemaValidationError as e:
+        # Base class of the schema and signature errors.
+        except validator.ValidatorInvalidAIMBOMError as e:
             raise GeneratorInvalidReportError(str(e)) from e
 
     def _validate_aimbom(self, aimbom: AIMBOM) -> None:
@@ -395,7 +397,7 @@ class AIMBOMGenerator:
             aimbom: The `AIMBOM` instance to validate.
 
         Raises:
-            GeneratorGenerationError: If validation fails.
+            GeneratorGenerationError: If schema or signature validation fails.
         """
 
         try:
@@ -404,7 +406,8 @@ class AIMBOMGenerator:
                 BOMType.AIMBOM, jsonable_encoder(aimbom, exclude_none=True)
             )
             logger.debug("AIMBOM validation successful")
-        except validator.ValidatorSchemaValidationError as e:
+        # Base class of the schema and signature errors.
+        except validator.ValidatorInvalidAIMBOMError as e:
             logger.error("AIMBOM validation failed: %s", str(e))
             raise GeneratorGenerationError(
                 f"Generated AIMBOM is invalid: {str(e)}"
