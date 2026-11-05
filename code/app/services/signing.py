@@ -8,9 +8,13 @@ from typing import Callable, Dict, TypeVar
 
 import jcs  # RFC8785 canonicalization
 from cryptography import x509
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
+from cryptography.hazmat.primitives.asymmetric.utils import (
+    decode_dss_signature,
+    encode_dss_signature,
+)
 
 from app.core.config import settings
 
@@ -21,6 +25,10 @@ T = TypeVar("T")
 
 class SigningError(RuntimeError):
     """Raised when the signing key and certificate do not match."""
+
+
+class SignatureVerificationError(ValueError):
+    """Raised when a signed report's signature is missing, malformed or invalid."""
 
 
 def load_if_changed(path: str) -> Callable[[Callable[[], T]], Callable[[], T]]:
@@ -220,3 +228,114 @@ def sign_report(report: Dict) -> Dict:
 
     logger.debug("Report signed successfully")
     return report
+
+
+def decode_base64url(value: str) -> bytes:
+    """Decode unpadded base64url, the encoding `sign_data` produces.
+
+    Args:
+        value: The base64url string, with or without padding.
+
+    Returns:
+        The decoded bytes.
+    """
+
+    padding = "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode(value + padding)
+
+
+def verify_data(
+    public_key: ec.EllipticCurvePublicKey, data: bytes, signature_value: str
+) -> None:
+    """Verify an ES256 signature produced by `sign_data`.
+
+    Args:
+        public_key: The ECDSA public key to verify with.
+        data: The signed bytes.
+        signature_value: The base64url raw r||s signature.
+
+    Raises:
+        SignatureVerificationError: If the signature is malformed or does not
+            match the data and key.
+    """
+
+    if not isinstance(public_key.curve, ec.SECP256R1):
+        raise SignatureVerificationError("ES256 requires a P-256 key")
+
+    try:
+        raw_signature = decode_base64url(signature_value)
+    except ValueError as e:
+        raise SignatureVerificationError(
+            f"Signature value is not valid base64url: {e}"
+        ) from e
+
+    if len(raw_signature) != 64:
+        raise SignatureVerificationError(
+            f"ES256 signature must be 64 bytes, got {len(raw_signature)}"
+        )
+
+    # Convert raw r|s format back to DER
+    r = int.from_bytes(raw_signature[:32], "big")
+    s = int.from_bytes(raw_signature[32:], "big")
+
+    try:
+        public_key.verify(
+            encode_dss_signature(r, s), data, ec.ECDSA(hashes.SHA256())
+        )
+    except InvalidSignature as e:
+        raise SignatureVerificationError("Signature does not match") from e
+
+
+def verify_report(report: Dict) -> None:
+    """
+    Verify the ES256 signature of a CycloneDX report signed by `sign_report`.
+
+    The signature is checked against the public key of the first
+    certificate in `signature.certificatePath`, over the RFC8785 canonical
+    JSON of the report without `signature.value`. This checks integrity
+    only: whether the certificate is trusted is not checked.
+
+    Args:
+        report (dict): The signed CycloneDX report.
+
+    Raises:
+        SignatureVerificationError: If the signature is missing, malformed or
+            invalid.
+    """
+
+    logger.debug("Starting report signature verification")
+
+    report = copy.deepcopy(report)
+
+    signature = report.get("signature")
+    if not isinstance(signature, dict):
+        raise SignatureVerificationError("Report is not signed")
+
+    if signature.get("algorithm") != "ES256":
+        raise SignatureVerificationError(
+            f"Unsupported signature algorithm: {signature.get('algorithm')!r}"
+        )
+
+    signature_value = signature.pop("value", None)
+    if not isinstance(signature_value, str):
+        raise SignatureVerificationError("Signature has no value")
+
+    cert_path = signature.get("certificatePath")
+    if not isinstance(cert_path, list) or not cert_path:
+        raise SignatureVerificationError("Signature has no certificate")
+
+    try:
+        cert = x509.load_der_x509_certificate(base64.b64decode(cert_path[0]))
+    except ValueError as e:
+        raise SignatureVerificationError(f"Invalid signing certificate: {e}") from e
+
+    public_key = cert.public_key()
+    if not isinstance(public_key, ec.EllipticCurvePublicKey):
+        raise SignatureVerificationError("Signing certificate is not an EC key")
+
+    # Canonicalize JSON (RFC8785), without the signature value, as when signing
+    canonical_json = jcs.canonicalize(report)
+
+    verify_data(public_key, canonical_json, signature_value)
+
+    logger.debug("Report signature verified successfully")

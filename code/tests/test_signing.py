@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from app.services.signing import (
+    SignatureVerificationError,
     SigningError,
     get_certificate_path,
     get_private_key,
@@ -11,11 +12,13 @@ from app.services.signing import (
     sign_data,
     sign_report,
     validate_signing_material,
+    verify_report,
 )
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from cryptography.x509.oid import NameOID
 
 from tests.utils import (
@@ -145,6 +148,71 @@ def test_modified_report_fails_signature_verification():
 
     with pytest.raises(InvalidSignature):
         verify_signature(signed_report)
+
+
+# ============ verify_report ============
+
+
+def test_verify_report_accepts_signed_report():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+
+    verify_report(signed_report)
+
+
+def test_verify_report_rejects_modified_report():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    signed_report["metadata"] = "tampered"
+
+    with pytest.raises(SignatureVerificationError, match="does not match"):
+        verify_report(signed_report)
+
+
+def test_verify_report_rejects_unsigned_report():
+    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
+    report.pop("signature")
+
+    with pytest.raises(SignatureVerificationError, match="not signed"):
+        verify_report(report)
+
+
+def test_verify_report_rejects_unsupported_algorithm():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    signed_report["signature"]["algorithm"] = "RS256"
+
+    with pytest.raises(SignatureVerificationError, match="Unsupported"):
+        verify_report(signed_report)
+
+
+def test_verify_report_rejects_missing_certificate():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    signed_report["signature"]["certificatePath"] = []
+
+    with pytest.raises(SignatureVerificationError, match="no certificate"):
+        verify_report(signed_report)
+
+
+def test_verify_report_rejects_signature_from_other_key():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    _, _, other_cert_bytes = _generate_key_and_cert_bytes()
+    other_cert = x509.load_pem_x509_certificate(other_cert_bytes)
+    signed_report["signature"]["certificatePath"] = get_certificate_path(other_cert)
+
+    with pytest.raises(SignatureVerificationError, match="does not match"):
+        verify_report(signed_report)
+
+
+def test_verify_report_rejects_der_encoded_signature():
+    # A valid signature, but base64 DER instead of base64url raw r||s.
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    raw_signature = decode_base64url(signed_report["signature"]["value"])
+    der_signature = encode_dss_signature(
+        int.from_bytes(raw_signature[:32], "big"),
+        int.from_bytes(raw_signature[32:], "big"),
+    )
+    signed_report["signature"]["value"] = base64.b64encode(der_signature).decode()
+
+    with pytest.raises(SignatureVerificationError, match="must be 64 bytes"):
+        verify_report(signed_report)
 
 
 # ============ load_if_changed: hot-reload on file change ============

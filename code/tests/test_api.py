@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from app.clients.storage_client import (
@@ -360,6 +360,7 @@ async def test_deprecate_aimbom_with_gadgets_report_success():
 
 VALIDATION_URL = f"/api/validation/{MODEL_UUID}/{MODEL_VERSION}"
 AIMBOM_URL = f"aimboms/{MODEL_UUID}/{MODEL_VERSION}/aimbom.json"
+RISK_REPORT_URL = f"{REPORT_URL}/risk_report.json"
 
 
 async def get_validation(url: str = VALIDATION_URL):
@@ -370,13 +371,14 @@ async def get_validation(url: str = VALIDATION_URL):
 
 
 def assert_invalid(response):
+    assert response.status_code == 200
     assert response.json()["status"] == "INVALID"
     assert response.json()["model_uuid"] == MODEL_UUID
     assert response.json()["model_version"] == MODEL_VERSION
 
 
 @pytest.mark.anyio
-async def test_validate_aimbom_valid():
+async def test_validate_aimbom_valid(get_mock_storage):
     response = await get_validation()
 
     assert response.status_code == 200
@@ -401,29 +403,26 @@ async def test_validate_aimbom_invalid_aimbom_schema(get_mock_storage):
 
     response = await get_validation()
 
-    assert response.status_code == 200
     assert_invalid(response)
-    assert "aimbom" in response.json()["detail"]
+    assert "aimbom is invalid" in response.json()["detail"]
 
 
 @pytest.mark.anyio
 async def test_validate_aimbom_invalid_report(get_mock_storage):
-    get_mock_storage.data[f"{REPORT_URL}/risk_report.json"] = {}
+    get_mock_storage.data[RISK_REPORT_URL] = {}
 
     response = await get_validation()
 
-    assert response.status_code == 200
     assert_invalid(response)
-    assert "risk_report" in response.json()["detail"]
+    assert "risk_report is invalid" in response.json()["detail"]
 
 
 @pytest.mark.anyio
 async def test_validate_aimbom_missing_report(get_mock_storage):
-    del get_mock_storage.data[f"{REPORT_URL}/risk_report.json"]
+    del get_mock_storage.data[RISK_REPORT_URL]
 
     response = await get_validation()
 
-    assert response.status_code == 200
     assert_invalid(response)
 
 
@@ -433,11 +432,45 @@ async def test_validate_aimbom_wrong_reference(get_mock_storage):
         "urn:cdx:00000000-0000-0000-0000-000000000000/1"
     )
 
+    # Skip signature verification, so the edited AIMBOM fails on the
+    # reference and not on its signature.
+    with patch("app.services.validator.signing.verify_report"):
+        response = await get_validation()
+
+    assert_invalid(response)
+    assert "AIMBOM references" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_tampered_aimbom(get_mock_storage):
+    get_mock_storage.data[AIMBOM_URL]["version"] = 2
+
     response = await get_validation()
 
-    assert response.status_code == 200
     assert_invalid(response)
-    assert "references" in response.json()["detail"]
+    assert "aimbom has an invalid signature" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_tampered_report(get_mock_storage):
+    get_mock_storage.data[RISK_REPORT_URL]["metadata"]["timestamp"] = (
+        "2000-01-01T00:00:00Z"
+    )
+
+    response = await get_validation()
+
+    assert_invalid(response)
+    assert "risk_report has an invalid signature" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_unsigned_aimbom(get_mock_storage):
+    get_mock_storage.data[AIMBOM_URL].pop("signature")
+
+    response = await get_validation()
+
+    assert_invalid(response)
+    assert "aimbom has an invalid signature" in response.json()["detail"]
 
 
 @pytest.mark.anyio
@@ -449,4 +482,3 @@ async def test_validate_aimbom_storage_unavailable(get_mock_storage):
     response = await get_validation()
 
     assert response.status_code == 503
-

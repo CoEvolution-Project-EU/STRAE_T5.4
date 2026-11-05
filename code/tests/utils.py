@@ -46,9 +46,9 @@ def create_new_mock_storage():
         f"reports/{MODEL_UUID}/{MODEL_VERSION}/assessment_report_updated.json"
     ] = load_json(REPORTS_DIR / "assessment_report_updated.json")
 
-    storage.data[
-        f"reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report_updated.json"
-    ] = load_json(REPORTS_DIR / "risk_report_updated.json")
+    storage.data[f"reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report_updated.json"] = (
+        load_json(REPORTS_DIR / "risk_report_updated.json")
+    )
 
     storage.data[
         f"reports/{MODEL_UUID}/{MODEL_VERSION}/gadgets_report_updated.json"

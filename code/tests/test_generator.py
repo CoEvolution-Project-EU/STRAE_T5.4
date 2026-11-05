@@ -237,7 +237,7 @@ def test_validate_aimbom_raises_generation_error_on_invalid_schema():
     aimbom = AIMBOM(**load_json(AIMBOMS_DIR / "aimbom.json"))
 
     with patch(
-        "app.services.validator.cdx_validate_dict",
+        "app.services.cyclonedx_validation.cdx_validate_dict",
         side_effect=ValueError("CycloneDX validation failed"),
     ):
         with pytest.raises(GeneratorGenerationError):

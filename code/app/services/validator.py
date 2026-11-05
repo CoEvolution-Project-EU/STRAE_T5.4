@@ -12,7 +12,7 @@ from app.clients.storage_client import (
     get_storage_client,
 )
 from app.models.aimbom import AIMBOM
-from app.services.cyclonedx_validation import cdx_validate_dict
+from app.services import cyclonedx_validation, signing
 from app.utils.utils import (
     COMMENT_TO_REPORT,
     DOCUMENT_MODELS,
@@ -43,6 +43,14 @@ class ValidatorInvalidAIMBOMError(ValidatorError):
 
 class ValidatorSchemaValidationError(ValidatorInvalidAIMBOMError):
     """Raised when a report fails schema validation."""
+
+    pass
+
+
+class ValidatorSignatureError(ValidatorInvalidAIMBOMError):
+    """Raised when the signature of the AIMBOM or a report is missing,
+    malformed or invalid.
+    """
 
     pass
 
@@ -114,8 +122,6 @@ class AIMBOMValidator:
 
         # Check that the AIMBOM references exactly the given reports.
         check_links(aimbom, reports)
-
-        # NOTE: For now do not check siganture authenticity. This will be implemented in a future update.
 
         logger.info(
             "AIMBOM is valid for model_uuid=%s, model_version=%s",
@@ -197,17 +203,33 @@ def validate_report(
 
     Raises:
         ValidatorSchemaValidationError: When report validation fails.
+        ValidatorSignatureError: When the signature is missing, malformed or
+            invalid.
     """
 
-    # TODO: Validate signature of the AIMBOM/report.
+    # Verified on the raw report: the model may drop or reformat fields,
+    # which would change the signed content.
+    # NOTE: Signatures are checked for integrity only. Whether the signing
+    # certificates are trusted (authenticity) is not checked yet.
+    try:
+        signing.verify_report(raw_report)
+    except signing.SignatureVerificationError as e:
+        logger.warning(
+            "Signature verification failed for report %s: %s",
+            report_type.value,
+            str(e),
+        )
+        raise ValidatorSignatureError(
+            f"Report {report_type.value} has an invalid signature: {str(e)}"
+        ) from e
 
     try:
         # Generic CycloneDX validation
-        cdx_validate_dict(raw_report)
+        cyclonedx_validation.cdx_validate_dict(raw_report)
 
         # Schema-specific validation
         model_cls = DOCUMENT_MODELS[report_type]
-        return model_cls.model_validate(raw_report)
+        report = model_cls.model_validate(raw_report)
     # `ValidationError` is a subclass of `ValueError`, so it must come first.
     except ValidationError as e:
         logger.warning(
@@ -227,6 +249,8 @@ def validate_report(
         raise ValidatorSchemaValidationError(
             f"Report {report_type.value} is invalid: {str(e)}"
         ) from e
+
+    return report
 
 
 def validate_reports(
@@ -249,6 +273,8 @@ def validate_reports(
 
     Raises:
         ValidatorSchemaValidationError: When report validation fails.
+        ValidatorSignatureError: When a signature is missing, malformed or
+            invalid.
     """
 
     reports: Dict[ReportType, ReportModel] = {}
