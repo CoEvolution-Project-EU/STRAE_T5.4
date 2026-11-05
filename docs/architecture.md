@@ -24,6 +24,44 @@ When a model UUID and version already has an AIMBOM associated with it, STRAE do
 
 This allows the CoEvolution Hub to keep a single AIMBOM lineage per model, with each update producing a new version rather than a disconnected artifact.
 
+### Report Validation
+
+Every report used for generation, and the generated AIMBOM itself, is validated by `services/validator.py` in this order:
+
+1. **CycloneDX schema:** the document is validated against the CycloneDX 1.7 JSON schema.
+2. **Report model:** the document is validated against the Pydantic model of its report type (or the `AIMBOM` model).
+3. **Signature:** the document must be signed with `ES256`. The signature is verified over the RFC 8785 (JCS) canonical JSON of the document without `signature.value`, using the public key of the first certificate in `signature.certificatePath`.
+
+Signatures are currently checked for integrity only: whether the signing certificate is trusted is not checked yet.
+
+If an input report fails any of these checks, generation is rejected (`422` from `/api/generate`; the Kafka event is logged and committed). If the generated AIMBOM fails them, generation fails with an internal error.
+
+## AIMBOM Validation
+
+`GET /api/validation/{uuid}/{version}` checks the AIMBOM of a model version and the reports it references. The AIMBOM and its reports are fetched from the storage backend:
+
+- **Orchestrator:** `GET /models/{uuid}/versions/{version}/latest` returns the latest AIMBOM (`aimbom_report`) and reports of the model version, which are then downloaded concurrently. This endpoint doesn't need authentication. Reports that are `null` are left out.
+- **MinIO:** the first (earliest uploaded) AIMBOM under `<AIMBOMS_BUCKET>/<uuid>/<version>/` and the version 1 reports `<REPORTS_BUCKET>/<uuid>/<version>/<report_type>.json`.
+
+The validator then checks, stopping at the first problem:
+
+1. The AIMBOM passes [report validation](#report-validation) (schema, model and signature).
+2. Every report passes report validation.
+3. The AIMBOM's external references match the reports. Each reference must have a known report type (from its `comment`, e.g. `Risk Assessment`), appear only once, and point at the BOM-Link of that report (`urn:cdx:<report serial number UUID>/<report version>`). Every report must be referenced.
+
+The response has the same format whether the AIMBOM is valid or not:
+
+```json
+{
+  "detail": "AIMBOM validation completed",
+  "model_uuid": "163723c9-173b-4ce2-abc1-4de2b25a7012",
+  "model_version": "v1.0",
+  "status": "VALID"
+}
+```
+
+If a check fails, `status` is `INVALID` and `detail` describes the first problem found, e.g. `Report risk_report has an invalid signature: ...`. An invalid AIMBOM still returns `200`, because the validation itself succeeded.
+
 ## Report Signing
 
 Every report uploaded to the CoEvolution Hub must be signed by STRAE before it reaches its final bucket. The Orchestrator first stores an uploaded report in a pending bucket (`<bucket>-pending`) and publishes a signing request on the `strae_sign_requests` Kafka topic. STRAE then signs the report and uploads the signed copy to the final bucket:
@@ -80,7 +118,8 @@ STRAE is organized as a modular FastAPI application with a clear separation betw
 - API layer: Exposes the public HTTP endpoints and coordinates request validation, business logic, and response formatting.
 - AIMBOM Generator: Consolidates validated report payloads into the structured AIMBOM schema used by STRAE and ensures the final artifact follows the expected format.
 - Report Gathering: Retrieves report payloads from the orchestrator/storage backend, resolves download URLs, and ensures all required source documents are available before generation.
-- Signing: Applies digital signing to reports and generated AIMBOMs as needed, ensuring integrity and provenance for downstream consumers.
+- Signing: Applies digital signing to reports and generated AIMBOMs as needed, and verifies their signatures, ensuring integrity and provenance for downstream consumers.
+- Validator: Validates reports and AIMBOMs (schema, model and signature) for generation, and validates stored AIMBOMs and their references for `/api/validation` (see [AIMBOM Validation](#aimbom-validation)).
 - Report Signer: Downloads the reports of a signing request, signs them and uploads the signed copies to their final bucket (see [Report Signing](#report-signing)).
 - Worker process: Consumes AIMBOM generation and report signing requests from Kafka, decoupling asynchronous execution from the API. The Kafka-specific event handling lives in `app/consumers/`.
 
@@ -88,7 +127,7 @@ STRAE is organized as a modular FastAPI application with a clear separation betw
 
 1. A client submits a generation request through the API with generation metadata: the model UUID and version, a set of report references and, optionally, a reference to a previous AIMBOM for that model.
 2. The application downloads the referenced reports (and the previous AIMBOM, if provided) from the configured storage/orchestrator source.
-3. Each report is validated for schema compliance, completeness, and integrity before being used in AIMBOM generation.
+3. Each report is validated for schema compliance, completeness, and signature integrity before being used in AIMBOM generation (see [Report Validation](#report-validation)).
 4. The generator either builds a new AIMBOM from the validated reports, or, if a previous AIMBOM was supplied, produces an updated version of it that reflects the changed reports. The output is signed in both cases.
 5. The resulting AIMBOM is stored in the Security Assurance Pool.
 
@@ -99,8 +138,13 @@ STRAE is organized as a modular FastAPI application with a clear separation betw
 | `/api/status` | GET | Health check endpoint for the STRAE API | - | Health status and version information |
 | `/api/sign` | POST | Downloads, signs and uploads the files of a signing request (see [Report Signing](#report-signing)) | `signing_metadata`: `model_uuid`, `version`, `target_pool`, `target_bucket`, `files` | Confirmation message, destination, the files of the request (`original_file_id`, `filename`), and the `signed` and `already_signed` counts |
 | `/api/generate` | POST | Generates an AIMBOM for a given model UUID and version by aggregating reports from the configured storage backend, or produces an updated version of an existing AIMBOM when `previous_aimbom` is provided in the `generation_metadata` | `generation_metadata`: `model_uuid`, `version`, `reports` and optionally `previous_aimbom` | Confirmation message, AIMBOM identifier and version |
+| `/api/validation/{uuid}/{version}` | GET | Validates the AIMBOM of a model version and the reports it references (see [AIMBOM Validation](#aimbom-validation)) | `uuid`, `version` (path) | `detail`, `model_uuid`, `model_version` and `status` (`VALID` or `INVALID`) |
 
 `/api/sign` maps errors to status codes as follows: a missing report returns `409`, an invalid file or a rejected upload returns `422`, storage and signing material errors return `503`, and any other error returns `500`.
+
+`/api/generate` maps errors to status codes as follows: a missing report returns `409`, a report that fails validation (schema, model or signature) returns `422`, storage and signing material errors return `503`, and any other error (including a generated AIMBOM that fails validation) returns `500`.
+
+`/api/validation` returns `200` with `status` `INVALID` for an invalid AIMBOM or report. A model version without an AIMBOM returns `404`, an unavailable storage backend returns `503`, and any other error returns `500`.
 
 ## Kafka Worker
 
@@ -124,7 +168,7 @@ AIMBOM generation requests must not be processed again, because that would creat
 Every message is committed once it has been processed, whether it succeeded or not, so a failing message never blocks the queue. Only the message's own partition is committed. Failures are logged and not retried, like in the other CoEvolution components:
 
 - **Invalid payloads** (not JSON, not a JSON object, missing or invalid fields) are logged and skipped.
-- **Errors caused by the request** (e.g. a missing or invalid report) are logged.
+- **Errors caused by the request** (e.g. a missing report, or a report that fails schema validation or has an invalid signature) are logged.
 - **Errors not caused by the request** (storage or connection errors, signing material errors, unexpected errors) are logged as `request dropped`, together with the full event, so the request can be sent again. For signing, the request can also be replayed by resetting the consumer group's offset (see [Deployment](deployment.md#replaying-dropped-signing-requests)).
 
 ### AIMBOM Generation Events
