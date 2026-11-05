@@ -50,7 +50,7 @@ STRAE_T5.4/
 │   │   └── utils/
 │   │       └── utils.py                ← shared helper utilities
 │   ├── tests/                          ← tests folder
-│   ├── data/                           ← data folder with example reports and AIMBOM
+│   ├── data/                           ← example reports, AIMBOM and JSF signature example
 |   ├── requirements.txt                ← app requirements
 |   └── tests.md                        ← tests docs
 ├── docker/

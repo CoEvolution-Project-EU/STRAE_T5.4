@@ -30,7 +30,7 @@ Every report used for generation, and the generated AIMBOM itself, is validated 
 
 1. **CycloneDX schema:** the document is validated against the CycloneDX 1.7 JSON schema.
 2. **Report model:** the document is validated against the Pydantic model of its report type (or the `AIMBOM` model).
-3. **Signature:** the document must be signed with `ES256`. The signature is verified over the RFC 8785 (JCS) canonical JSON of the document without `signature.value`, using the public key of the first certificate in `signature.certificatePath`.
+3. **Signature:** the document must have a valid `ES256` signature in the [signature format](#signature-format) STRAE uses. It is verified with the public key of the first certificate in `signature.certificatePath`.
 
 Signatures are currently checked for integrity only: whether the signing certificate is trusted is not checked yet.
 
@@ -61,6 +61,34 @@ The response has the same format whether the AIMBOM is valid or not:
 ```
 
 If a check fails, `status` is `INVALID` and `detail` describes the first problem found, e.g. `Report risk_report has an invalid signature: ...`. An invalid AIMBOM still returns `200`, because the validation itself succeeded.
+
+## Signature Format
+
+Reports and AIMBOMs are signed following the [JSON Signature Format (JSF)](https://cyberphone.github.io/doc/security/jsf.html), which CycloneDX uses for its `signature` property (`services/signing.py`):
+
+```json
+"signature": {
+  "algorithm": "ES256",
+  "certificatePath": ["MIICiTCCAi-gAwIBAgIU..."],
+  "value": "i_eMUYV8eAtmJ7k6eNacxnn4fM1etnQLlvGAVrSxDvN..."
+}
+```
+
+- `algorithm` is always `ES256` (ECDSA with P-256 and SHA-256).
+- `certificatePath` contains the signing certificate, DER-encoded as unpadded base64url. Only the signing certificate is included, which JSF allows, since the path is not required to be complete.
+- `value` is the raw 64-byte `r||s` signature, as JWA (RFC 7518) defines for `ES256`, encoded as unpadded base64url. It is not a DER/ASN.1 signature.
+
+Signing:
+
+1. Remove any existing `signature` and add `{"algorithm", "certificatePath"}`, without `value`.
+2. Canonicalize the whole document with RFC 8785 (JCS).
+3. Sign the canonical UTF-8 bytes and add the result as `value`.
+
+Verification removes `value`, canonicalizes the document again and verifies the signature over those bytes. Any change to the document after signing, including to `algorithm` or `certificatePath`, invalidates the signature. Key order and whitespace don't, since JCS normalizes them.
+
+For compatibility with documents signed before STRAE followed JSF, `certificatePath` entries in standard base64 are also accepted when verifying. The optional JSF properties `publicKey`, `keyId`, `extensions` and `excludes` are not supported.
+
+The JSF specification's `ES256` example with a certificate path (`code/data/jsf/p256_es256_certificate_path.json`) is part of the tests, to check that STRAE verifies signatures produced by other JSF implementations.
 
 ## Report Signing
 
@@ -99,7 +127,7 @@ A signing request has the same format on the Kafka topic and on the `/api/sign` 
 For each entry in `files`, the Report Signer (`services/report_signer.py`):
 
 1. Downloads the file from its `download_url`. The file must be a JSON object.
-2. Signs it with the configured signing key and certificate.
+2. Signs it with the configured signing key and certificate (see [Signature Format](#signature-format)).
 3. Uploads the signed copy to `target_pool` / `target_bucket` for `model_uuid` / `version`, with `original_file_id` set to the file's `_id`. Each file is uploaded in its own request.
 
 How the outcome of each file is handled:
