@@ -4,7 +4,7 @@
 
 Status: In Progress
 
-Last Updated: 05/11/2026
+Last Updated: 06/11/2026
 
 Comments: AIMBOM generation, AIMBOM deprecation and signing are complete. Report signing for the Orchestrator's `strae_sign_requests` topic is in progress (#42). AIMBOM validation is in progress (#25).
 
@@ -40,6 +40,7 @@ Comments: AIMBOM generation, AIMBOM deprecation and signing are complete. Report
 - Restructured the project, and moved the storage abstraction into the clients.
 - Replaced the mock MinIO client with a general mock storage client for tests.
 - Added tests for the generator's error paths and AIMBOM building logic.
+- Removed redundant tests, and added tests that generated AIMBOMs reach storage and that `/api/sign` errors return the right status codes.
 - GitHub Actions build the Docker image and push it to the registry, and run the tests on pull requests.
 
 ### Documentation
