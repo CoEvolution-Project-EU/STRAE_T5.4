@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import re
 from functools import lru_cache
 from io import BytesIO
 from typing import Dict, Tuple
@@ -17,6 +16,7 @@ from app.clients.storage_client import (
     StorageInvalidFileError,
     StorageNotFoundError,
     StorageOperationError,
+    get_file_if_exists,
 )
 from app.core.config import settings
 from app.models.aimbom import AIMBOM
@@ -25,8 +25,6 @@ from app.models.storage import UploadReportMetadata
 from app.utils.utils import ReportType, uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
-
-AIMBOM_VERSION_PATTERN = re.compile(r"-v(\d+)\.json$")
 
 
 class MinioClient(StorageClient):
@@ -119,7 +117,8 @@ class MinioClient(StorageClient):
             The parsed JSON payload as a `dict`.
 
         Raises:
-            StorageOperationError: On S3 errors.
+            StorageNotFoundError: If the object does not exist.
+            StorageOperationError: On other S3 errors.
             StorageConnectionError: On transport/connection errors.
             StorageInvalidFileError: If the object is not valid JSON.
 
@@ -134,6 +133,10 @@ class MinioClient(StorageClient):
                     object_name=object_name,
                 )
             except S3Error as e:
+                if e.code == "NoSuchKey":
+                    raise StorageNotFoundError(
+                        f"Object '{object_name}' does not exist in bucket '{bucket_name}'"
+                    ) from e
                 raise StorageOperationError(
                     f"S3 operation failed for '{object_name}' in bucket '{bucket_name}': {e}"
                 ) from e
@@ -332,7 +335,8 @@ class MinioClient(StorageClient):
         """Retrieve a model version's first AIMBOM and its reports.
 
         See `get_aimbom_urls` for which files are retrieved. Files are
-        downloaded concurrently.
+        downloaded concurrently. Reports that do not exist are left out of the
+        result.
 
         Args:
             model_uuid: The UUID of the model.
@@ -344,8 +348,8 @@ class MinioClient(StorageClient):
 
         Raises:
             StorageNotFoundError: If the model version has no AIMBOM.
-            StorageOperationError: If a file cannot be downloaded, e.g. a
-                report does not exist.
+            StorageConnectionError: On transport/connection errors.
+            StorageOperationError: On other S3 errors.
             StorageInvalidFileError: If a file is not valid JSON.
         """
 
@@ -359,11 +363,15 @@ class MinioClient(StorageClient):
 
         aimbom, *downloaded_reports = await asyncio.gather(
             self.get_file_from_url(aimbom_url),
-            *(self.get_file_from_url(url) for url in report_urls.values()),
+            *(get_file_if_exists(self, url) for url in report_urls.values()),
         )
         # `gather` keeps the order of its arguments, so the reports line up
         # with `report_urls`.
-        reports = dict(zip(report_urls, downloaded_reports))
+        reports = {
+            report_type: report
+            for report_type, report in zip(report_urls, downloaded_reports)
+            if report is not None
+        }
 
         logger.debug(
             "Retrieved AIMBOM %s and %d reports for model_uuid=%s, model_version=%s",

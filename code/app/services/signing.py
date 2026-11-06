@@ -114,6 +114,19 @@ def get_certificate() -> x509.Certificate:
         return x509.load_pem_x509_certificate(f.read())
 
 
+def encode_base64url(data: bytes) -> str:
+    """Encode bytes as unpadded base64url, the encoding JSF uses for binary values.
+
+    Args:
+        data: The bytes to encode.
+
+    Returns:
+        The unpadded base64url string.
+    """
+
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
 def get_certificate_path(cert: x509.Certificate | None = None) -> list[str]:
     """
     Get the JSF `certificatePath` of the certificate: its DER encoding as
@@ -131,7 +144,7 @@ def get_certificate_path(cert: x509.Certificate | None = None) -> list[str]:
         cert = get_certificate()
 
     der_bytes = cert.public_bytes(serialization.Encoding.DER)
-    return [base64.urlsafe_b64encode(der_bytes).rstrip(b"=").decode("ascii")]
+    return [encode_base64url(der_bytes)]
 
 
 def validate_signing_material(
@@ -182,7 +195,7 @@ def sign_data(private_key: ec.EllipticCurvePrivateKey, data: bytes) -> str:
     r, s = decode_dss_signature(signature)
     raw_signature = r.to_bytes(32, "big") + s.to_bytes(32, "big")
 
-    return base64.urlsafe_b64encode(raw_signature).rstrip(b"=").decode("ascii")
+    return encode_base64url(raw_signature)
 
 
 def sign_report(report: Dict) -> Dict:
@@ -230,15 +243,27 @@ def sign_report(report: Dict) -> Dict:
 def decode_base64url(value: str) -> bytes:
     """Decode unpadded base64url, the encoding JSF uses for binary values.
 
+    Python's decoder ignores characters outside the alphabet, so the result is
+    encoded again and must match `value`. This rejects anything but the one
+    encoding of the bytes: other characters, padding, and standard base64.
+
     Args:
-        value: The base64url string, with or without padding.
+        value: The unpadded base64url string.
 
     Returns:
         The decoded bytes.
+
+    Raises:
+        ValueError: If `value` is not unpadded base64url.
     """
 
     padding = "=" * (-len(value) % 4)
-    return base64.urlsafe_b64decode(value + padding)
+    decoded = base64.urlsafe_b64decode(value + padding)
+
+    if encode_base64url(decoded) != value:
+        raise ValueError("Not unpadded base64url")
+
+    return decoded
 
 
 def verify_data(
@@ -322,8 +347,6 @@ def verify_report(report: Dict) -> None:
         raise SignatureVerificationError("Signature has no certificate")
 
     try:
-        # JSF uses base64url. Standard base64 also decodes, so certificates
-        # signed before STRAE switched to base64url still verify.
         cert = x509.load_der_x509_certificate(decode_base64url(cert_path[0]))
     except ValueError as e:
         raise SignatureVerificationError(f"Invalid signing certificate: {e}") from e
@@ -332,8 +355,14 @@ def verify_report(report: Dict) -> None:
     if not isinstance(public_key, ec.EllipticCurvePublicKey):
         raise SignatureVerificationError("Signing certificate is not an EC key")
 
-    # Canonicalize JSON (RFC8785), without the signature value, as when signing
-    canonical_json = jcs.canonicalize(report)
+    # Canonicalize JSON (RFC8785), without the signature value, as when signing.
+    # Python's JSON parser accepts NaN and Infinity, but RFC8785 does not.
+    try:
+        canonical_json = jcs.canonicalize(report)
+    except ValueError as e:
+        raise SignatureVerificationError(
+            f"Report cannot be canonicalized: {e}"
+        ) from e
 
     verify_data(public_key, canonical_json, signature_value)
 

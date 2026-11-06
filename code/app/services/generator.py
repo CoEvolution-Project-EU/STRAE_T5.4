@@ -180,15 +180,31 @@ class AIMBOMGenerator:
     ) -> AIMBOM:
         """Retrieve the previous AIMBOM for a given model UUID and version.
 
+        The AIMBOM is validated and its signature verified, because the updated
+        AIMBOM is signed by STRAE and would otherwise vouch for its content.
+
         Args:
             download_url: The download URL of the previous AIMBOM.
+
+        Returns:
+            The validated previous `AIMBOM`.
+
+        Raises:
+            GeneratorInvalidReportError: If the previous AIMBOM fails schema
+                validation or has a missing or invalid signature.
+            GeneratorStorageError: If the previous AIMBOM cannot be retrieved.
         """
 
         try:
             previous_aimbom = await self.client.get_file_from_url(
                 download_url=download_url
             )
-            return AIMBOM(**previous_aimbom)
+            return validator.validate_report(BOMType.AIMBOM, previous_aimbom)
+        # Base class of the schema and signature errors.
+        except validator.ValidatorInvalidAIMBOMError as e:
+            raise GeneratorInvalidReportError(
+                f"Previous AIMBOM is invalid: {str(e)}"
+            ) from e
         except StorageConnectionError as e:
             logger.error(
                 "Storage connection error retrieving previous AIMBOM: %s",

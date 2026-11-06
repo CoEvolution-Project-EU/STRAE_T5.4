@@ -16,6 +16,7 @@ from app.clients.storage_client import (
     StorageInvalidFileError,
     StorageNotFoundError,
     StorageOperationError,
+    get_file_if_exists,
 )
 from app.core.auth import OrchestratorAuth
 from app.core.config import settings
@@ -25,6 +26,30 @@ from app.models.storage import UploadReportMetadata
 from app.utils.utils import ReportType, uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
+
+
+def _get_download_url(file: object, name: str) -> str:
+    """Get the download URL of an entry of the orchestrator's latest files.
+
+    Args:
+        file: The entry from the `/latest` response.
+        name: The entry's key in the response, for the error message.
+
+    Returns:
+        The entry's download URL.
+
+    Raises:
+        StorageOperationError: If the entry has no download URL.
+    """
+
+    url = file.get("download_url") if isinstance(file, dict) else None
+    if not url or not isinstance(url, str):
+        raise StorageOperationError(
+            f"Orchestrator response for the latest files has no 'download_url' "
+            f"for '{name}'"
+        )
+
+    return url
 
 
 class OrchestratorClient:
@@ -47,6 +72,13 @@ class OrchestratorClient:
 
         Args:
             download_url: The relative URL to download the file from.
+
+        Raises:
+            StorageNotFoundError: If the file does not exist.
+            StorageConnectionError: On connection issues or 5xx responses.
+            StorageInvalidFileError: If the file is not valid JSON.
+            StorageOperationError: On other non-2xx HTTP responses or
+                unexpected errors.
         """
 
         try:
@@ -66,9 +98,12 @@ class OrchestratorClient:
                 download_url,
                 e.response.status_code,
             )
-            raise StorageOperationError(
-                f"Orchestrator returned {e.response.status_code}"
-            ) from e
+            message = f"Orchestrator returned {e.response.status_code}"
+            if e.response.status_code == httpx.codes.NOT_FOUND:
+                raise StorageNotFoundError(message) from e
+            if e.response.status_code >= 500:
+                raise StorageConnectionError(message) from e
+            raise StorageOperationError(message) from e
         except ValueError as e:
             logger.error(
                 "File downloaded from %s is not valid JSON: %s",
@@ -222,7 +257,8 @@ class OrchestratorClient:
 
         Asks the orchestrator's `GET /models/{uuid}/versions/{version}/latest`
         endpoint for the files, then downloads them concurrently. Report
-        types the orchestrator lists as missing are left out of the result.
+        types the orchestrator lists as missing, or whose file does not exist,
+        are left out of the result.
 
         Args:
             model_uuid: The UUID of the model.
@@ -236,8 +272,9 @@ class OrchestratorClient:
             StorageNotFoundError: If the model version does not exist or has
                 no AIMBOM.
             StorageConnectionError: On connection issues or 5xx responses.
-            StorageInvalidFileError: If a response is not the expected JSON.
-            StorageOperationError: On other non-2xx HTTP responses.
+            StorageInvalidFileError: If a downloaded file is not valid JSON.
+            StorageOperationError: On other non-2xx HTTP responses, or if the
+                `/latest` response is malformed.
         """
 
         logger.info(
@@ -248,9 +285,9 @@ class OrchestratorClient:
 
         latest = await self._get_latest_files(model_uuid, model_version)
 
-        files = latest.get("reports")
+        files = latest.get("reports") if isinstance(latest, dict) else None
         if not isinstance(files, dict):
-            raise StorageInvalidFileError(
+            raise StorageOperationError(
                 "Orchestrator response for the latest files has no 'reports'"
             )
 
@@ -260,6 +297,7 @@ class OrchestratorClient:
                 f"No AIMBOM found for model_uuid='{model_uuid}', "
                 f"model_version='{model_version}'"
             )
+        aimbom_url = _get_download_url(aimbom_file, "aimbom_report")
 
         report_urls = {}
         for report_type in ReportType:
@@ -272,15 +310,21 @@ class OrchestratorClient:
                     model_version,
                 )
                 continue
-            report_urls[report_type.value] = report_file["download_url"]
+            report_urls[report_type.value] = _get_download_url(
+                report_file, report_type.value
+            )
 
         aimbom, *downloaded_reports = await asyncio.gather(
-            self.get_file_from_url(aimbom_file["download_url"]),
-            *(self.get_file_from_url(url) for url in report_urls.values()),
+            self.get_file_from_url(aimbom_url),
+            *(get_file_if_exists(self, url) for url in report_urls.values()),
         )
         # `gather` keeps the order of its arguments, so the reports line up
         # with `report_urls`.
-        reports = dict(zip(report_urls, downloaded_reports))
+        reports = {
+            report_type: report
+            for report_type, report in zip(report_urls, downloaded_reports)
+            if report is not None
+        }
 
         logger.info(
             "Retrieved AIMBOM and %d reports for model_uuid=%s model_version=%s",
@@ -305,8 +349,8 @@ class OrchestratorClient:
             StorageNotFoundError: If the model version does not exist or has
                 no AIMBOM.
             StorageConnectionError: On connection issues or 5xx responses.
-            StorageInvalidFileError: If a response is not the expected JSON.
-            StorageOperationError: On other non-2xx HTTP responses.
+            StorageOperationError: On other non-2xx HTTP responses, or if the
+                response is not valid JSON.
         """
 
         url = (
@@ -335,7 +379,7 @@ class OrchestratorClient:
                 ) from e
             raise StorageOperationError(f"Orchestrator returned {status_code}") from e
         except ValueError as e:
-            raise StorageInvalidFileError(
+            raise StorageOperationError(
                 f"Orchestrator response for '{url}' is not valid JSON: {e}"
             ) from e
 

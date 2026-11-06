@@ -1,7 +1,13 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from app.clients.storage_client import StorageConnectionError, get_storage_client
+from app.clients.storage_client import (
+    StorageAuthError,
+    StorageConnectionError,
+    StorageInvalidFileError,
+    StorageOperationError,
+    get_storage_client,
+)
 from app.main import app
 from app.services.generator import (
     AIMBOMGenerator,
@@ -272,6 +278,7 @@ async def test_validate_aimbom_missing_report(client, get_mock_storage):
     response = await client.get(VALIDATION_URL)
 
     assert_invalid(response)
+    assert response.json()["detail"] == "Report risk_report is missing"
 
 
 @pytest.mark.anyio
@@ -311,10 +318,40 @@ async def test_validate_aimbom_tampered_report(client, get_mock_storage):
 
 
 @pytest.mark.anyio
-async def test_validate_aimbom_storage_unavailable(client, get_mock_storage):
+async def test_validate_aimbom_report_with_nan_is_invalid(client, get_mock_storage):
+    report = get_mock_storage.data[RISK_REPORT_URL]
+    report["vulnerabilities"][0]["ratings"][0]["score"] = float("nan")
+
+    response = await client.get(VALIDATION_URL)
+
+    assert_invalid(response)
+    assert "risk_report" in response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_file_not_json(client, get_mock_storage):
     get_mock_storage.get_aimbom = AsyncMock(
-        side_effect=StorageConnectionError("storage down")
+        side_effect=StorageInvalidFileError("File is not valid JSON")
     )
+
+    response = await client.get(VALIDATION_URL)
+
+    assert_invalid(response)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "error",
+    [
+        StorageConnectionError("Orchestrator returned 500"),
+        StorageOperationError("Orchestrator returned 403"),
+        StorageAuthError("token request failed"),
+    ],
+)
+async def test_validate_aimbom_storage_failure_is_not_invalid(
+    client, get_mock_storage, error
+):
+    get_mock_storage.get_aimbom = AsyncMock(side_effect=error)
 
     response = await client.get(VALIDATION_URL)
 

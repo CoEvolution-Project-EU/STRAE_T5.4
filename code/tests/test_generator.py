@@ -142,6 +142,69 @@ async def test_tampered_report_signature_is_rejected():
         )
 
 
+@pytest.mark.anyio
+async def test_report_with_nan_is_rejected():
+    storage = create_new_mock_storage()
+    risk_report_url = f"reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report.json"
+    storage.data[risk_report_url]["vulnerabilities"][0]["ratings"][0]["score"] = float(
+        "nan"
+    )
+
+    generator = AIMBOMGenerator(storage)
+
+    with pytest.raises(GeneratorInvalidReportError):
+        await generator.generate(
+            GenerationMetadata(**get_generation_metadata(MODEL_UUID, MODEL_VERSION)),
+        )
+
+
+def tamper_reference(aimbom):
+    aimbom["externalReferences"][0]["url"] = (
+        "urn:cdx:00000000-0000-4000-8000-000000000000/9"
+    )
+
+
+def tamper_metadata(aimbom):
+    aimbom["metadata"]["timestamp"] = "2000-01-01T00:00:00Z"
+
+
+def add_unknown_field(aimbom):
+    aimbom["metadata"]["unknown"] = "added"
+
+
+def remove_signature(aimbom):
+    del aimbom["signature"]
+
+
+def remove_bom_format(aimbom):
+    del aimbom["bomFormat"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "tamper",
+    [
+        tamper_reference,
+        tamper_metadata,
+        add_unknown_field,
+        remove_signature,
+        remove_bom_format,
+    ],
+)
+async def test_invalid_previous_aimbom_is_rejected_and_not_re_signed(tamper):
+    storage = create_new_mock_storage()
+    storage.save_aimbom = AsyncMock()
+    metadata = get_generation_metadata_deprecation(MODEL_UUID, MODEL_VERSION)
+    tamper(storage.data[metadata["previous_aimbom"]["download_url"]])
+
+    generator = AIMBOMGenerator(storage)
+
+    with pytest.raises(GeneratorInvalidReportError, match="Previous AIMBOM is invalid"):
+        await generator.generate(GenerationMetadata(**metadata))
+
+    storage.save_aimbom.assert_not_awaited()
+
+
 def test_validate_aimbom_raises_generation_error_on_invalid_signature():
     generator = AIMBOMGenerator(create_empty_mock_storage())
 

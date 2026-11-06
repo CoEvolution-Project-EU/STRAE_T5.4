@@ -2,17 +2,16 @@ import base64
 import os
 from datetime import datetime, timedelta, timezone
 
-import jcs
 import pytest
 from app.core.config import settings
 from app.services.signing import (
     SignatureVerificationError,
     SigningError,
     decode_base64url,
+    encode_base64url,
     get_certificate_path,
     get_private_key,
     load_if_changed,
-    sign_data,
     sign_report,
     validate_signing_material,
     verify_report,
@@ -106,6 +105,15 @@ def test_verify_report_rejects_modified_report():
         verify_report(signed_report)
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_verify_report_rejects_non_finite_number(value):
+    report = load_json(REPORTS_DIR / "risk_report.json")
+    report["vulnerabilities"][0]["ratings"][0]["score"] = value
+
+    with pytest.raises(SignatureVerificationError, match="canonicalized"):
+        verify_report(report)
+
+
 def test_verify_report_rejects_unsigned_report():
     report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
     report.pop("signature")
@@ -141,33 +149,56 @@ def test_verify_report_rejects_signature_from_other_key():
 
 
 def test_verify_report_rejects_der_encoded_signature():
-    # A valid signature, but base64 DER instead of base64url raw r||s.
+    # A valid signature, but base64url DER instead of base64url raw r||s.
     signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
     raw_signature = decode_base64url(signed_report["signature"]["value"])
     der_signature = encode_dss_signature(
         int.from_bytes(raw_signature[:32], "big"),
         int.from_bytes(raw_signature[32:], "big"),
     )
-    signed_report["signature"]["value"] = base64.b64encode(der_signature).decode()
+    signed_report["signature"]["value"] = encode_base64url(der_signature)
 
     with pytest.raises(SignatureVerificationError, match="must be 64 bytes"):
         verify_report(signed_report)
 
 
-def test_verify_report_accepts_standard_base64_certificate():
-    # Reports signed before the switch to base64url still verify.
-    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
-    report.pop("signature")
-    certificate = decode_base64url(get_certificate_path()[0])
-    report["signature"] = {
-        "algorithm": "ES256",
-        "certificatePath": [base64.b64encode(certificate).decode()],
-    }
-    report["signature"]["value"] = sign_data(
-        get_private_key(), jcs.canonicalize(report)
-    )
+def test_decode_base64url_accepts_unpadded_base64url():
+    assert decode_base64url("-_-_") == base64.urlsafe_b64decode("-_-_")
+    assert decode_base64url("AA") == b"\x00"
 
-    verify_report(report)
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "+/+/",  # Standard base64 alphabet
+        "AA==",  # Padding
+        "!!!!AAAA",  # Characters outside the alphabet
+        "AA AA",
+        "AAAA\n",
+        "AB",  # Non-zero unused bits: the same byte as "AA"
+        "A",  # Impossible length
+    ],
+)
+def test_decode_base64url_rejects_other_encodings(value):
+    with pytest.raises(ValueError):
+        decode_base64url(value)
+
+
+def test_verify_report_rejects_junk_in_signature_value():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    signed_report["signature"]["value"] = "!!!!" + signed_report["signature"]["value"]
+
+    with pytest.raises(SignatureVerificationError, match="not valid base64url"):
+        verify_report(signed_report)
+
+
+def test_verify_report_rejects_certificate_not_in_base64url():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    certificate = signed_report["signature"]["certificatePath"][0]
+    signed_report["signature"]["certificatePath"] = ["!!!!" + certificate]
+
+    with pytest.raises(SignatureVerificationError, match="Invalid signing certificate"):
+        verify_report(signed_report)
 
 
 # ============ JSF specification example ============

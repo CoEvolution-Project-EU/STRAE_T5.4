@@ -44,8 +44,12 @@ def latest_response(missing=()) -> dict:
     }
 
 
-def make_client(latest_status=200, latest_json=None) -> tuple[OrchestratorClient, list]:
-    """Client against a fake orchestrator. Downloads return `{"id": <file id>}`."""
+def make_client(
+    latest_status=200, latest_json=None, download_responses=None
+) -> tuple[OrchestratorClient, list]:
+    """Client against a fake orchestrator. Downloads return `{"id": <file id>}`,
+    unless `download_responses` has a response for that file id.
+    """
 
     requests = []
 
@@ -54,6 +58,8 @@ def make_client(latest_status=200, latest_json=None) -> tuple[OrchestratorClient
         if request.url.path == LATEST_PATH:
             return httpx.Response(latest_status, json=latest_json)
         file_id = request.url.path.rsplit("/", 1)[1]
+        if download_responses and file_id in download_responses:
+            return download_responses[file_id]
         return httpx.Response(200, json={"id": file_id})
 
     client = httpx.AsyncClient(
@@ -120,8 +126,90 @@ async def test_get_aimbom_client_error_raises_operation_error():
 
 
 @pytest.mark.anyio
-async def test_get_aimbom_response_without_reports_raises_invalid_file():
+async def test_get_aimbom_malformed_latest_response_is_not_an_invalid_file():
     client, _ = make_client(latest_json={"model_uuid": MODEL_UUID})
+
+    with pytest.raises(StorageOperationError) as exc_info:
+        await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
+
+    assert not isinstance(exc_info.value, StorageInvalidFileError)
+
+
+@pytest.mark.anyio
+async def test_get_aimbom_latest_response_not_an_object_raises_operation_error():
+    client, _ = make_client(latest_json=[])
+
+    with pytest.raises(StorageOperationError, match="no 'reports'"):
+        await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("name", ["aimbom_report", "risk_report"])
+@pytest.mark.parametrize(
+    "entry",
+    [
+        {"_id": "id", "filename": "file.json"},
+        {"_id": "id", "download_url": None},
+        {"_id": "id", "download_url": 1},
+        "not an object",
+    ],
+)
+async def test_get_aimbom_entry_without_download_url_raises_operation_error(
+    name, entry
+):
+    latest = latest_response()
+    latest["reports"][name] = entry
+    client, _ = make_client(latest_json=latest)
+
+    with pytest.raises(StorageOperationError, match=f"'download_url' for '{name}'"):
+        await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
+
+
+@pytest.mark.anyio
+async def test_get_aimbom_leaves_out_report_whose_file_does_not_exist():
+    client, _ = make_client(
+        latest_json=latest_response(),
+        download_responses={"risk_report": httpx.Response(404)},
+    )
+
+    _, reports = await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
+
+    assert "risk_report" not in reports
+    assert len(reports) == len(ReportType) - 1
+
+
+@pytest.mark.anyio
+async def test_get_aimbom_aimbom_file_does_not_exist_raises_not_found():
+    client, _ = make_client(
+        latest_json=latest_response(),
+        download_responses={"aimbom": httpx.Response(404)},
+    )
+
+    with pytest.raises(StorageNotFoundError):
+        await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "status_code, expected_error",
+    [(500, StorageConnectionError), (403, StorageOperationError)],
+)
+async def test_get_aimbom_report_download_failure_raises(status_code, expected_error):
+    client, _ = make_client(
+        latest_json=latest_response(),
+        download_responses={"risk_report": httpx.Response(status_code)},
+    )
+
+    with pytest.raises(expected_error, match=str(status_code)):
+        await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
+
+
+@pytest.mark.anyio
+async def test_get_aimbom_report_not_json_raises_invalid_file():
+    client, _ = make_client(
+        latest_json=latest_response(),
+        download_responses={"risk_report": httpx.Response(200, text="not json")},
+    )
 
     with pytest.raises(StorageInvalidFileError):
         await client.get_aimbom(MODEL_UUID, MODEL_VERSION)

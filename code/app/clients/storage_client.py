@@ -76,6 +76,23 @@ class StorageClient(ABC):
     ) -> Tuple[Dict, Dict[str, Dict]]: ...
 
 
+async def get_file_if_exists(client, download_url: str) -> Dict | None:
+    """Download a file, returning `None` if it does not exist.
+
+    Args:
+        client: The storage client to download with.
+        download_url: The download URL of the file.
+
+    Returns:
+        The parsed file, or `None` if storage has no such file.
+    """
+
+    try:
+        return await client.get_file_from_url(download_url)
+    except StorageNotFoundError:
+        return None
+
+
 async def get_storage_client(request: Request) -> StorageClient:
     """FastAPI dependency to retrieve the configured storage implementation.
 

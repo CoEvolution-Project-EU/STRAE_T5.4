@@ -6,9 +6,9 @@ from pydantic import ValidationError
 
 from app.clients.storage_client import (
     StorageClient,
-    StorageConnectionError,
+    StorageError,
+    StorageInvalidFileError,
     StorageNotFoundError,
-    StorageOperationError,
     get_storage_client,
 )
 from app.models.aimbom import AIMBOM
@@ -34,9 +34,13 @@ class ValidatorError(Exception):
 
 
 class ValidatorInvalidAIMBOMError(ValidatorError):
-    """Raised when the AIMBOM or one of its reports is invalid. The endpoint
-    reports this as `valid: false`, not as an error.
-    """
+    """Raised when the AIMBOM or one of its reports is invalid."""
+
+    pass
+
+
+class ValidatorMissingReportError(ValidatorInvalidAIMBOMError):
+    """Raised when a required report does not exist."""
 
     pass
 
@@ -68,7 +72,9 @@ class ValidatorNotFoundError(ValidatorError):
 
 
 class ValidatorStorageError(ValidatorError):
-    """Raised when the storage backend is unavailable."""
+    """Raised when the files could not be read from the storage backend, so
+    nothing can be said about the AIMBOM.
+    """
 
     pass
 
@@ -96,10 +102,11 @@ class AIMBOMValidator:
 
         Raises:
             ValidatorInvalidAIMBOMError: If the AIMBOM or one of its reports is
-                invalid, missing or unreadable, or the AIMBOM does not
+                invalid, missing or not valid JSON, or the AIMBOM does not
                 reference exactly its reports.
             ValidatorNotFoundError: If the model version has no AIMBOM.
-            ValidatorStorageError: If the storage backend is unavailable.
+            ValidatorStorageError: If the files could not be read from the
+                storage backend.
         """
 
         try:
@@ -108,13 +115,12 @@ class AIMBOMValidator:
             )
         except StorageNotFoundError as e:
             raise ValidatorNotFoundError(str(e)) from e
-        except StorageConnectionError as e:
+        except StorageInvalidFileError as e:
+            raise ValidatorInvalidAIMBOMError(str(e)) from e
+        # Any other failure says nothing about the AIMBOM, so it must not be
+        # reported as invalid. Must come after its subclasses above.
+        except StorageError as e:
             raise ValidatorStorageError(str(e)) from e
-        except StorageOperationError as e:
-            # The AIMBOM was found, so a report is missing or is not valid JSON.
-            raise ValidatorInvalidAIMBOMError(
-                f"Failed to retrieve the AIMBOM's reports: {e}"
-            ) from e
 
         aimbom = validate_report(BOMType.AIMBOM, raw_aimbom)
 
@@ -189,10 +195,6 @@ def validate_report(
 
     Pass `BOMType.AIMBOM` as `report_type` to validate an AIMBOM against the
     `AIMBOM` model.
-
-    Presence is not checked here: `GenerationMetadata` already guarantees
-    that a report is only referenced (and therefore only fetched) when
-    it's actually required, for both new generations and updates.
 
     Args:
         report_type: The type of report being validated, or `BOMType.AIMBOM`.
@@ -272,6 +274,7 @@ def validate_reports(
         one entry per `report_types`.
 
     Raises:
+        ValidatorMissingReportError: When a report of `report_types` is missing.
         ValidatorSchemaValidationError: When report validation fails.
         ValidatorSignatureError: When a signature is missing, malformed or
             invalid.
@@ -280,9 +283,12 @@ def validate_reports(
     reports: Dict[ReportType, ReportModel] = {}
 
     for report_type in report_types:
-        reports[report_type] = validate_report(
-            report_type, raw_reports.get(report_type.value)
-        )
+        raw_report = raw_reports.get(report_type.value)
+        if raw_report is None:
+            logger.warning("Report %s is missing", report_type.value)
+            raise ValidatorMissingReportError(f"Report {report_type.value} is missing")
+
+        reports[report_type] = validate_report(report_type, raw_report)
         logger.debug("Retrieved report %s", report_type.value)
 
     return reports

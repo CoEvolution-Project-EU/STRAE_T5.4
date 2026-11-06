@@ -16,7 +16,7 @@ The AIMBOM generation process is responsible for transforming validated reports 
 
 When a model UUID and version already has an AIMBOM associated with it, STRAE does not generate a new AIMBOM from scratch. Instead, the generation metadata carries a `previous_aimbom` reference alongside the updated reports:
 
-1. If `previous_aimbom` is present in the generation metadata, the generator downloads the previous AIMBOM instead of re-fetching every report.
+1. If `previous_aimbom` is present in the generation metadata, the generator downloads the previous AIMBOM instead of re-fetching every report. The previous AIMBOM must pass [report validation](#report-validation) (schema, model and signature), so that STRAE never re-signs an AIMBOM that was changed after it was signed.
 2. Only the changed reports are downloaded and validated. The assessment report and the risk report are required, and an updated gadgets report may optionally be included. Any other report is rejected.
 3. The generator copies the previous AIMBOM, increments its version, and updates the external references that point to the changed report(s). If no gadgets report is provided, the previous `Gadget List` reference is kept. The AIMBOM keeps the same serial number as the previous version, so it is identifiable as an update rather than a new artifact.
 4. The updated AIMBOM is re-signed and re-validated against the CycloneDX schema before being stored.
@@ -40,7 +40,7 @@ If an input report fails any of these checks, generation is rejected (`422` from
 
 `GET /api/validation/{uuid}/{version}` checks the AIMBOM of a model version and the reports it references. The AIMBOM and its reports are fetched from the storage backend:
 
-- **Orchestrator:** `GET /models/{uuid}/versions/{version}/latest` returns the latest AIMBOM (`aimbom_report`) and reports of the model version, which are then downloaded concurrently. This endpoint doesn't need authentication. Reports that are `null` are left out.
+- **Orchestrator:** `GET /models/{uuid}/versions/{version}/latest` returns the latest AIMBOM (`aimbom_report`) and reports of the model version, which are then downloaded concurrently. This endpoint doesn't need authentication. Reports that are `null`, or whose file does not exist, are left out, and the validator reports them as missing.
 - **MinIO:** the first (earliest uploaded) AIMBOM under `<AIMBOMS_BUCKET>/<uuid>/<version>/` and the version 1 reports `<REPORTS_BUCKET>/<uuid>/<version>/<report_type>.json`.
 
 The validator then checks, stopping at the first problem:
@@ -86,7 +86,7 @@ Signing:
 
 Verification removes `value`, canonicalizes the document again and verifies the signature over those bytes. Any change to the document after signing, including to `algorithm` or `certificatePath`, invalidates the signature. Key order and whitespace don't, since JCS normalizes them.
 
-For compatibility with documents signed before STRAE followed JSF, `certificatePath` entries in standard base64 are also accepted when verifying. The optional JSF properties `publicKey`, `keyId`, `extensions` and `excludes` are not supported.
+Verification only accepts unpadded base64url for `certificatePath` and `value`: standard base64, padding and any other characters are rejected. The optional JSF properties `publicKey`, `keyId`, `extensions` and `excludes` are not supported.
 
 The JSF specification's `ES256` example with a certificate path (`code/data/jsf/p256_es256_certificate_path.json`) is part of the tests, to check that STRAE verifies signatures produced by other JSF implementations.
 
@@ -170,9 +170,9 @@ STRAE is organized as a modular FastAPI application with a clear separation betw
 
 `/api/sign` maps errors to status codes as follows: a missing report returns `409`, an invalid file or a rejected upload returns `422`, storage and signing material errors return `503`, and any other error returns `500`.
 
-`/api/generate` maps errors to status codes as follows: a missing report returns `409`, a report that fails validation (schema, model or signature) returns `422`, storage and signing material errors return `503`, and any other error (including a generated AIMBOM that fails validation) returns `500`.
+`/api/generate` maps errors to status codes as follows: a missing report returns `409`, a report or previous AIMBOM that fails validation (schema, model or signature) returns `422`, storage and signing material errors return `503`, and any other error (including a generated AIMBOM that fails validation) returns `500`.
 
-`/api/validation` returns `200` with `status` `INVALID` for an invalid AIMBOM or report. A model version without an AIMBOM returns `404`, an unavailable storage backend returns `503`, and any other error returns `500`.
+`/api/validation` returns `200` with `status` `INVALID` for an AIMBOM or report that is invalid, not valid JSON, or missing. A model version without an AIMBOM returns `404`. When the files can't be read from the storage backend (e.g. it is unavailable or rejects the request), the response is `503` and not `INVALID`, because nothing is known about the AIMBOM. Any other error returns `500`.
 
 ## Kafka Worker
 
