@@ -1,11 +1,13 @@
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from app.core.config import settings
 from app.models.requests import GenerationMetadata, SigningMetadata
 from app.models.responses import (
     AIMBOMGeneratedResponse,
+    AIMBOMValidationResponse,
     SignedFile,
     SignedReportResponse,
     StatusResponse,
@@ -13,6 +15,7 @@ from app.models.responses import (
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
+    GeneratorInvalidReportError,
     GeneratorMissingReportError,
     GeneratorSigningError,
     GeneratorStorageError,
@@ -27,6 +30,13 @@ from app.services.report_signer import (
     ReportSignerStorageError,
     ReportSignerUploadRejectedError,
     get_signer,
+)
+from app.services.validator import (
+    AIMBOMValidator,
+    ValidatorInvalidAIMBOMError,
+    ValidatorNotFoundError,
+    ValidatorStorageError,
+    get_validator,
 )
 from app.utils.utils import uuid_from_serial_number
 
@@ -198,6 +208,13 @@ async def generate_aimbom(
             "Missing reports for model_uuid=%s: %s", generation_metadata.model_uuid, e
         )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except GeneratorInvalidReportError as e:
+        logger.warning(
+            "Invalid report for model_uuid=%s: %s", generation_metadata.model_uuid, e
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        )
     except GeneratorStorageError as e:
         logger.error(
             "Storage error for model_uuid=%s",
@@ -246,4 +263,72 @@ async def generate_aimbom(
         aimbom_version=aimbom.version,
         model_uuid=generation_metadata.model_uuid,
         model_version=generation_metadata.version,
+    )
+
+
+@router.get(
+    "/validation/{uuid}/{version}",
+    response_model=AIMBOMValidationResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def validate_aimbom(
+    uuid: Annotated[
+        str,
+        Path(
+            description="Unique identifier of the AI model",
+            example="163723c9-173b-4ce2-abc1-4de2b25a7012",
+        ),
+    ],
+    version: Annotated[
+        str,
+        Path(description="Version of the AI model", example="v1.0"),
+    ],
+    validator: AIMBOMValidator = Depends(get_validator),
+):
+    """
+    Validate the AIMBOM of a specific AI model version and its reports.
+
+    The AIMBOM and its reports are fetched from storage, validated against
+    the CycloneDX schema and their models, and the AIMBOM's references are
+    checked against the reports. Validation stops at the first problem.
+
+    **Response**
+
+    `status` is `VALID` if every check passed. If not, `status` is `INVALID`
+    and `detail` describes the first problem found. Returns 404 if the model
+    version has no AIMBOM and 503 if storage is unavailable.
+    """
+
+    logger.info(
+        "AIMBOM validation requested for model_uuid=%s, model_version=%s",
+        uuid,
+        version,
+    )
+
+    try:
+        await validator.validate_aimbom(uuid, version)
+    except ValidatorInvalidAIMBOMError as e:
+        logger.warning("Invalid AIMBOM for model_uuid=%s: %s", uuid, e)
+        return AIMBOMValidationResponse(
+            detail=str(e), model_uuid=uuid, model_version=version, status="INVALID"
+        )
+    except ValidatorNotFoundError as e:
+        logger.warning("AIMBOM not found for model_uuid=%s: %s", uuid, e)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValidatorStorageError as e:
+        logger.error("Storage error for model_uuid=%s", uuid, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        )
+    except Exception as e:
+        logger.exception("Unexpected error during AIMBOM validation")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+    return AIMBOMValidationResponse(
+        detail="AIMBOM validation completed",
+        model_uuid=uuid,
+        model_version=version,
+        status="VALID",
     )

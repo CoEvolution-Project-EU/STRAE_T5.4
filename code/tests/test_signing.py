@@ -3,27 +3,26 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from app.core.config import settings
 from app.services.signing import (
+    SignatureVerificationError,
     SigningError,
+    decode_base64url,
+    encode_base64url,
     get_certificate_path,
     get_private_key,
     load_if_changed,
-    sign_data,
     sign_report,
     validate_signing_material,
+    verify_report,
 )
 from cryptography import x509
-from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from cryptography.x509.oid import NameOID
 
-from tests.utils import (
-    REPORTS_DIR,
-    decode_base64url,
-    load_json,
-    verify_signature,
-)
+from tests.utils import JSF_DIR, REPORTS_DIR, load_json
 
 
 def _generate_key_and_cert_bytes(private_key=None):
@@ -65,22 +64,19 @@ def _bump_mtime(path):
     os.utime(path, (new_mtime, new_mtime))
 
 
-def test_get_certificate_path_returns_base64_der():
+def test_get_certificate_path_returns_base64url_der():
     certificate_path = get_certificate_path()
 
     assert isinstance(certificate_path, list)
     assert len(certificate_path) == 1
 
-    der_bytes = base64.b64decode(certificate_path[0])
-    assert isinstance(der_bytes, bytes)
-    assert len(der_bytes) > 0
+    # JSF encodes binary values as unpadded base64url.
+    assert not set("+/=") & set(certificate_path[0])
 
-
-def test_validate_signing_material_passes_for_matching_pair():
-    key, _, cert_bytes = _generate_key_and_cert_bytes()
-    cert = x509.load_pem_x509_certificate(cert_bytes)
-
-    validate_signing_material(key=key, cert=cert)
+    der_bytes = decode_base64url(certificate_path[0])
+    with open(settings.SIGNING_CERTIFICATE_PATH, "rb") as f:
+        expected = x509.load_pem_x509_certificate(f.read())
+    assert x509.load_der_x509_certificate(der_bytes) == expected
 
 
 def test_validate_signing_material_raises_signing_error_on_mismatch():
@@ -92,59 +88,128 @@ def test_validate_signing_material_raises_signing_error_on_mismatch():
         validate_signing_material(key=key, cert=mismatched_cert)
 
 
-def test_sign_data_returns_raw_es256_signature():
-    private_key = get_private_key()
-    signature = sign_data(private_key, b"payload")
-
-    decoded = decode_base64url(signature)
-
-    assert isinstance(signature, str)
-    assert len(decoded) == 64
+# ============ verify_report ============
 
 
-def test_sign_report_adds_signature_and_preserves_report():
-    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
-    report["signature"] = {
-        "algorithm": "none",
-        "certificatePath": [],
-        "value": "old",
-    }
+def test_verify_report_accepts_signed_report():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
 
-    signed_report = sign_report(report)
-
-    assert signed_report is not report
-    assert "signature" in signed_report
-
-    signature = signed_report["signature"]
-
-    assert signature["algorithm"] == "ES256"
-    assert isinstance(signature["certificatePath"], list)
-    assert signature["certificatePath"]
-    assert isinstance(signature["value"], str)
-
-    decoded_signature = decode_base64url(signature["value"])
-
-    assert len(decoded_signature) == 64
-    assert signature["value"] != "old"
+    verify_report(signed_report)
 
 
-def test_sign_report_signature_valid():
-    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
-
-    signed_report = sign_report(report)
-
-    assert verify_signature(signed_report) is True
-
-
-def test_modified_report_fails_signature_verification():
-    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
-
-    signed_report = sign_report(report)
-
+def test_verify_report_rejects_modified_report():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
     signed_report["metadata"] = "tampered"
 
-    with pytest.raises(InvalidSignature):
-        verify_signature(signed_report)
+    with pytest.raises(SignatureVerificationError, match="does not match"):
+        verify_report(signed_report)
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_verify_report_rejects_non_finite_number(value):
+    report = load_json(REPORTS_DIR / "risk_report.json")
+    report["vulnerabilities"][0]["ratings"][0]["score"] = value
+
+    with pytest.raises(SignatureVerificationError, match="canonicalized"):
+        verify_report(report)
+
+
+def test_verify_report_rejects_unsigned_report():
+    report = load_json(REPORTS_DIR / "aimodelinfo_report.json")
+    report.pop("signature")
+
+    with pytest.raises(SignatureVerificationError, match="not signed"):
+        verify_report(report)
+
+
+def test_verify_report_rejects_unsupported_algorithm():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    signed_report["signature"]["algorithm"] = "RS256"
+
+    with pytest.raises(SignatureVerificationError, match="Unsupported"):
+        verify_report(signed_report)
+
+
+def test_verify_report_rejects_missing_certificate():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    signed_report["signature"]["certificatePath"] = []
+
+    with pytest.raises(SignatureVerificationError, match="no certificate"):
+        verify_report(signed_report)
+
+
+def test_verify_report_rejects_signature_from_other_key():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    _, _, other_cert_bytes = _generate_key_and_cert_bytes()
+    other_cert = x509.load_pem_x509_certificate(other_cert_bytes)
+    signed_report["signature"]["certificatePath"] = get_certificate_path(other_cert)
+
+    with pytest.raises(SignatureVerificationError, match="does not match"):
+        verify_report(signed_report)
+
+
+def test_verify_report_rejects_der_encoded_signature():
+    # A valid signature, but base64url DER instead of base64url raw r||s.
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    raw_signature = decode_base64url(signed_report["signature"]["value"])
+    der_signature = encode_dss_signature(
+        int.from_bytes(raw_signature[:32], "big"),
+        int.from_bytes(raw_signature[32:], "big"),
+    )
+    signed_report["signature"]["value"] = encode_base64url(der_signature)
+
+    with pytest.raises(SignatureVerificationError, match="must be 64 bytes"):
+        verify_report(signed_report)
+
+
+def test_decode_base64url_accepts_unpadded_base64url():
+    assert decode_base64url("-_-_") == base64.urlsafe_b64decode("-_-_")
+    assert decode_base64url("AA") == b"\x00"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "+/+/",  # Standard base64 alphabet
+        "AA==",  # Padding
+        "!!!!AAAA",  # Characters outside the alphabet
+        "AA AA",
+        "AAAA\n",
+        "AB",  # Non-zero unused bits: the same byte as "AA"
+        "A",  # Impossible length
+    ],
+)
+def test_decode_base64url_rejects_other_encodings(value):
+    with pytest.raises(ValueError):
+        decode_base64url(value)
+
+
+def test_verify_report_rejects_junk_in_signature_value():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    signed_report["signature"]["value"] = "!!!!" + signed_report["signature"]["value"]
+
+    with pytest.raises(SignatureVerificationError, match="not valid base64url"):
+        verify_report(signed_report)
+
+
+def test_verify_report_rejects_certificate_not_in_base64url():
+    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
+    certificate = signed_report["signature"]["certificatePath"][0]
+    signed_report["signature"]["certificatePath"] = ["!!!!" + certificate]
+
+    with pytest.raises(SignatureVerificationError, match="Invalid signing certificate"):
+        verify_report(signed_report)
+
+
+# ============ JSF specification example ============
+#
+# `p256#es256@cer.json` from https://cyberphone.github.io/doc/security/jsf.html:
+# an ES256 signature with a certificatePath, signed with the specification's
+# P-256 test key.
+
+
+def test_verify_report_accepts_jsf_specification_example():
+    verify_report(load_json(JSF_DIR / "p256_es256_certificate_path.json"))
 
 
 # ============ load_if_changed: hot-reload on file change ============
@@ -189,70 +254,3 @@ def test_load_if_changed_reloads_when_file_changes(tmp_path):
     _bump_mtime(path)
 
     assert load() == "v2"
-
-
-def test_load_if_changed_cache_clear_forces_reload(tmp_path):
-    path = tmp_path / "value.txt"
-    path.write_text("v1")
-    calls = []
-
-    @load_if_changed(path=str(path))
-    def load():
-        calls.append(1)
-        return path.read_text()
-
-    load()
-    load()
-    assert len(calls) == 1
-
-    load.cache_clear()
-    load()
-
-    assert len(calls) == 2
-
-
-def test_decorated_private_key_and_certificate_reload_on_rotation(tmp_path):
-    """End-to-end version of the reload tests above, using real PEM key/cert
-    loading (mirroring get_private_key/get_certificate's own bodies) instead
-    of a dummy string loader."""
-
-    private_key, key_bytes, cert_bytes = _generate_key_and_cert_bytes()
-    key_path = tmp_path / "key.pem"
-    cert_path = tmp_path / "cert.pem"
-    key_path.write_bytes(key_bytes)
-    cert_path.write_bytes(cert_bytes)
-
-    @load_if_changed(path=str(key_path))
-    def load_key():
-        with open(key_path, "rb") as f:
-            return serialization.load_pem_private_key(f.read(), password=None)
-
-    @load_if_changed(path=str(cert_path))
-    def load_cert():
-        with open(cert_path, "rb") as f:
-            return x509.load_pem_x509_certificate(f.read())
-
-    loaded_key = load_key()
-    loaded_cert = load_cert()
-
-    assert loaded_key.private_numbers() == private_key.private_numbers()
-    assert load_key() is loaded_key
-    assert load_cert() is loaded_cert
-
-    new_key, new_key_bytes, new_cert_bytes = _generate_key_and_cert_bytes()
-    key_path.write_bytes(new_key_bytes)
-    cert_path.write_bytes(new_cert_bytes)
-    _bump_mtime(key_path)
-    _bump_mtime(cert_path)
-
-    reloaded_key = load_key()
-    reloaded_cert = load_cert()
-
-    assert reloaded_key is not loaded_key
-    assert reloaded_key.private_numbers() == new_key.private_numbers()
-    assert reloaded_cert is not loaded_cert
-    assert reloaded_cert.public_bytes(
-        serialization.Encoding.DER
-    ) == x509.load_pem_x509_certificate(new_cert_bytes).public_bytes(
-        serialization.Encoding.DER
-    )

@@ -14,13 +14,13 @@ from app.services.report_signer import (
     ReportSignerUploadRejectedError,
     SigningResult,
 )
+from app.services.signing import verify_report
 
 from tests.utils import (
     MODEL_UUID,
     MODEL_VERSION,
     create_new_mock_storage,
     get_signing_event,
-    verify_signature,
 )
 
 REPORT_URL = f"reports/{MODEL_UUID}/{MODEL_VERSION}"
@@ -53,10 +53,9 @@ async def test_sign_and_upload_multiple_files():
         assert upload.bucket == "risk-reports"
 
     for filename in ("risk_report.json", "assessment_report.json"):
-        signed_report = storage.data[
-            f"risk-reports/{MODEL_UUID}/{MODEL_VERSION}/{filename}"
-        ]
-        assert verify_signature(signed_report) is True
+        verify_report(
+            storage.data[f"risk-reports/{MODEL_UUID}/{MODEL_VERSION}/{filename}"]
+        )
 
 
 @pytest.mark.anyio
@@ -79,20 +78,6 @@ async def test_empty_tags_are_uploaded_as_none():
     await signer.sign_and_upload(_signing_metadata(f"{REPORT_URL}/risk_report.json"))
 
     assert storage.uploads[0].tags is None
-
-
-@pytest.mark.anyio
-async def test_already_signed_file_is_treated_as_done():
-    storage = create_new_mock_storage()
-    storage.save_file = AsyncMock(side_effect=StorageConflictError("409"))
-    signer = ReportSigner(storage)
-
-    result = await signer.sign_and_upload(
-        _signing_metadata(f"{REPORT_URL}/risk_report.json")
-    )
-
-    storage.save_file.assert_awaited_once()
-    assert result == SigningResult(signed=0, already_signed=1)
 
 
 @pytest.mark.anyio

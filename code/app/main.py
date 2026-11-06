@@ -2,7 +2,6 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.clients.minio_client import get_minio_client
 from app.clients.orchestrator_client import get_orchestrator_client
@@ -65,15 +64,6 @@ app = FastAPI(
     version=settings.VERSION,
     description="Collects the security reports from the rest of the CoEvolution components and generate, based on those reports, the AIMBOM for a given assessed/secured/robust AI model.",
     lifespan=lifespan,
-)
-
-# Configure CORS (TODO: adjust origins in production)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
 )
 
 

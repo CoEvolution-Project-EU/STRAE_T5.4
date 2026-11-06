@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Type, Union
 
+from app.models.aimbom import AIMBOM
 from app.models.aimodel_info import AIModelInfo
 from app.models.assessment_info import AssessmentInfo
 from app.models.cyclonedx import CamelModel
@@ -51,6 +52,20 @@ def uuid_from_serial_number(serial_number: str) -> str:
     raise ValueError(f"Invalid serial number format: {serial_number}")
 
 
+def bom_link(serial_number: str, version: int) -> str:
+    """Return the CycloneDX BOM-Link (`urn:cdx:{uuid}/{version}`) of a document.
+
+    Args:
+        serial_number: The document's serial number, `urn:uuid:{uuid}`.
+        version: The document's version.
+
+    Returns:
+        The BOM-Link that an AIMBOM external reference uses to point at it.
+    """
+
+    return f"urn:cdx:{uuid_from_serial_number(serial_number)}/{version}"
+
+
 class ReportType(str, Enum):
     AI_MODEL_INFO = "aimodelinfo_report"
     ASSESSMENTS = "assessment_report"
@@ -59,6 +74,16 @@ class ReportType(str, Enum):
     EU_AI_ACT = "euaiact_report"
     GADGETS = "gadgets_report"
     RISK_REPORT = "risk_report"
+
+
+class BOMType(str, Enum):
+    """Documents that are validated like reports but are not reports."""
+
+    AIMBOM = "aimbom"
+
+
+# A report type, or `BOMType.AIMBOM`.
+DocumentType = Union[ReportType, BOMType]
 
 
 class ReportComment(str, Enum):
@@ -99,6 +124,12 @@ REPORT_TO_COMMENT = {
     ReportType.RISK_REPORT: ReportComment.RISK_REPORT,
 }
 
+# The reverse of `REPORT_TO_COMMENT`, to find the report type of an AIMBOM
+# external reference from its comment.
+COMMENT_TO_REPORT = {
+    comment: report_type for report_type, comment in REPORT_TO_COMMENT.items()
+}
+
 REPORT_MODELS: dict[ReportType, Type[CamelModel]] = {
     ReportType.AI_MODEL_INFO: AIModelInfo,
     ReportType.ASSESSMENTS: AssessmentInfo,
@@ -118,3 +149,9 @@ ReportModel = Union[
     GadgetInfo,
     RiskReportInfo,
 ]
+
+# The model of each document type: the report models, plus the AIMBOM.
+DOCUMENT_MODELS: dict[DocumentType, Type[CamelModel]] = {
+    **REPORT_MODELS,
+    BOMType.AIMBOM: AIMBOM,
+}

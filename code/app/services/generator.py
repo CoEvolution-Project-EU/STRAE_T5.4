@@ -4,7 +4,6 @@ from typing import Dict, Iterable
 
 from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
-from pydantic import ValidationError
 
 from app.clients.storage_client import (
     StorageClient,
@@ -23,17 +22,17 @@ from app.models.aimbom import (
     Tool,
 )
 from app.models.requests import GenerationMetadata
-from app.services import signing, validation
+from app.services import signing, validator
 from app.utils.utils import (
     OPTIONAL_UPDATABLE_REPORT_TYPES,
-    REPORT_MODELS,
     REPORT_TO_COMMENT,
     REPORT_TYPES,
     REQUIRED_UPDATABLE_REPORT_TYPES,
+    BOMType,
     ReportModel,
     ReportType,
+    bom_link,
     utc_now_datetime,
-    uuid_from_serial_number,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,6 +46,14 @@ class GeneratorError(Exception):
 
 class GeneratorMissingReportError(GeneratorError):
     """Raised when a required security report is missing."""
+
+    pass
+
+
+class GeneratorInvalidReportError(GeneratorError):
+    """Raised when a fetched report fails CycloneDX schema or report model
+    validation.
+    """
 
     pass
 
@@ -173,15 +180,31 @@ class AIMBOMGenerator:
     ) -> AIMBOM:
         """Retrieve the previous AIMBOM for a given model UUID and version.
 
+        The AIMBOM is validated and its signature verified, because the updated
+        AIMBOM is signed by STRAE and would otherwise vouch for its content.
+
         Args:
             download_url: The download URL of the previous AIMBOM.
+
+        Returns:
+            The validated previous `AIMBOM`.
+
+        Raises:
+            GeneratorInvalidReportError: If the previous AIMBOM fails schema
+                validation or has a missing or invalid signature.
+            GeneratorStorageError: If the previous AIMBOM cannot be retrieved.
         """
 
         try:
             previous_aimbom = await self.client.get_file_from_url(
                 download_url=download_url
             )
-            return AIMBOM(**previous_aimbom)
+            return validator.validate_report(BOMType.AIMBOM, previous_aimbom)
+        # Base class of the schema and signature errors.
+        except validator.ValidatorInvalidAIMBOMError as e:
+            raise GeneratorInvalidReportError(
+                f"Previous AIMBOM is invalid: {str(e)}"
+            ) from e
         except StorageConnectionError as e:
             logger.error(
                 "Storage connection error retrieving previous AIMBOM: %s",
@@ -229,7 +252,7 @@ class AIMBOMGenerator:
         ] + [
             ExternalReference(
                 type="bom",
-                url=f"urn:cdx:{uuid_from_serial_number(report.serial_number)}/{report.version}",
+                url=bom_link(report.serial_number, report.version),
                 comment=REPORT_TO_COMMENT.get(report_type.value),
             )
             for report_type, report in new_reports.items()
@@ -279,86 +302,6 @@ class AIMBOMGenerator:
             raise GeneratorMissingReportError(
                 f"Required reports are missing: {str(e)}"
             ) from e
-
-    def _validate_report(
-        self, report_type: ReportType, raw_report: Dict
-    ) -> ReportModel:
-        """Validate a single raw report against the CycloneDX schema and its
-        report-specific Pydantic model.
-
-        Presence is not checked here: `GenerationMetadata` already guarantees
-        that a report is only referenced (and therefore only fetched) when
-        it's actually required, for both new generations and updates.
-
-        Args:
-            report_type: The type of report being validated.
-            raw_report: The raw JSON dict for the report.
-
-        Returns:
-            The validated `ReportModel` instance.
-
-        Raises:
-            GeneratorGenerationError: When report validation fails.
-        """
-
-        try:
-            # Generic CycloneDX validation
-            validation.cdx_validate_dict(raw_report)
-
-            # Schema-specific validation
-            model_cls = REPORT_MODELS[report_type]
-            return model_cls.model_validate(raw_report)
-        except ValueError as e:
-            logger.warning(
-                "Invalid CycloneDX report %s: %s",
-                report_type.value,
-                str(e),
-            )
-            raise GeneratorGenerationError(
-                f"Report {report_type.value} is invalid: {str(e)}"
-            ) from e
-        except ValidationError as e:
-            logger.warning(
-                "Schema validation failed for report %s: %s",
-                report_type.value,
-                str(e),
-            )
-            raise GeneratorGenerationError(
-                f"Report {report_type.value} failed schema validation: {str(e)}"
-            ) from e
-
-    def _validate_reports(
-        self,
-        raw_reports: Dict[str, Dict],
-        report_types: Iterable[ReportType],
-    ) -> Dict[ReportType, ReportModel]:
-        """
-        Validate a set of raw reports for a given model UUID and version.
-
-        Args:
-            raw_reports: A mapping of report type value to raw JSON dictionaries.
-            report_types: Which report types to validate -- `REPORT_TYPES`
-                for a new generation (every report type), or
-                `REQUIRED_UPDATABLE_REPORT_TYPES` plus any provided
-                `OPTIONAL_UPDATABLE_REPORT_TYPES` for an AIMBOM update.
-
-        Returns:
-            A mapping of `ReportType` to validated `ReportModel` instances,
-            one entry per `report_types`.
-
-        Raises:
-            GeneratorGenerationError: When report validation fails.
-        """
-
-        reports: Dict[ReportType, ReportModel] = {}
-
-        for report_type in report_types:
-            reports[report_type] = self._validate_report(
-                report_type, raw_reports.get(report_type.value)
-            )
-            logger.debug("Retrieved report %s", report_type.value)
-
-        return reports
 
     def _build_metadata(self, reports: Dict[ReportType, ReportModel]) -> Metadata:
         """Construct the `Metadata` section of the AIMBOM from the reports.
@@ -424,7 +367,7 @@ class AIMBOMGenerator:
             return [
                 ExternalReference(
                     type="bom",
-                    url=f"urn:cdx:{uuid_from_serial_number(r.serial_number)}/{r.version}",
+                    url=bom_link(r.serial_number, r.version),
                     comment=REPORT_TO_COMMENT.get(o.value),
                 )
                 for o, r in reports.items()
@@ -436,6 +379,54 @@ class AIMBOMGenerator:
             )
             raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM external references from reports: {str(e)}"
+            ) from e
+
+    def _validate_reports(
+        self,
+        raw_reports: Dict[str, Dict],
+        report_types: Iterable[ReportType],
+    ) -> Dict[ReportType, ReportModel]:
+        """Validate the raw reports with `validator.validate_reports`.
+
+        Args:
+            raw_reports: A mapping of report type value to raw JSON dictionaries.
+            report_types: Which report types to validate.
+
+        Returns:
+            A mapping of `ReportType` to validated `ReportModel` instances.
+
+        Raises:
+            GeneratorInvalidReportError: When a report fails schema validation
+                or has a missing or invalid signature.
+        """
+
+        try:
+            return validator.validate_reports(raw_reports, report_types)
+        # Base class of the schema and signature errors.
+        except validator.ValidatorInvalidAIMBOMError as e:
+            raise GeneratorInvalidReportError(str(e)) from e
+
+    def _validate_aimbom(self, aimbom: AIMBOM) -> None:
+        """Validate the AIMBOM against the CycloneDX schema and the AIMBOM model.
+
+        Args:
+            aimbom: The `AIMBOM` instance to validate.
+
+        Raises:
+            GeneratorGenerationError: If schema or signature validation fails.
+        """
+
+        try:
+            logger.debug("Validating AIMBOM")
+            validator.validate_report(
+                BOMType.AIMBOM, jsonable_encoder(aimbom, exclude_none=True)
+            )
+            logger.debug("AIMBOM validation successful")
+        # Base class of the schema and signature errors.
+        except validator.ValidatorInvalidAIMBOMError as e:
+            logger.error("AIMBOM validation failed: %s", str(e))
+            raise GeneratorGenerationError(
+                f"Generated AIMBOM is invalid: {str(e)}"
             ) from e
 
     def _sign_aimbom(self, aimbom: AIMBOM) -> AIMBOM:
@@ -468,26 +459,6 @@ class AIMBOMGenerator:
         except Exception as e:
             logger.error("Error signing AIMBOM: %s", e)
             raise GeneratorGenerationError(f"Failed to sign AIMBOM: {str(e)}") from e
-
-    def _validate_aimbom(self, aimbom: AIMBOM) -> None:
-        """Validate the AIMBOM against the CycloneDX schema.
-
-        Args:
-            aimbom: The `AIMBOM` instance to validate.
-
-        Raises:
-            GeneratorGenerationError: If validation fails.
-        """
-
-        try:
-            logger.debug("Validating AIMBOM")
-            validation.cdx_validate_dict(jsonable_encoder(aimbom, exclude_none=True))
-            logger.debug("AIMBOM validation successful")
-        except ValueError as e:
-            logger.error("AIMBOM validation failed: %s", str(e))
-            raise GeneratorGenerationError(
-                f"Generated AIMBOM is invalid: {str(e)}"
-            ) from e
 
     def _create_aimbom_from_reports(
         self, reports: Dict[ReportType, ReportModel]

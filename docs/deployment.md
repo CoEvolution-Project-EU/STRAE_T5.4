@@ -137,6 +137,10 @@ Keep the consumer group names stable between deployments. A new group starts at 
 
 Deploy the stack.
 
+## Restricting access to the API
+
+STRAE has no CORS middleware, since it is only called by other services (the Orchestrator and the SRME) and not from browsers. Access to endpoints such as `/api/validation` is restricted at the reverse proxy instead, with an IP allowlist for the services that may call them. Make sure STRAE's port is not also published directly on the host, so the proxy can't be bypassed.
+
 ## Replaying dropped signing requests
 
 The worker doesn't retry failed requests. When a request fails for a reason not caused by the request itself (e.g. the Orchestrator is unreachable), the worker logs it as `request dropped` together with the full event.
