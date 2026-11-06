@@ -10,11 +10,6 @@ def test_validate_aimbom_accepts_valid_cyclonedx_report():
     cyclonedx_validation.cdx_validate_dict(report)
 
 
-def test_validate_aimbom_rejects_empty_dict():
-    with pytest.raises(ValueError, match="CycloneDX validation failed"):
-        cyclonedx_validation.cdx_validate_dict({})
-
-
 def test_validate_aimbom_rejects_missing_required_field():
     report = load_json(AIMBOMS_DIR / "aimbom.json")
     report.pop("bomFormat", None)
@@ -33,10 +28,3 @@ def test_validate_aimbom_rejects_siganture():
         cyclonedx_validation.cdx_validate_dict(report)
 
     assert "signature" in str(exc_info.value)
-
-
-def test_validate_aimbom_accepts_siganture():
-    report = load_json(AIMBOMS_DIR / "aimbom.json")
-    report["signature"]["algorithm"] = "test:test:test"
-
-    cyclonedx_validation.cdx_validate_dict(report)

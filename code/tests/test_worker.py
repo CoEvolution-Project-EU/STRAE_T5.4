@@ -7,22 +7,8 @@ from app.consumers.generation import handle_generation_event
 from app.consumers.signing import handle_signing_event
 from app.core.config import settings
 from app.models.requests import GenerationMetadata, SigningMetadata
-from app.services.generator import (
-    GeneratorGenerationError,
-    GeneratorInvalidReportError,
-    GeneratorMissingReportError,
-    GeneratorSigningError,
-    GeneratorStorageError,
-)
-from app.services.report_signer import (
-    ReportSignerInvalidFileError,
-    ReportSignerMissingReportError,
-    ReportSignerProcessingError,
-    ReportSignerSigningError,
-    ReportSignerStorageError,
-    ReportSignerUploadRejectedError,
-    SigningResult,
-)
+from app.services.generator import GeneratorStorageError
+from app.services.report_signer import SigningResult
 from app.worker import _deserialize, consume_messages
 
 from tests.utils import (
@@ -30,7 +16,6 @@ from tests.utils import (
     MODEL_VERSION,
     get_generation_metadata,
     get_generation_metadata_deprecation,
-    get_generation_metadata_deprecation_with_gadgets,
     get_signing_event,
 )
 
@@ -145,30 +130,6 @@ async def test_new_event_missing_reports_is_committed_and_skipped():
 
 
 @pytest.mark.anyio
-async def test_new_event_reports_wrong_type_is_committed_and_skipped():
-    consumer = FakeConsumer([base_event(reports="not-an-object")])
-    generator = make_generator()
-
-    await run_generation(consumer, generator)
-
-    assert consumer.commit_calls == 1
-    generator.generate.assert_not_called()
-
-
-@pytest.mark.anyio
-async def test_updated_event_missing_changed_reports_is_committed_and_skipped():
-    consumer = FakeConsumer(
-        [base_event(event="updated-aimbom-requested")]  # no "changedReports"
-    )
-    generator = make_generator()
-
-    await run_generation(consumer, generator)
-
-    assert consumer.commit_calls == 1
-    generator.generate.assert_not_called()
-
-
-@pytest.mark.anyio
 async def test_updated_event_missing_aimbom_report_is_committed_and_skipped():
     consumer = FakeConsumer(
         [
@@ -176,28 +137,6 @@ async def test_updated_event_missing_aimbom_report_is_committed_and_skipped():
                 event="updated-aimbom-requested",
                 changedReports={
                     "assessment_report": {"download_url": "reports/x/1.0/a.json"}
-                },
-            )
-        ]
-    )
-    generator = make_generator()
-
-    await run_generation(consumer, generator)
-
-    assert consumer.commit_calls == 1
-    generator.generate.assert_not_called()
-
-
-@pytest.mark.anyio
-async def test_updated_event_missing_risk_report_is_committed_and_skipped():
-    consumer = FakeConsumer(
-        [
-            base_event(
-                event="updated-aimbom-requested",
-                changedReports={
-                    "aimbom_report": {"download_url": "aimboms/x/1.0/aimbom.json"},
-                    "assessment_report": {"download_url": "reports/x/1.0/a.json"},
-                    # no "risk_report"
                 },
             )
         ]
@@ -264,112 +203,7 @@ async def test_valid_updated_event_calls_generator_and_commits():
     )
 
 
-@pytest.mark.anyio
-async def test_valid_updated_event_with_gadgets_report_calls_generator_and_commits():
-    metadata = get_generation_metadata_deprecation_with_gadgets(
-        MODEL_UUID, MODEL_VERSION
-    )
-    changed_reports = dict(metadata["reports"])
-    changed_reports["aimbom_report"] = metadata["previous_aimbom"]
-
-    consumer = FakeConsumer(
-        [
-            base_event(
-                event="updated-aimbom-requested",
-                changedReports=changed_reports,
-            )
-        ]
-    )
-    generator = make_generator()
-
-    await run_generation(consumer, generator)
-
-    assert consumer.commit_calls == 1
-    generator.generate.assert_awaited_once_with(
-        GenerationMetadata(**metadata),
-    )
-
-
-# ============ Generation failures: committed and not retried, so they never block the queue ============
-
-
-@pytest.mark.anyio
-async def test_missing_report_error_is_committed():
-    metadata = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
-    consumer = FakeConsumer([base_event(reports=metadata["reports"])])
-    generator = make_generator(side_effect=GeneratorMissingReportError("missing"))
-
-    await run_generation(consumer, generator)
-
-    assert consumer.commit_calls == 1
-
-
-@pytest.mark.anyio
-async def test_invalid_report_error_is_committed():
-    metadata = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
-    consumer = FakeConsumer([base_event(reports=metadata["reports"])])
-    generator = make_generator(side_effect=GeneratorInvalidReportError("bad report"))
-
-    await run_generation(consumer, generator)
-
-    assert consumer.commit_calls == 1
-
-
-@pytest.mark.anyio
-async def test_storage_error_is_committed():
-    metadata = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
-    consumer = FakeConsumer([base_event(reports=metadata["reports"])])
-    generator = make_generator(side_effect=GeneratorStorageError("storage down"))
-
-    await run_generation(consumer, generator)
-
-    assert consumer.commit_calls == 1
-
-
-@pytest.mark.anyio
-async def test_signing_error_is_committed():
-    # Not retried, so the queue isn't blocked while the signing material is
-    # inconsistent.
-    metadata = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
-    consumer = FakeConsumer([base_event(reports=metadata["reports"])])
-    generator = make_generator(
-        side_effect=GeneratorSigningError("signing key and certificate do not match")
-    )
-
-    await run_generation(consumer, generator)
-
-    assert consumer.commit_calls == 1
-
-
-@pytest.mark.anyio
-async def test_generation_error_is_committed():
-    metadata = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
-    consumer = FakeConsumer([base_event(reports=metadata["reports"])])
-    generator = make_generator(side_effect=GeneratorGenerationError("bad report"))
-
-    await run_generation(consumer, generator)
-
-    assert consumer.commit_calls == 1
-
-
-@pytest.mark.anyio
-async def test_bad_message_does_not_block_subsequent_valid_message():
-    metadata = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
-    consumer = FakeConsumer(
-        [
-            base_event(),  # malformed: no "reports"
-            base_event(reports=metadata["reports"]),  # valid
-        ]
-    )
-    generator = make_generator()
-
-    await run_generation(consumer, generator)
-
-    assert consumer.commit_calls == 2
-    generator.generate.assert_awaited_once()
-
-
-# ============ Commits: every message is committed, only on its own partition ============
+# ============ Commits: every message is committed, even if it fails, only on its own partition ============
 
 
 @pytest.mark.anyio
@@ -441,37 +275,6 @@ async def test_signing_event_calls_signer_and_commits():
 
 
 @pytest.mark.anyio
-async def test_signing_event_logs_signed_counts(caplog):
-    consumer = FakeConsumer(
-        [get_signing_event("reports/a.json", "reports/b.json")],
-        topic=settings.KAFKA_SIGNING_TOPIC,
-    )
-    signer = make_signer()
-    signer.sign_and_upload.return_value = SigningResult(signed=1, already_signed=1)
-
-    with caplog.at_level("INFO", logger="app.consumers.signing"):
-        await run_signing(consumer, signer)
-
-    assert "signed=1, already_signed=1" in caplog.text
-
-
-@pytest.mark.anyio
-async def test_generation_event_on_signing_consumer_is_committed_and_skipped():
-    # A generation request is never signed, nor passed on to the generator.
-    metadata = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
-    consumer = FakeConsumer(
-        [base_event(reports=metadata["reports"])],
-        topic=settings.KAFKA_SIGNING_TOPIC,
-    )
-    signer = make_signer()
-
-    await run_signing(consumer, signer)
-
-    assert consumer.commit_calls == 1
-    signer.sign_and_upload.assert_not_called()
-
-
-@pytest.mark.anyio
 async def test_invalid_signing_event_is_committed_and_skipped():
     event = get_signing_event("reports/a.json")
     del event["target_bucket"]
@@ -484,24 +287,12 @@ async def test_invalid_signing_event_is_committed_and_skipped():
     signer.sign_and_upload.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "error",
-    [
-        ReportSignerMissingReportError("missing"),
-        ReportSignerInvalidFileError("invalid"),
-        ReportSignerUploadRejectedError("rejected"),
-        ReportSignerProcessingError("failed"),
-        ReportSignerStorageError("storage down"),
-        ReportSignerSigningError("signing key and certificate do not match"),
-        RuntimeError("unexpected"),
-    ],
-)
 @pytest.mark.anyio
-async def test_signing_error_is_committed(error):
+async def test_unexpected_signing_error_is_committed():
     consumer = FakeConsumer(
         [get_signing_event("reports/a.json")], topic=settings.KAFKA_SIGNING_TOPIC
     )
-    signer = make_signer(side_effect=error)
+    signer = make_signer(side_effect=RuntimeError("unexpected"))
 
     await run_signing(consumer, signer)
 

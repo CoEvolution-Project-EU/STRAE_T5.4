@@ -1,14 +1,7 @@
-import base64
-import copy
 import json
 from pathlib import Path
 
-import jcs
 from app.utils.utils import ReportType
-from cryptography import x509
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 
 from tests.mock_storage import MockStorageClient
 
@@ -140,65 +133,3 @@ def get_signing_event(*download_urls: str):
             for index, download_url in enumerate(download_urls)
         ],
     }
-
-
-# ============Signing utility functions for tests============
-
-
-def decode_base64url(value: str) -> bytes:
-    """Decode unpadded Base64URL."""
-
-    padding = "=" * (-len(value) % 4)
-    return base64.urlsafe_b64decode(value + padding)
-
-
-def verify_es256_signature(
-    public_key: ec.EllipticCurvePublicKey,
-    data: bytes,
-    signature_value: str,
-) -> bool:
-    raw_signature = decode_base64url(signature_value)
-
-    if len(raw_signature) != 64:
-        return False
-
-    r = int.from_bytes(raw_signature[:32], "big")
-    s = int.from_bytes(raw_signature[32:], "big")
-
-    der_signature = encode_dss_signature(r, s)
-
-    public_key.verify(
-        der_signature,
-        data,
-        ec.ECDSA(hashes.SHA256()),
-    )
-
-    return True
-
-
-def get_public_key_from_certificate_path(
-    certificate_path: list[str],
-) -> ec.EllipticCurvePublicKey:
-    cert_der = decode_base64url(certificate_path[0])
-
-    certificate = x509.load_der_x509_certificate(cert_der)
-
-    return certificate.public_key()
-
-
-def verify_signature(report: dict) -> bool:
-    report = copy.deepcopy(report)
-
-    signature = report["signature"]
-
-    signature_value = signature.pop("value")
-
-    public_key = get_public_key_from_certificate_path(signature["certificatePath"])
-
-    data = jcs.canonicalize(report)
-
-    return verify_es256_signature(
-        public_key,
-        data,
-        signature_value,
-    )

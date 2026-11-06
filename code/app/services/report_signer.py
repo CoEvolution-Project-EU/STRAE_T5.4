@@ -176,6 +176,10 @@ class ReportSigner:
             ReportSignerStorageError: When storage operations fail.
         """
 
+        # TODO: Consider validating the report against a schema here, to avoid signing invalid reports.
+        # This would be a breaking change, so it should be done in a separate PR.
+        # The report type can be inferred from the SigningMetadata.
+
         try:
             report = await self.client.get_file_from_url(download_url=download_url)
         except StorageConnectionError as e:

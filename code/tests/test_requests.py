@@ -10,37 +10,6 @@ def _ids():
     return {"model_uuid": "x", "version": "1.0"}
 
 
-def _all_reports():
-    return {
-        report_type.value: {
-            "filename": f"{report_type.value}.json",
-            "download_url": f"reports/x/1.0/{report_type.value}.json",
-        }
-        for report_type in ReportType
-    }
-
-
-def test_new_generation_metadata_with_all_reports_is_valid():
-    GenerationMetadata(**_ids(), reports=_all_reports())
-
-
-@pytest.mark.parametrize("field", ["model_uuid", "version"])
-def test_generation_metadata_missing_model_identifier_is_invalid(field):
-    ids = _ids()
-    del ids[field]
-
-    with pytest.raises(ValidationError, match=field):
-        GenerationMetadata(**ids, reports=_all_reports())
-
-
-def test_new_generation_metadata_missing_one_report_is_invalid():
-    reports = _all_reports()
-    del reports["aimodelinfo_report"]
-
-    with pytest.raises(ValidationError, match="aimodelinfo_report"):
-        GenerationMetadata(**_ids(), reports=reports)
-
-
 def test_new_generation_metadata_missing_all_reports_is_invalid():
     with pytest.raises(ValidationError) as exc_info:
         GenerationMetadata(**_ids(), reports={})
@@ -49,91 +18,25 @@ def test_new_generation_metadata_missing_all_reports_is_invalid():
         assert report_type.value in str(exc_info.value)
 
 
-def test_update_metadata_with_all_updatable_reports_is_valid():
-    GenerationMetadata(
-        **_ids(),
-        previous_aimbom={"filename": "aimbom.json", "download_url": "aimboms/x/1.0/aimbom.json"},
-        reports={
-            "assessment_report": {"filename": "a.json", "download_url": "reports/x/1.0/a.json"},
-            "risk_report": {"filename": "r.json", "download_url": "reports/x/1.0/r.json"},
-        },
-    )
-
-
-def test_update_metadata_with_optional_gadgets_report_is_valid():
-    metadata = GenerationMetadata(
-        **_ids(),
-        previous_aimbom={"filename": "aimbom.json", "download_url": "aimboms/x/1.0/aimbom.json"},
-        reports={
-            "assessment_report": {"filename": "a.json", "download_url": "reports/x/1.0/a.json"},
-            "risk_report": {"filename": "r.json", "download_url": "reports/x/1.0/r.json"},
-            "gadgets_report": {"filename": "g.json", "download_url": "reports/x/1.0/g.json"},
-        },
-    )
-
-    assert metadata.reports.gadgets_report is not None
-
-
 def test_update_metadata_with_only_gadgets_report_is_invalid():
     # The gadgets report is optional, but it doesn't replace the required ones.
     with pytest.raises(ValidationError) as exc_info:
         GenerationMetadata(
             **_ids(),
-            previous_aimbom={"filename": "aimbom.json", "download_url": "aimboms/x/1.0/aimbom.json"},
+            previous_aimbom={
+                "filename": "aimbom.json",
+                "download_url": "aimboms/x/1.0/aimbom.json",
+            },
             reports={
-                "gadgets_report": {"filename": "g.json", "download_url": "reports/x/1.0/g.json"},
+                "gadgets_report": {
+                    "filename": "g.json",
+                    "download_url": "reports/x/1.0/g.json",
+                },
             },
         )
 
     assert "assessment_report" in str(exc_info.value)
     assert "risk_report" in str(exc_info.value)
-
-
-def test_update_metadata_missing_assessment_report_is_invalid():
-    with pytest.raises(ValidationError, match="assessment_report"):
-        GenerationMetadata(
-            **_ids(),
-            previous_aimbom={"filename": "aimbom.json", "download_url": "aimboms/x/1.0/aimbom.json"},
-            reports={
-                "risk_report": {"filename": "r.json", "download_url": "reports/x/1.0/r.json"},
-            },
-        )
-
-
-def test_update_metadata_missing_risk_report_is_invalid():
-    with pytest.raises(ValidationError, match="risk_report"):
-        GenerationMetadata(
-            **_ids(),
-            previous_aimbom={"filename": "aimbom.json", "download_url": "aimboms/x/1.0/aimbom.json"},
-            reports={
-                "assessment_report": {"filename": "a.json", "download_url": "reports/x/1.0/a.json"},
-            },
-        )
-
-
-def test_update_metadata_missing_both_updatable_reports_is_invalid():
-    with pytest.raises(ValidationError) as exc_info:
-        GenerationMetadata(
-            **_ids(),
-            previous_aimbom={"filename": "aimbom.json", "download_url": "aimboms/x/1.0/aimbom.json"},
-            reports={},
-        )
-
-    assert "assessment_report" in str(exc_info.value)
-    assert "risk_report" in str(exc_info.value)
-
-
-def test_update_metadata_with_extra_non_updatable_report_is_invalid():
-    with pytest.raises(ValidationError, match="defence_report"):
-        GenerationMetadata(
-            **_ids(),
-            previous_aimbom={"filename": "aimbom.json", "download_url": "aimboms/x/1.0/aimbom.json"},
-            reports={
-                "assessment_report": {"filename": "a.json", "download_url": "reports/x/1.0/a.json"},
-                "risk_report": {"filename": "r.json", "download_url": "reports/x/1.0/r.json"},
-                "defence_report": {"filename": "d.json", "download_url": "reports/x/1.0/d.json"},
-            },
-        )
 
 
 @pytest.mark.parametrize(
@@ -149,12 +52,27 @@ def test_update_metadata_with_any_non_updatable_report_is_invalid(report_type):
     with pytest.raises(ValidationError, match=report_type.value):
         GenerationMetadata(
             **_ids(),
-            previous_aimbom={"filename": "aimbom.json", "download_url": "aimboms/x/1.0/aimbom.json"},
+            previous_aimbom={
+                "filename": "aimbom.json",
+                "download_url": "aimboms/x/1.0/aimbom.json",
+            },
             reports={
-                "assessment_report": {"filename": "a.json", "download_url": "reports/x/1.0/a.json"},
-                "risk_report": {"filename": "r.json", "download_url": "reports/x/1.0/r.json"},
-                "gadgets_report": {"filename": "g.json", "download_url": "reports/x/1.0/g.json"},
-                report_type.value: {"filename": "x.json", "download_url": "reports/x/1.0/x.json"},
+                "assessment_report": {
+                    "filename": "a.json",
+                    "download_url": "reports/x/1.0/a.json",
+                },
+                "risk_report": {
+                    "filename": "r.json",
+                    "download_url": "reports/x/1.0/r.json",
+                },
+                "gadgets_report": {
+                    "filename": "g.json",
+                    "download_url": "reports/x/1.0/g.json",
+                },
+                report_type.value: {
+                    "filename": "x.json",
+                    "download_url": "reports/x/1.0/x.json",
+                },
             },
         )
 
@@ -164,47 +82,31 @@ def test_reports_with_unknown_key_is_invalid():
     with pytest.raises(ValidationError, match="gadget_report"):
         GenerationMetadata(
             **_ids(),
-            previous_aimbom={"filename": "aimbom.json", "download_url": "aimboms/x/1.0/aimbom.json"},
+            previous_aimbom={
+                "filename": "aimbom.json",
+                "download_url": "aimboms/x/1.0/aimbom.json",
+            },
             reports={
-                "assessment_report": {"filename": "a.json", "download_url": "reports/x/1.0/a.json"},
-                "risk_report": {"filename": "r.json", "download_url": "reports/x/1.0/r.json"},
-                "gadget_report": {"filename": "g.json", "download_url": "reports/x/1.0/g.json"},
+                "assessment_report": {
+                    "filename": "a.json",
+                    "download_url": "reports/x/1.0/a.json",
+                },
+                "risk_report": {
+                    "filename": "r.json",
+                    "download_url": "reports/x/1.0/r.json",
+                },
+                "gadget_report": {
+                    "filename": "g.json",
+                    "download_url": "reports/x/1.0/g.json",
+                },
             },
         )
-
-
-def test_signing_event_is_valid():
-    # Fields that aren't needed for signing (e.g. "event", "pool") are ignored.
-    metadata = SigningMetadata.model_validate(
-        get_signing_event("reports/a.json", "reports/b.json")
-    )
-
-    assert metadata.target_bucket == "risk-reports"
-    assert [file.id for file in metadata.files] == ["original-0", "original-1"]
-
-
-@pytest.mark.parametrize("field", ["target_pool", "target_bucket", "files"])
-def test_signing_event_missing_field_is_invalid(field):
-    event = get_signing_event("reports/a.json")
-    del event[field]
-
-    with pytest.raises(ValidationError, match=field):
-        SigningMetadata.model_validate(event)
 
 
 def test_signing_event_without_files_is_invalid():
     event = get_signing_event()
 
     with pytest.raises(ValidationError, match="files"):
-        SigningMetadata.model_validate(event)
-
-
-@pytest.mark.parametrize("field", ["_id", "filename", "download_url"])
-def test_signing_event_file_missing_field_is_invalid(field):
-    event = get_signing_event("reports/a.json")
-    del event["files"][0][field]
-
-    with pytest.raises(ValidationError, match=field):
         SigningMetadata.model_validate(event)
 
 

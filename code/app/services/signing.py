@@ -65,9 +65,7 @@ def load_if_changed(path: str) -> Callable[[Callable[[], T]], Callable[[], T]]:
 
         Returns:
             A zero-arg function returning the cached value, transparently
-            reloaded via `func` whenever `path`'s mtime changes. Exposes a
-            `cache_clear()` method, mirroring `functools.lru_cache`, mainly
-            for resetting the cache in tests.
+            reloaded via `func` whenever `path`'s mtime changes.
         """
 
         @functools.wraps(func)
@@ -81,8 +79,6 @@ def load_if_changed(path: str) -> Callable[[Callable[[], T]], Callable[[], T]]:
                     cache["mtime"] = mtime
 
                 return cache["value"]
-
-        wrapper.cache_clear = cache.clear
 
         return wrapper
 
