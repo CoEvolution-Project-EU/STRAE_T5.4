@@ -1,7 +1,16 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from app.clients.storage_client import StorageClient, StorageConnectionError
+from app.clients.storage_client import (
+    StorageAuthError,
+    StorageBadRequestError,
+    StorageClient,
+    StorageConflictError,
+    StorageConnectionError,
+    StorageInvalidFileError,
+    StorageNotFoundError,
+    StorageOperationError,
+)
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
 from app.services.generator import (
@@ -11,6 +20,7 @@ from app.services.generator import (
     GeneratorMissingReportError,
     GeneratorSigningError,
     GeneratorStorageError,
+    GeneratorUploadRejectedError,
 )
 from app.services.signing import SigningError, verify_report
 from app.utils.utils import ReportComment, ReportType
@@ -110,6 +120,32 @@ async def test_storage_connection_failure():
 
 
 @pytest.mark.anyio
+async def test_report_not_json_is_invalid():
+    storage = MagicMock(spec=StorageClient)
+    storage.get_reports_for_model.side_effect = StorageInvalidFileError("not JSON")
+    generator = AIMBOMGenerator(storage)
+
+    with pytest.raises(GeneratorInvalidReportError, match="not valid JSON"):
+        await generator.generate(
+            GenerationMetadata(**get_generation_metadata(MODEL_UUID, MODEL_VERSION)),
+        )
+
+
+@pytest.mark.anyio
+async def test_report_download_refused_is_a_generation_error():
+    storage = MagicMock(spec=StorageClient)
+    storage.get_reports_for_model.side_effect = StorageOperationError(
+        "orchestrator returned 403"
+    )
+    generator = AIMBOMGenerator(storage)
+
+    with pytest.raises(GeneratorGenerationError, match="403"):
+        await generator.generate(
+            GenerationMetadata(**get_generation_metadata(MODEL_UUID, MODEL_VERSION)),
+        )
+
+
+@pytest.mark.anyio
 async def test_invalid_report_data():
     model_uuid = MODEL_UUID
     model_version = MODEL_VERSION
@@ -203,6 +239,64 @@ async def test_invalid_previous_aimbom_is_rejected_and_not_re_signed(tamper):
         await generator.generate(GenerationMetadata(**metadata))
 
     storage.save_aimbom.assert_not_awaited()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "error, expected",
+    [
+        (StorageNotFoundError("not found"), GeneratorMissingReportError),
+        (
+            StorageOperationError("orchestrator returned 403"),
+            GeneratorGenerationError,
+        ),
+        (StorageInvalidFileError("not JSON"), GeneratorInvalidReportError),
+        (StorageConnectionError("orchestrator down"), GeneratorStorageError),
+    ],
+)
+async def test_previous_aimbom_storage_errors(error, expected):
+    storage = create_new_mock_storage()
+    storage.save_aimbom = AsyncMock()
+    metadata = get_generation_metadata_deprecation(MODEL_UUID, MODEL_VERSION)
+    previous_url = metadata["previous_aimbom"]["download_url"]
+
+    # Only the previous AIMBOM fails; the reports download normally.
+    get_file = storage.get_file_from_url
+
+    async def get_file_from_url(download_url):
+        if download_url == previous_url:
+            raise error
+        return await get_file(download_url)
+
+    storage.get_file_from_url = get_file_from_url
+    generator = AIMBOMGenerator(storage)
+
+    with pytest.raises(expected, match="(?i)previous AIMBOM"):
+        await generator.generate(GenerationMetadata(**metadata))
+
+    storage.save_aimbom.assert_not_awaited()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "error, expected",
+    [
+        (StorageBadRequestError("400"), GeneratorUploadRejectedError),
+        (StorageConnectionError("orchestrator down"), GeneratorStorageError),
+        (StorageAuthError("login failed"), GeneratorStorageError),
+        (StorageConflictError("409"), GeneratorGenerationError),
+        (StorageOperationError("orchestrator returned 403"), GeneratorGenerationError),
+    ],
+)
+async def test_save_aimbom_storage_errors(error, expected):
+    storage = create_new_mock_storage()
+    storage.save_aimbom = AsyncMock(side_effect=error)
+    generator = AIMBOMGenerator(storage)
+
+    with pytest.raises(expected):
+        await generator.generate(
+            GenerationMetadata(**get_generation_metadata(MODEL_UUID, MODEL_VERSION)),
+        )
 
 
 def test_validate_aimbom_raises_generation_error_on_invalid_signature():

@@ -134,8 +134,8 @@ How the outcome of each file is handled:
 
 - **Already signed:** if the Orchestrator answers `409`, the original has already been signed (e.g. by an earlier attempt of the same request). STRAE treats the file as done, so a request can safely be sent again.
 - **Rejected:** if the Orchestrator answers `400` (e.g. the original doesn't belong to the given model version or bucket), the upload is rejected.
-- **Problems with one file** (missing, not a JSON object, rejected) don't stop the remaining files from being signed. They are reported together once all files have been processed.
-- **Storage and signing material errors** affect every file, so processing stops at the first one.
+- **Problems with one file** (missing, not a JSON object, rejected, or a download or upload the Orchestrator refuses with another `4xx`) don't stop the remaining files from being signed. They are reported together once all files have been processed, and the most serious one decides the status code, whatever the order of the files: a file that can't be retrieved or uploaded for another reason (`500`) outranks a rejected upload or an invalid file (`422`), which outranks a missing file (`409`).
+- **Storage unavailability** (connection errors, `5xx` responses, authentication failures) **and signing material errors** affect every file, so processing stops at the first one. The error then also states how many files were signed so far and lists any earlier per-file failures.
 
 ## System Overview
 
@@ -168,11 +168,11 @@ STRAE is organized as a modular FastAPI application with a clear separation betw
 | `/api/generate` | POST | Generates an AIMBOM for a given model UUID and version by aggregating reports from the configured storage backend, or produces an updated version of an existing AIMBOM when `previous_aimbom` is provided in the `generation_metadata` | `generation_metadata`: `model_uuid`, `version`, `reports` and optionally `previous_aimbom` | Confirmation message, AIMBOM identifier and version |
 | `/api/validation/{uuid}/{version}` | GET | Validates the AIMBOM of a model version and the reports it references (see [AIMBOM Validation](#aimbom-validation)) | `uuid`, `version` (path) | `detail`, `model_uuid`, `model_version` and `status` (`VALID` or `INVALID`) |
 
-`/api/sign` maps errors to status codes as follows: a missing report returns `409`, an invalid file or a rejected upload returns `422`, storage and signing material errors return `503`, and any other error returns `500`.
+`/api/sign` maps errors to status codes as follows: a report that doesn't exist (`404`) returns `409`, an invalid file or a rejected upload (`400`) returns `422`, storage unavailability (connection errors, `5xx` responses, authentication failures) returns `503`, and signing material errors and any other error (including any other `4xx` when downloading or uploading a file) return `500`.
 
-`/api/generate` maps errors to status codes as follows: a missing report returns `409`, a report or previous AIMBOM that fails validation (schema, model or signature) returns `422`, storage and signing material errors return `503`, and any other error (including a generated AIMBOM that fails validation) returns `500`.
+`/api/generate` maps errors to status codes as follows: a report or previous AIMBOM that doesn't exist (`404`) returns `409`, a report or previous AIMBOM that is not valid JSON or fails validation (schema, model or signature), or an AIMBOM upload the Orchestrator rejects (`400`), returns `422`, storage unavailability (connection errors, `5xx` responses, authentication failures) returns `503`, and signing material errors and any other error (including a generated AIMBOM that fails validation, or any other `4xx` when downloading or uploading a file, such as a `403` or an upload `409`) return `500`.
 
-`/api/validation` returns `200` with `status` `INVALID` for an AIMBOM or report that is invalid, not valid JSON, or missing. A model version without an AIMBOM returns `404`. When the files can't be read from the storage backend (e.g. it is unavailable or rejects the request), the response is `503` and not `INVALID`, because nothing is known about the AIMBOM. Any other error returns `500`.
+`/api/validation` returns `200` with `status` `INVALID` for an AIMBOM or report that is invalid, not valid JSON, or missing. A model version without an AIMBOM returns `404`. When the files can't be read from the storage backend, the response is not `INVALID`, because nothing is known about the AIMBOM: it is `503` if the backend is unavailable (connection errors, `5xx` responses, authentication failures), and `500` if it refuses the request (any other `4xx`, or a malformed response). Any other error returns `500`.
 
 ## Kafka Worker
 
@@ -196,7 +196,7 @@ AIMBOM generation requests must not be processed again, because that would creat
 Every message is committed once it has been processed, whether it succeeded or not, so a failing message never blocks the queue. Only the message's own partition is committed. Failures are logged and not retried, like in the other CoEvolution components:
 
 - **Invalid payloads** (not JSON, not a JSON object, missing or invalid fields) are logged and skipped.
-- **Errors caused by the request** (e.g. a missing report, or a report that fails schema validation or has an invalid signature) are logged.
+- **Errors caused by the request** (e.g. a missing report, a report that fails schema validation or has an invalid signature, or an upload the Orchestrator rejects) are logged.
 - **Errors not caused by the request** (storage or connection errors, signing material errors, unexpected errors) are logged as `request dropped`, together with the full event, so the request can be sent again. For signing, the request can also be replayed by resetting the consumer group's offset (see [Deployment](deployment.md#replaying-dropped-signing-requests)).
 
 ### AIMBOM Generation Events

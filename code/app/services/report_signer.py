@@ -5,12 +5,14 @@ from typing import Dict
 from fastapi import Depends
 
 from app.clients.storage_client import (
+    StorageAuthError,
     StorageBadRequestError,
     StorageClient,
     StorageConflictError,
     StorageConnectionError,
     StorageError,
     StorageInvalidFileError,
+    StorageNotFoundError,
     StorageOperationError,
     get_storage_client,
 )
@@ -67,6 +69,18 @@ class ReportSignerProcessingError(ReportSignerError):
     pass
 
 
+# Errors that only affect one file, so the remaining files are still
+# processed. Most serious first: when several files fail, the first of these
+# types among the failures decides the error raised (and so the status code).
+# A failure on STRAE's side outranks the caller's mistakes.
+FAILURE_PRIORITY = (
+    ReportSignerProcessingError,  # 500
+    ReportSignerUploadRejectedError,  # 422
+    ReportSignerInvalidFileError,  # 422
+    ReportSignerMissingReportError,  # 409
+)
+
+
 @dataclass
 class SigningResult:
     """How many files of a signing request were signed."""
@@ -92,7 +106,8 @@ class ReportSigner:
         Errors specific to one file (missing, invalid, rejected) don't stop
         the remaining files from being signed; they are raised once all files
         have been processed. Storage and signing material errors affect every
-        file, so they are raised immediately.
+        file, so they are raised immediately; their message also states how
+        many files were signed so far and lists any earlier per-file failures.
 
         Args:
             signing_metadata: Metadata describing the files to sign and the
@@ -133,12 +148,7 @@ class ReportSigner:
                     result.signed += 1
                 else:
                     result.already_signed += 1
-            except (
-                ReportSignerMissingReportError,
-                ReportSignerInvalidFileError,
-                ReportSignerUploadRejectedError,
-                ReportSignerProcessingError,
-            ) as e:
+            except FAILURE_PRIORITY as e:
                 logger.warning(
                     "Failed to sign file=%s original_file_id=%s: %s",
                     file.filename,
@@ -146,12 +156,30 @@ class ReportSigner:
                     e,
                 )
                 failures.append(e)
+            # Affects every remaining file, so stop. The progress so far and
+            # any earlier per-file failures are added to the message so they
+            # aren't lost.
+            except (ReportSignerStorageError, ReportSignerSigningError) as e:
+                message = (
+                    f"{e} (after {result.signed} signed, "
+                    f"{result.already_signed} already signed)"
+                )
+                if failures:
+                    message += "; earlier failures: " + "; ".join(
+                        str(failure) for failure in failures
+                    )
+                raise type(e)(message) from e
 
         if failures:
-            # The first failure decides the error type; the message lists all of them.
-            raise type(failures[0])(
+            # The most serious failure decides the error type, so the same
+            # problems give the same status code whatever the order of the
+            # files. The message lists all of them.
+            worst = min(
+                failures, key=lambda failure: FAILURE_PRIORITY.index(type(failure))
+            )
+            raise type(worst)(
                 "; ".join(str(failure) for failure in failures)
-            ) from failures[0]
+            ) from worst
 
         logger.debug(
             "Signing completed model_uuid=%s, model_version=%s",
@@ -171,9 +199,11 @@ class ReportSigner:
             The report as a json dictionary.
 
         Raises:
-            ReportSignerMissingReportError: When the report cannot be found.
+            ReportSignerMissingReportError: When the report does not exist.
             ReportSignerInvalidFileError: When the report is not a JSON object.
-            ReportSignerStorageError: When storage operations fail.
+            ReportSignerStorageError: When storage is unavailable.
+            ReportSignerProcessingError: When storage refuses to return the
+                report for any other reason (e.g. a 403).
         """
 
         # TODO: Consider validating the report against a schema here, to avoid signing invalid reports.
@@ -199,7 +229,7 @@ class ReportSigner:
             raise ReportSignerInvalidFileError(
                 f"Report to sign is not valid JSON ({download_url}): {str(e)}"
             ) from e
-        except StorageOperationError as e:
+        except StorageNotFoundError as e:
             logger.warning(
                 "Report to sign not found download_url=%s: %s",
                 download_url,
@@ -207,6 +237,17 @@ class ReportSigner:
             )
             raise ReportSignerMissingReportError(
                 f"Report to sign is missing ({download_url}): {str(e)}"
+            ) from e
+        # Another 4xx or an S3 error: the report may exist but can't be read,
+        # and retrying won't fix it.
+        except StorageOperationError as e:
+            logger.error(
+                "Failed to retrieve report to sign download_url=%s: %s",
+                download_url,
+                e,
+            )
+            raise ReportSignerProcessingError(
+                f"Failed to retrieve report to sign ({download_url}): {str(e)}"
             ) from e
 
         if not isinstance(report, dict):
@@ -269,8 +310,10 @@ class ReportSigner:
 
         Raises:
             ReportSignerUploadRejectedError: If the storage backend rejects the
-                signed report.
-            ReportSignerStorageError: If storage operations fail.
+                signed report (400).
+            ReportSignerStorageError: If storage is unavailable or
+                authentication fails.
+            ReportSignerProcessingError: If saving fails for any other reason.
         """
 
         upload_report_metadata = UploadReportMetadata(
@@ -308,10 +351,17 @@ class ReportSigner:
             raise ReportSignerUploadRejectedError(
                 f"Signed report '{file.filename}' was rejected: {e}"
             ) from e
-        except StorageError as e:
-            logger.error("Error saving signed report: %s", e)
+        except (StorageConnectionError, StorageAuthError) as e:
+            logger.error("Storage unavailable while saving signed report: %s", e)
             raise ReportSignerStorageError(
                 f"Storage error while saving signed report: {e}"
+            ) from e
+        # Another 4xx or an S3 error: retrying won't fix it, and it may only
+        # affect this file, so the other files are still processed.
+        except StorageError as e:
+            logger.error("Error saving signed report: %s", e)
+            raise ReportSignerProcessingError(
+                f"Failed to save signed report '{file.filename}': {e}"
             ) from e
 
 

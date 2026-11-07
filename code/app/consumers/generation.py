@@ -11,6 +11,7 @@ from app.services.generator import (
     GeneratorMissingReportError,
     GeneratorSigningError,
     GeneratorStorageError,
+    GeneratorUploadRejectedError,
 )
 
 logger = logging.getLogger(__name__)
@@ -147,6 +148,15 @@ async def handle_generation_event(event: dict, generator: AIMBOMGenerator):
     except GeneratorInvalidReportError as e:
         logger.warning(
             "Invalid report for model_uuid=%s: %s",
+            event.get("model_uuid"),
+            str(e),
+        )
+
+        return
+
+    except GeneratorUploadRejectedError as e:
+        logger.warning(
+            "AIMBOM rejected by storage for model_uuid=%s: %s",
             event.get("model_uuid"),
             str(e),
         )

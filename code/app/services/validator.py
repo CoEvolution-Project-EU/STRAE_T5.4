@@ -5,7 +5,9 @@ from fastapi import Depends
 from pydantic import ValidationError
 
 from app.clients.storage_client import (
+    StorageAuthError,
     StorageClient,
+    StorageConnectionError,
     StorageError,
     StorageInvalidFileError,
     StorageNotFoundError,
@@ -72,8 +74,17 @@ class ValidatorNotFoundError(ValidatorError):
 
 
 class ValidatorStorageError(ValidatorError):
-    """Raised when the files could not be read from the storage backend, so
-    nothing can be said about the AIMBOM.
+    """Raised when the storage backend is unavailable, so nothing can be
+    said about the AIMBOM.
+    """
+
+    pass
+
+
+class ValidatorReadError(ValidatorError):
+    """Raised when the storage backend refuses to return the files (e.g. a
+    403, or a malformed response), so nothing can be said about the AIMBOM,
+    and retrying won't help.
     """
 
     pass
@@ -105,8 +116,9 @@ class AIMBOMValidator:
                 invalid, missing or not valid JSON, or the AIMBOM does not
                 reference exactly its reports.
             ValidatorNotFoundError: If the model version has no AIMBOM.
-            ValidatorStorageError: If the files could not be read from the
-                storage backend.
+            ValidatorStorageError: If the storage backend is unavailable.
+            ValidatorReadError: If the storage backend refuses to return the
+                files for any other reason.
         """
 
         try:
@@ -118,9 +130,13 @@ class AIMBOMValidator:
         except StorageInvalidFileError as e:
             raise ValidatorInvalidAIMBOMError(str(e)) from e
         # Any other failure says nothing about the AIMBOM, so it must not be
-        # reported as invalid. Must come after its subclasses above.
-        except StorageError as e:
+        # reported as invalid.
+        except (StorageConnectionError, StorageAuthError) as e:
             raise ValidatorStorageError(str(e)) from e
+        # Another 4xx, a malformed response or an S3 error: retrying won't fix
+        # it. Must come after the subclasses above.
+        except StorageError as e:
+            raise ValidatorReadError(str(e)) from e
 
         aimbom = validate_report(BOMType.AIMBOM, raw_aimbom)
 

@@ -6,9 +6,13 @@ from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
 
 from app.clients.storage_client import (
+    StorageAuthError,
+    StorageBadRequestError,
     StorageClient,
     StorageConnectionError,
     StorageError,
+    StorageInvalidFileError,
+    StorageNotFoundError,
     StorageOperationError,
     get_storage_client,
 )
@@ -53,6 +57,14 @@ class GeneratorMissingReportError(GeneratorError):
 class GeneratorInvalidReportError(GeneratorError):
     """Raised when a fetched report fails CycloneDX schema or report model
     validation.
+    """
+
+    pass
+
+
+class GeneratorUploadRejectedError(GeneratorError):
+    """Raised when the storage backend rejects the generated AIMBOM (e.g. the
+    model version does not exist there).
     """
 
     pass
@@ -190,9 +202,13 @@ class AIMBOMGenerator:
             The validated previous `AIMBOM`.
 
         Raises:
-            GeneratorInvalidReportError: If the previous AIMBOM fails schema
-                validation or has a missing or invalid signature.
-            GeneratorStorageError: If the previous AIMBOM cannot be retrieved.
+            GeneratorInvalidReportError: If the previous AIMBOM is not valid
+                JSON, fails schema validation or has a missing or invalid
+                signature.
+            GeneratorMissingReportError: If the previous AIMBOM does not exist.
+            GeneratorStorageError: If storage is unavailable.
+            GeneratorGenerationError: If storage refuses to return the previous
+                AIMBOM for any other reason (e.g. a 403).
         """
 
         try:
@@ -213,13 +229,32 @@ class AIMBOMGenerator:
             raise GeneratorStorageError(
                 f"Failed to retrieve previous AIMBOM from storage: {str(e)}"
             ) from e
-        except StorageOperationError as e:
+        # Subclass of `StorageOperationError`, so it must come first.
+        except StorageInvalidFileError as e:
             logger.warning(
-                "No previous AIMBOM found: %s",
+                "Previous AIMBOM is not valid JSON: %s",
                 e,
             )
-            raise GeneratorStorageError(
-                f"Failed to retrieve previous AIMBOM from storage: {str(e)}"
+            raise GeneratorInvalidReportError(
+                f"Previous AIMBOM is not valid JSON: {str(e)}"
+            ) from e
+        except StorageNotFoundError as e:
+            logger.warning(
+                "Previous AIMBOM is missing: %s",
+                e,
+            )
+            raise GeneratorMissingReportError(
+                f"Previous AIMBOM is missing: {str(e)}"
+            ) from e
+        # Another 4xx or an S3 error: the previous AIMBOM may exist but can't
+        # be read, and retrying won't fix it.
+        except StorageOperationError as e:
+            logger.error(
+                "Failed to retrieve previous AIMBOM: %s",
+                e,
+            )
+            raise GeneratorGenerationError(
+                f"Failed to retrieve previous AIMBOM: {str(e)}"
             ) from e
 
     async def _create_updated_aimbom(
@@ -280,8 +315,11 @@ class AIMBOMGenerator:
             A mapping of `ReportType` to json dictionaries.
 
         Raises:
-            GeneratorMissingReportError: When required reports are missing.
-            GeneratorStorageError: When storage operations fail.
+            GeneratorInvalidReportError: When a report is not valid JSON.
+            GeneratorMissingReportError: When a report does not exist.
+            GeneratorStorageError: When storage is unavailable.
+            GeneratorGenerationError: When storage refuses to return a report
+                for any other reason (e.g. a 403).
         """
 
         try:
@@ -294,13 +332,32 @@ class AIMBOMGenerator:
             raise GeneratorStorageError(
                 f"Failed to retrieve reports from MinIO storage: {str(e)}"
             ) from e
-        except StorageOperationError as e:
+        # Subclass of `StorageOperationError`, so it must come first.
+        except StorageInvalidFileError as e:
+            logger.warning(
+                "Report is not valid JSON: %s",
+                e,
+            )
+            raise GeneratorInvalidReportError(
+                f"Report is not valid JSON: {str(e)}"
+            ) from e
+        except StorageNotFoundError as e:
             logger.warning(
                 "Missing reports: %s",
                 e,
             )
             raise GeneratorMissingReportError(
                 f"Required reports are missing: {str(e)}"
+            ) from e
+        # Another 4xx or an S3 error: the report may exist but can't be read,
+        # and retrying won't fix it.
+        except StorageOperationError as e:
+            logger.error(
+                "Failed to retrieve reports: %s",
+                e,
+            )
+            raise GeneratorGenerationError(
+                f"Failed to retrieve reports: {str(e)}"
             ) from e
 
     def _build_metadata(self, reports: Dict[ReportType, ReportModel]) -> Metadata:
@@ -521,7 +578,11 @@ class AIMBOMGenerator:
             None
 
         Raises:
-            GeneratorStorageError: If storage operations fail.
+            GeneratorUploadRejectedError: If the storage backend rejects the
+                AIMBOM (400).
+            GeneratorStorageError: If storage is unavailable or
+                authentication fails.
+            GeneratorGenerationError: If saving fails for any other reason.
         """
 
         logger.debug(
@@ -536,11 +597,22 @@ class AIMBOMGenerator:
                 aimbom=aimbom,
             )
             logger.debug("AIMBOM saved successfully")
-        except StorageError as e:
-            logger.error("Error saving AIMBOM to bucket: %s", e)
+        except StorageBadRequestError as e:
+            logger.warning("AIMBOM rejected by storage: %s", e)
+            raise GeneratorUploadRejectedError(
+                f"Generated AIMBOM was rejected: {e}"
+            ) from e
+        except (StorageConnectionError, StorageAuthError) as e:
+            logger.error("Storage unavailable while saving AIMBOM: %s", e)
             raise GeneratorStorageError(
                 f"Storage error while saving AIMBOM: {e}"
             ) from e
+        # A 409, another 4xx or an S3 error: retrying won't fix it. A 409 is
+        # not "already saved" here, unlike for signed reports: each AIMBOM has
+        # a fresh serial number, so it was not stored.
+        except StorageError as e:
+            logger.error("Error saving AIMBOM: %s", e)
+            raise GeneratorGenerationError(f"Failed to save AIMBOM: {e}") from e
 
 
 # AIMBOMGenerator dependency

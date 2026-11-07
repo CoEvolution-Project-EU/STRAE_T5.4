@@ -19,6 +19,7 @@ from app.services.generator import (
     GeneratorMissingReportError,
     GeneratorSigningError,
     GeneratorStorageError,
+    GeneratorUploadRejectedError,
     get_generator,
 )
 from app.services.report_signer import (
@@ -35,12 +36,16 @@ from app.services.validator import (
     AIMBOMValidator,
     ValidatorInvalidAIMBOMError,
     ValidatorNotFoundError,
+    ValidatorReadError,
     ValidatorStorageError,
     get_validator,
 )
 from app.utils.utils import uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
+
+# Response detail for unexpected errors.
+INTERNAL_ERROR_DETAIL = "Internal server error"
 
 router = APIRouter(
     prefix="/api",
@@ -129,7 +134,7 @@ async def sign_report(
             exc_info=True,
         )
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
     except ReportSignerProcessingError as e:
         logger.error(
@@ -140,10 +145,13 @@ async def sign_report(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during report signing")
+        # The exception's own text is only logged: it means nothing to the
+        # caller and may expose internals.
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=INTERNAL_ERROR_DETAIL,
         )
 
     logger.info(
@@ -215,6 +223,15 @@ async def generate_aimbom(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
+    except GeneratorUploadRejectedError as e:
+        logger.warning(
+            "AIMBOM rejected by storage for model_uuid=%s: %s",
+            generation_metadata.model_uuid,
+            e,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        )
     except GeneratorStorageError as e:
         logger.error(
             "Storage error for model_uuid=%s",
@@ -231,7 +248,7 @@ async def generate_aimbom(
             exc_info=True,
         )
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
     except GeneratorGenerationError as e:
         logger.error(
@@ -242,10 +259,13 @@ async def generate_aimbom(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during AIMBOM generation")
+        # The exception's own text is only logged: it means nothing to the
+        # caller and may expose internals.
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=INTERNAL_ERROR_DETAIL,
         )
 
     aimbom_uuid = uuid_from_serial_number(aimbom.serial_number)
@@ -320,10 +340,18 @@ async def validate_aimbom(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
         )
-    except Exception as e:
-        logger.exception("Unexpected error during AIMBOM validation")
+    except ValidatorReadError as e:
+        logger.error("Storage read error for model_uuid=%s", uuid, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+    except Exception:
+        logger.exception("Unexpected error during AIMBOM validation")
+        # The exception's own text is only logged: it means nothing to the
+        # caller and may expose internals.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=INTERNAL_ERROR_DETAIL,
         )
 
     return AIMBOMValidationResponse(

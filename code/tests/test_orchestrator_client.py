@@ -2,11 +2,14 @@ import httpx
 import pytest
 from app.clients.orchestrator_client import OrchestratorClient
 from app.clients.storage_client import (
+    StorageBadRequestError,
+    StorageConflictError,
     StorageConnectionError,
     StorageInvalidFileError,
     StorageNotFoundError,
     StorageOperationError,
 )
+from app.models.storage import UploadReportMetadata
 from app.utils.utils import ReportType
 
 from tests.utils import MODEL_UUID, MODEL_VERSION
@@ -213,3 +216,42 @@ async def test_get_aimbom_report_not_json_raises_invalid_file():
 
     with pytest.raises(StorageInvalidFileError):
         await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
+
+
+class FakeAuth:
+    async def get_token(self) -> str:
+        return "token"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "status_code, expected_error",
+    [
+        (500, StorageConnectionError),
+        (503, StorageConnectionError),
+        (400, StorageBadRequestError),
+        (409, StorageConflictError),
+        (403, StorageOperationError),
+    ],
+)
+async def test_upload_failure_raises(status_code, expected_error):
+    client = OrchestratorClient(
+        client=httpx.AsyncClient(
+            base_url=BASE_URL,
+            transport=httpx.MockTransport(lambda request: httpx.Response(status_code)),
+        ),
+        auth=FakeAuth(),
+    )
+
+    with pytest.raises(expected_error, match=str(status_code)):
+        await client.save_file(
+            file={"id": "signed"},
+            filename="signed.json",
+            upload_report_metadata=UploadReportMetadata(
+                model_uuid=MODEL_UUID,
+                version=MODEL_VERSION,
+                pool="pool",
+                bucket="bucket",
+                original_file_id="original-1",
+            ),
+        )

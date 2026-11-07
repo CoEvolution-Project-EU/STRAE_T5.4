@@ -400,7 +400,7 @@ class OrchestratorClient:
 
         Raises:
             StorageAuthError: On authentication failures.
-            StorageConnectionError: On connection issues.
+            StorageConnectionError: On connection issues or 5xx responses.
             StorageConflictError: On a 409 response.
             StorageBadRequestError: On a 400 response.
             StorageOperationError: On other non-2xx HTTP responses or unexpected errors.
@@ -466,6 +466,12 @@ class OrchestratorClient:
             if e.response.status_code == httpx.codes.BAD_REQUEST:
                 raise StorageBadRequestError(
                     f"Orchestrator returned {e.response.status_code}: {e.response.text}"
+                ) from e
+
+            # Same as for downloads: a 5xx means the orchestrator is unavailable.
+            if e.response.status_code >= 500:
+                raise StorageConnectionError(
+                    f"Orchestrator returned {e.response.status_code}"
                 ) from e
 
             raise StorageOperationError(

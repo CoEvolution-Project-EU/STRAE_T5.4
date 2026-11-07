@@ -10,7 +10,6 @@ from app.services.signing import (
     decode_base64url,
     encode_base64url,
     get_certificate_path,
-    get_private_key,
     load_if_changed,
     sign_report,
     validate_signing_material,
