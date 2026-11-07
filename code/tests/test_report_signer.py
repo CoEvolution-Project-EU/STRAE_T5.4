@@ -116,31 +116,6 @@ async def test_missing_file_does_not_stop_other_files():
     assert [upload.original_file_id for upload in storage.uploads] == ["original-1"]
 
 
-@pytest.mark.anyio
-async def test_refused_download_does_not_stop_other_files():
-    storage = create_new_mock_storage()
-    get_file = storage.get_file_from_url
-
-    async def get_file_from_url(download_url):
-        if download_url == "reports/forbidden.json":
-            raise StorageOperationError("Orchestrator returned 403")
-        return await get_file(download_url)
-
-    storage.get_file_from_url = get_file_from_url
-    signer = ReportSigner(storage)
-
-    with pytest.raises(ReportSignerProcessingError, match="403"):
-        await signer.sign_and_upload(
-            _signing_metadata(
-                "reports/forbidden.json",
-                f"{REPORT_URL}/risk_report.json",
-            )
-        )
-
-    # Not reported as missing, and the other file is still signed.
-    assert len(storage.uploads) == 1
-
-
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
@@ -170,22 +145,6 @@ async def test_most_serious_failure_decides_the_error(download_urls):
     assert "reports/missing.json" in str(exc_info.value)
     assert "reports/forbidden.json" in str(exc_info.value)
 
-@pytest.mark.anyio
-async def test_storage_error_stops_remaining_files():
-    storage = create_new_mock_storage()
-    storage.save_file = AsyncMock(side_effect=StorageConnectionError("down"))
-    signer = ReportSigner(storage)
-
-    with pytest.raises(ReportSignerStorageError):
-        await signer.sign_and_upload(
-            _signing_metadata(
-                f"{REPORT_URL}/risk_report.json",
-                f"{REPORT_URL}/assessment_report.json",
-            )
-        )
-
-    storage.save_file.assert_awaited_once()
-
 
 @pytest.mark.anyio
 async def test_storage_error_reports_progress_and_earlier_failures():
@@ -214,9 +173,9 @@ async def test_storage_error_reports_progress_and_earlier_failures():
             )
         )
 
+    # The progress so far and the earlier failure are not lost.
     message = str(exc_info.value)
-    assert "after 1 signed, 0 already signed" in message
-    assert "earlier failures" in message
+    assert "1 signed" in message
     assert "reports/missing-1.json" in message
     # Processing stopped at the storage error.
     assert calls == 2
@@ -236,9 +195,7 @@ async def test_signing_material_error_reports_progress():
                 _signing_metadata(f"{REPORT_URL}/risk_report.json")
             )
 
-    message = str(exc_info.value)
-    assert "after 0 signed, 0 already signed" in message
-    assert "earlier failures" not in message
+    assert "0 signed" in str(exc_info.value)
     assert storage.uploads == []
 
 

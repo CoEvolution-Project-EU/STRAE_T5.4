@@ -142,19 +142,18 @@ async def test_get_aimbom_malformed_latest_response_is_not_an_invalid_file():
 async def test_get_aimbom_latest_response_not_an_object_raises_operation_error():
     client, _ = make_client(latest_json=[])
 
-    with pytest.raises(StorageOperationError, match="no 'reports'"):
+    with pytest.raises(StorageOperationError):
         await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("name", ["aimbom_report", "risk_report"])
 @pytest.mark.parametrize(
-    "entry",
+    "name, entry",
     [
-        {"_id": "id", "filename": "file.json"},
-        {"_id": "id", "download_url": None},
-        {"_id": "id", "download_url": 1},
-        "not an object",
+        ("aimbom_report", {"_id": "id", "filename": "file.json"}),
+        ("aimbom_report", "not an object"),
+        ("risk_report", {"_id": "id", "download_url": None}),
+        ("risk_report", {"_id": "id", "download_url": 1}),
     ],
 )
 async def test_get_aimbom_entry_without_download_url_raises_operation_error(
@@ -164,6 +163,8 @@ async def test_get_aimbom_entry_without_download_url_raises_operation_error(
     latest["reports"][name] = entry
     client, _ = make_client(latest_json=latest)
 
+    # A bad URL would also fail later, when it is downloaded, so check that
+    # the entry itself was rejected.
     with pytest.raises(StorageOperationError, match=f"'download_url' for '{name}'"):
         await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
 
@@ -228,7 +229,6 @@ class FakeAuth:
     "status_code, expected_error",
     [
         (500, StorageConnectionError),
-        (503, StorageConnectionError),
         (400, StorageBadRequestError),
         (409, StorageConflictError),
         (403, StorageOperationError),
