@@ -112,6 +112,64 @@
                 }
             }
         },
+        "/api/validation/{uuid}/{version}": {
+            "get": {
+                "tags": [
+                    "api"
+                ],
+                "summary": "Validate Aimbom",
+                "description": "Validate the AIMBOM of a specific AI model version and its reports.\n\nThe AIMBOM and its reports are fetched from storage, validated against\nthe CycloneDX schema and their models, and the AIMBOM's references are\nchecked against the reports. Validation stops at the first problem.\n\n**Response**\n\n`status` is `VALID` if every check passed. If not, `status` is `INVALID`\nand `detail` describes the first problem found. Returns 404 if the model\nversion has no AIMBOM and 503 if storage is unavailable.",
+                "operationId": "validate_aimbom_api_validation__uuid___version__get",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "description": "Unique identifier of the AI model",
+                            "title": "Uuid"
+                        },
+                        "description": "Unique identifier of the AI model",
+                        "example": "163723c9-173b-4ce2-abc1-4de2b25a7012"
+                    },
+                    {
+                        "name": "version",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "description": "Version of the AI model",
+                            "title": "Version"
+                        },
+                        "description": "Version of the AI model",
+                        "example": "v1.0"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AIMBOMValidationResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/dev/{model_uuid}/{model_version}/reports/{report_name}": {
             "post": {
                 "tags": [
@@ -224,14 +282,51 @@
                 ],
                 "title": "AIMBOMGeneratedResponse"
             },
+            "AIMBOMValidationResponse": {
+                "properties": {
+                    "detail": {
+                        "type": "string",
+                        "title": "Detail"
+                    },
+                    "model_uuid": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Model Uuid"
+                    },
+                    "model_version": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Model Version"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "VALID",
+                            "INVALID"
+                        ],
+                        "title": "Status",
+                        "description": "Validation status of the AIMBOM."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "detail",
+                    "model_uuid",
+                    "model_version",
+                    "status"
+                ],
+                "title": "AIMBOMValidationResponse"
+            },
             "GenerationMetadata": {
                 "properties": {
                     "model_uuid": {
                         "type": "string",
+                        "minLength": 1,
                         "title": "Model Uuid"
                     },
                     "version": {
                         "type": "string",
+                        "minLength": 1,
                         "title": "Version"
                     },
                     "previous_aimbom": {
@@ -371,10 +466,12 @@
                     },
                     "filename": {
                         "type": "string",
+                        "minLength": 1,
                         "title": "Filename"
                     },
                     "download_url": {
                         "type": "string",
+                        "minLength": 1,
                         "title": "Download Url"
                     },
                     "createdAt": {
@@ -566,10 +663,12 @@
                     },
                     "signed": {
                         "type": "integer",
+                        "minimum": 0.0,
                         "title": "Signed"
                     },
                     "already_signed": {
                         "type": "integer",
+                        "minimum": 0.0,
                         "title": "Already Signed"
                     }
                 },
@@ -590,6 +689,7 @@
                 "properties": {
                     "_id": {
                         "type": "string",
+                        "minLength": 1,
                         "title": "Id"
                     },
                     "bucket": {
@@ -605,10 +705,12 @@
                     },
                     "filename": {
                         "type": "string",
+                        "minLength": 1,
                         "title": "Filename"
                     },
                     "download_url": {
                         "type": "string",
+                        "minLength": 1,
                         "title": "Download Url"
                     },
                     "createdAt": {
@@ -636,18 +738,22 @@
                 "properties": {
                     "model_uuid": {
                         "type": "string",
+                        "minLength": 1,
                         "title": "Model Uuid"
                     },
                     "version": {
                         "type": "string",
+                        "minLength": 1,
                         "title": "Version"
                     },
                     "target_pool": {
                         "type": "string",
+                        "minLength": 1,
                         "title": "Target Pool"
                     },
                     "target_bucket": {
                         "type": "string",
+                        "minLength": 1,
                         "title": "Target Bucket"
                     },
                     "tags": {

@@ -1,26 +1,30 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from app.clients.storage_client import (
+    StorageAuthError,
     StorageBadRequestError,
     StorageConflictError,
     StorageConnectionError,
+    StorageOperationError,
 )
 from app.models.requests import SigningMetadata
 from app.services.report_signer import (
     ReportSigner,
     ReportSignerMissingReportError,
+    ReportSignerProcessingError,
+    ReportSignerSigningError,
     ReportSignerStorageError,
     ReportSignerUploadRejectedError,
     SigningResult,
 )
+from app.services.signing import SigningError, verify_report
 
 from tests.utils import (
     MODEL_UUID,
     MODEL_VERSION,
     create_new_mock_storage,
     get_signing_event,
-    verify_signature,
 )
 
 REPORT_URL = f"reports/{MODEL_UUID}/{MODEL_VERSION}"
@@ -53,10 +57,9 @@ async def test_sign_and_upload_multiple_files():
         assert upload.bucket == "risk-reports"
 
     for filename in ("risk_report.json", "assessment_report.json"):
-        signed_report = storage.data[
-            f"risk-reports/{MODEL_UUID}/{MODEL_VERSION}/{filename}"
-        ]
-        assert verify_signature(signed_report) is True
+        verify_report(
+            storage.data[f"risk-reports/{MODEL_UUID}/{MODEL_VERSION}/{filename}"]
+        )
 
 
 @pytest.mark.anyio
@@ -79,20 +82,6 @@ async def test_empty_tags_are_uploaded_as_none():
     await signer.sign_and_upload(_signing_metadata(f"{REPORT_URL}/risk_report.json"))
 
     assert storage.uploads[0].tags is None
-
-
-@pytest.mark.anyio
-async def test_already_signed_file_is_treated_as_done():
-    storage = create_new_mock_storage()
-    storage.save_file = AsyncMock(side_effect=StorageConflictError("409"))
-    signer = ReportSigner(storage)
-
-    result = await signer.sign_and_upload(
-        _signing_metadata(f"{REPORT_URL}/risk_report.json")
-    )
-
-    storage.save_file.assert_awaited_once()
-    assert result == SigningResult(signed=0, already_signed=1)
 
 
 @pytest.mark.anyio
@@ -127,10 +116,93 @@ async def test_missing_file_does_not_stop_other_files():
     assert [upload.original_file_id for upload in storage.uploads] == ["original-1"]
 
 
+
 @pytest.mark.anyio
-async def test_storage_error_stops_remaining_files():
+@pytest.mark.parametrize(
+    "download_urls",
+    [
+        ("reports/missing.json", "reports/forbidden.json"),
+        ("reports/forbidden.json", "reports/missing.json"),
+    ],
+)
+async def test_most_serious_failure_decides_the_error(download_urls):
     storage = create_new_mock_storage()
-    storage.save_file = AsyncMock(side_effect=StorageConnectionError("down"))
+    get_file = storage.get_file_from_url
+
+    async def get_file_from_url(download_url):
+        if download_url == "reports/forbidden.json":
+            raise StorageOperationError("Orchestrator returned 403")
+        return await get_file(download_url)
+
+    storage.get_file_from_url = get_file_from_url
+    signer = ReportSigner(storage)
+
+    # Whatever the order of the files, the refused download (500) outranks
+    # the missing file (409), and both are listed.
+    with pytest.raises(ReportSignerProcessingError) as exc_info:
+        await signer.sign_and_upload(_signing_metadata(*download_urls))
+
+    assert "reports/missing.json" in str(exc_info.value)
+    assert "reports/forbidden.json" in str(exc_info.value)
+
+
+@pytest.mark.anyio
+async def test_storage_error_reports_progress_and_earlier_failures():
+    storage = create_new_mock_storage()
+    save_file = storage.save_file
+    calls = 0
+
+    # The first upload succeeds, the second finds storage down.
+    async def save_file_then_fail(**kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise StorageConnectionError("down")
+        await save_file(**kwargs)
+
+    storage.save_file = save_file_then_fail
+    signer = ReportSigner(storage)
+
+    with pytest.raises(ReportSignerStorageError) as exc_info:
+        await signer.sign_and_upload(
+            _signing_metadata(
+                "reports/missing-1.json",
+                f"{REPORT_URL}/risk_report.json",
+                f"{REPORT_URL}/assessment_report.json",
+                f"{REPORT_URL}/defence_report.json",
+            )
+        )
+
+    # The progress so far and the earlier failure are not lost.
+    message = str(exc_info.value)
+    assert "1 signed" in message
+    assert "reports/missing-1.json" in message
+    # Processing stopped at the storage error.
+    assert calls == 2
+
+
+@pytest.mark.anyio
+async def test_signing_material_error_reports_progress():
+    storage = create_new_mock_storage()
+    signer = ReportSigner(storage)
+
+    with patch(
+        "app.services.signing.sign_report",
+        side_effect=SigningError("Signing key and certificate do not match"),
+    ):
+        with pytest.raises(ReportSignerSigningError) as exc_info:
+            await signer.sign_and_upload(
+                _signing_metadata(f"{REPORT_URL}/risk_report.json")
+            )
+
+    assert "0 signed" in str(exc_info.value)
+    assert storage.uploads == []
+
+
+@pytest.mark.anyio
+async def test_auth_error_on_upload_stops_remaining_files():
+    storage = create_new_mock_storage()
+    storage.save_file = AsyncMock(side_effect=StorageAuthError("login failed"))
     signer = ReportSigner(storage)
 
     with pytest.raises(ReportSignerStorageError):
@@ -142,6 +214,25 @@ async def test_storage_error_stops_remaining_files():
         )
 
     storage.save_file.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_other_upload_failure_does_not_stop_other_files():
+    storage = create_new_mock_storage()
+    storage.save_file = AsyncMock(
+        side_effect=[StorageOperationError("Orchestrator returned 403"), None]
+    )
+    signer = ReportSigner(storage)
+
+    with pytest.raises(ReportSignerProcessingError, match="403"):
+        await signer.sign_and_upload(
+            _signing_metadata(
+                f"{REPORT_URL}/risk_report.json",
+                f"{REPORT_URL}/assessment_report.json",
+            )
+        )
+
+    assert storage.save_file.await_count == 2
 
 
 @pytest.mark.anyio

@@ -2,7 +2,6 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.clients.minio_client import get_minio_client
 from app.clients.orchestrator_client import get_orchestrator_client
@@ -67,15 +66,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS (TODO: adjust origins in production)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
-
 
 if settings.SECURITY_MIDDLEWARE_ENABLED:
     # NOTE: RateLimitMiddleware and ConcurrencyLimitMiddleware keep their
@@ -88,9 +78,14 @@ if settings.SECURITY_MIDDLEWARE_ENABLED:
     # Rate limiting middleware
     app.add_middleware(
         RateLimitMiddleware,
-        rate_limit=10,
+        rate_limit=60,
         rate_limit_window=60,
-        protected_routes=["/api/generate", "/api/status"],
+        protected_routes=[
+            "/api/generate",
+            "/api/status",
+            "/api/sign",
+            "/api/validation",
+        ],
     )
 
     # Concurrency limiting middleware
@@ -98,7 +93,12 @@ if settings.SECURITY_MIDDLEWARE_ENABLED:
         ConcurrencyLimitMiddleware,
         max_concurrent_requests=20,
         timeout=5.0,
-        protected_routes=["/api/generate", "/api/status"],
+        protected_routes=[
+            "/api/generate",
+            "/api/status",
+            "/api/sign",
+            "/api/validation",
+        ],
     )
 
     # Size limiting middleware

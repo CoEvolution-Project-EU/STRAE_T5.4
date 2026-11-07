@@ -4,9 +4,9 @@
 
 Status: In Progress
 
-Last Updated: 02/11/2026
+Last Updated: 06/11/2026
 
-Comments: AIMBOM generation, AIMBOM deprecation and signing are complete. Report signing for the Orchestrator's `strae_sign_requests` topic is in progress (#42).
+Comments: AIMBOM generation, AIMBOM deprecation and signing are complete. Report signing for the Orchestrator's `strae_sign_requests` topic is in progress (#42). AIMBOM validation is in progress (#25).
 
 ## Changes since 02/06/2026
 
@@ -40,6 +40,7 @@ Comments: AIMBOM generation, AIMBOM deprecation and signing are complete. Report
 - Restructured the project, and moved the storage abstraction into the clients.
 - Replaced the mock MinIO client with a general mock storage client for tests.
 - Added tests for the generator's error paths and AIMBOM building logic.
+- Removed redundant tests, and added tests that generated AIMBOMs reach storage and that `/api/sign` errors return the right status codes.
 - GitHub Actions build the Docker image and push it to the registry, and run the tests on pull requests.
 
 ### Documentation
@@ -56,3 +57,16 @@ Report signing for the Orchestrator: every report uploaded to the CoEvolution Hu
 - The model UUID and version of `/api/generate` moved into the request body.
 - Every Kafka message is committed on its own partition, and failures are logged without being retried.
 - Tested against the Orchestrator: download, signing, upload and the already-signed case work.
+
+## In progress (#25)
+
+AIMBOM validation: `GET /api/validation/{uuid}/{version}` checks the AIMBOM of a model version and the reports it references.
+
+- The AIMBOM and its reports are fetched from the Orchestrator's `/models/{uuid}/versions/{version}/latest` endpoint, or from MinIO.
+- The AIMBOM and each report are validated against the CycloneDX schema and their models, and their signatures are verified (integrity only; certificate trust is not checked yet).
+- The AIMBOM's external references must point at the BOM-Links of exactly its reports.
+- Validation stops at the first problem. The response has `status` `VALID` or `INVALID`, with the problem in `detail`.
+- Report validation moved from the generator to `services/validator.py`, and is shared by generation and validation. Generation now also verifies report signatures, and rejects invalid reports with `422`.
+- Signatures follow the JSON Signature Format (JSF): `certificatePath` is now encoded as base64url, and the JSF specification's `ES256` example is verified in the tests. Verification only accepts unpadded base64url.
+- The test reports and AIMBOM are signed, and were re-signed with a base64url `certificatePath`.
+- Removed the CORS middleware: STRAE is only called by other services, and access is restricted at the reverse proxy.

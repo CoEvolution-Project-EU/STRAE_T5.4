@@ -1,11 +1,13 @@
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from app.core.config import settings
 from app.models.requests import GenerationMetadata, SigningMetadata
 from app.models.responses import (
     AIMBOMGeneratedResponse,
+    AIMBOMValidationResponse,
     SignedFile,
     SignedReportResponse,
     StatusResponse,
@@ -13,9 +15,11 @@ from app.models.responses import (
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
+    GeneratorInvalidReportError,
     GeneratorMissingReportError,
     GeneratorSigningError,
     GeneratorStorageError,
+    GeneratorUploadRejectedError,
     get_generator,
 )
 from app.services.report_signer import (
@@ -28,9 +32,20 @@ from app.services.report_signer import (
     ReportSignerUploadRejectedError,
     get_signer,
 )
+from app.services.validator import (
+    AIMBOMValidator,
+    ValidatorInvalidAIMBOMError,
+    ValidatorNotFoundError,
+    ValidatorReadError,
+    ValidatorStorageError,
+    get_validator,
+)
 from app.utils.utils import uuid_from_serial_number
 
 logger = logging.getLogger(__name__)
+
+# Response detail for unexpected errors.
+INTERNAL_ERROR_DETAIL = "Internal server error"
 
 router = APIRouter(
     prefix="/api",
@@ -119,7 +134,7 @@ async def sign_report(
             exc_info=True,
         )
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
     except ReportSignerProcessingError as e:
         logger.error(
@@ -130,10 +145,13 @@ async def sign_report(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during report signing")
+        # The exception's own text is only logged: it means nothing to the
+        # caller and may expose internals.
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=INTERNAL_ERROR_DETAIL,
         )
 
     logger.info(
@@ -198,6 +216,22 @@ async def generate_aimbom(
             "Missing reports for model_uuid=%s: %s", generation_metadata.model_uuid, e
         )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except GeneratorInvalidReportError as e:
+        logger.warning(
+            "Invalid report for model_uuid=%s: %s", generation_metadata.model_uuid, e
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        )
+    except GeneratorUploadRejectedError as e:
+        logger.warning(
+            "AIMBOM rejected by storage for model_uuid=%s: %s",
+            generation_metadata.model_uuid,
+            e,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        )
     except GeneratorStorageError as e:
         logger.error(
             "Storage error for model_uuid=%s",
@@ -214,7 +248,7 @@ async def generate_aimbom(
             exc_info=True,
         )
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
     except GeneratorGenerationError as e:
         logger.error(
@@ -225,10 +259,13 @@ async def generate_aimbom(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during AIMBOM generation")
+        # The exception's own text is only logged: it means nothing to the
+        # caller and may expose internals.
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=INTERNAL_ERROR_DETAIL,
         )
 
     aimbom_uuid = uuid_from_serial_number(aimbom.serial_number)
@@ -246,4 +283,80 @@ async def generate_aimbom(
         aimbom_version=aimbom.version,
         model_uuid=generation_metadata.model_uuid,
         model_version=generation_metadata.version,
+    )
+
+
+@router.get(
+    "/validation/{uuid}/{version}",
+    response_model=AIMBOMValidationResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def validate_aimbom(
+    uuid: Annotated[
+        str,
+        Path(
+            description="Unique identifier of the AI model",
+            example="163723c9-173b-4ce2-abc1-4de2b25a7012",
+        ),
+    ],
+    version: Annotated[
+        str,
+        Path(description="Version of the AI model", example="v1.0"),
+    ],
+    validator: AIMBOMValidator = Depends(get_validator),
+):
+    """
+    Validate the AIMBOM of a specific AI model version and its reports.
+
+    The AIMBOM and its reports are fetched from storage, validated against
+    the CycloneDX schema and their models, and the AIMBOM's references are
+    checked against the reports. Validation stops at the first problem.
+
+    **Response**
+
+    `status` is `VALID` if every check passed. If not, `status` is `INVALID`
+    and `detail` describes the first problem found. Returns 404 if the model
+    version has no AIMBOM and 503 if storage is unavailable.
+    """
+
+    logger.info(
+        "AIMBOM validation requested for model_uuid=%s, model_version=%s",
+        uuid,
+        version,
+    )
+
+    try:
+        await validator.validate_aimbom(uuid, version)
+    except ValidatorInvalidAIMBOMError as e:
+        logger.warning("Invalid AIMBOM for model_uuid=%s: %s", uuid, e)
+        return AIMBOMValidationResponse(
+            detail=str(e), model_uuid=uuid, model_version=version, status="INVALID"
+        )
+    except ValidatorNotFoundError as e:
+        logger.warning("AIMBOM not found for model_uuid=%s: %s", uuid, e)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValidatorStorageError as e:
+        logger.error("Storage error for model_uuid=%s", uuid, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        )
+    except ValidatorReadError as e:
+        logger.error("Storage read error for model_uuid=%s", uuid, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+    except Exception:
+        logger.exception("Unexpected error during AIMBOM validation")
+        # The exception's own text is only logged: it means nothing to the
+        # caller and may expose internals.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=INTERNAL_ERROR_DETAIL,
+        )
+
+    return AIMBOMValidationResponse(
+        detail="AIMBOM validation completed",
+        model_uuid=uuid,
+        model_version=version,
+        status="VALID",
     )

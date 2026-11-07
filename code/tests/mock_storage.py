@@ -1,9 +1,15 @@
-from typing import Dict
+from typing import Dict, Tuple
 
-from app.clients.storage_client import StorageClient, StorageOperationError
+from app.clients.storage_client import (
+    StorageClient,
+    StorageNotFoundError,
+    get_file_if_exists,
+)
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
 from app.models.storage import UploadReportMetadata
+from app.utils.utils import ReportType
+from fastapi.encoders import jsonable_encoder
 
 
 class MockStorageClient(StorageClient):
@@ -14,7 +20,7 @@ class MockStorageClient(StorageClient):
     async def get_file_from_url(self, download_url: str) -> Dict:
         report = self.data.get(download_url)
         if report is None:
-            raise StorageOperationError(f"Report not found for URL: {download_url}")
+            raise StorageNotFoundError(f"Report not found for URL: {download_url}")
         return report
 
     async def save_file(
@@ -55,4 +61,31 @@ class MockStorageClient(StorageClient):
         model_version: str,
         aimbom: AIMBOM,
     ):
-        self.data[f"aimboms/{model_uuid}/{model_version}/aimbom"] = aimbom.model_dump()
+        self.data[f"aimboms/{model_uuid}/{model_version}/aimbom.json"] = (
+            jsonable_encoder(aimbom, exclude_none=True)
+        )
+
+    async def get_aimbom(
+        self,
+        model_uuid: str,
+        model_version: str,
+    ) -> Tuple[Dict, Dict[str, Dict]]:
+        # Same layout as `MinioClient`: the AIMBOM saved by `save_aimbom`, and
+        # the version 1 report of each type, keyed by report type value, leaving
+        # out reports that do not exist.
+        aimbom =self.data.get(f"aimboms/{model_uuid}/{model_version}/aimbom.json")
+        if aimbom is None:
+            raise StorageNotFoundError(
+                f"No AIMBOM found for model_uuid='{model_uuid}', "
+                f"model_version='{model_version}'"
+            )
+
+        reports = {}
+        for report_type in ReportType:
+            report = await get_file_if_exists(
+                self, f"reports/{model_uuid}/{model_version}/{report_type.value}.json"
+            )
+            if report is not None:
+                reports[report_type.value] = report
+
+        return aimbom, reports
