@@ -1,0 +1,51 @@
+{
+    "bomFormat": "CycloneDX",
+    "specVersion": "1.7",
+    "serialNumber": "urn:uuid:52c57fd2-b03a-44c1-b9c0-7c5f7d2a8666",
+    "version": 2,
+    "components": [
+        {
+            "type": "application",
+            "name": "Telemetry Gadget",
+            "version": "1.0",
+            "description": "A free text for this gadget",
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "6fce8a2c0b7a31c21db94c76fd43b1c4f0f16fabc4e7e984f3e9b82c50a2f3ab"
+                }
+            ]
+        },
+        {
+            "type": "application",
+            "name": "Inference time Attack Detection Gadget",
+            "version": "1.2",
+            "description": "A free text for this gadget",
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "6fce8a2c0b7a31c21db94c76fd43b1c4f0f16fabc4e7e984f3e9b82c50a2f3ab"
+                }
+            ]
+        },
+        {
+            "type": "application",
+            "name": "CDS gadget",
+            "version": "1.2",
+            "description": "A free text for this gadget",
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "6fce8a2c0b7a31c21db94c76fd43b1c4f0f16fabc4e7e984f3e9b82c50a2f3ab"
+                }
+            ]
+        }
+    ],
+    "signature": {
+        "algorithm": "ES256",
+        "certificatePath": [
+            "MIIB1TCCAX2gAwIBAgIUfTfzBdabc2Yu2RLZlGv2FtpCqbswCgYIKoZIzj0EAwIwQTELMAkGA1UEBhMCR1IxDjAMBgNVBAoMBVNUUkFFMSIwIAYDVQQDDBlTVFJBRSBTaWduaW5nIENlcnRpZmljYXRlMB4XDTI2MDcyMDE0MjcxNFoXDTI3MDcyMDE0MjcxNFowQTELMAkGA1UEBhMCR1IxDjAMBgNVBAoMBVNUUkFFMSIwIAYDVQQDDBlTVFJBRSBTaWduaW5nIENlcnRpZmljYXRlMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVFCkntzu8dG_s5suC-_kPFu5yuQyj0zWsu3S_FfvQ8rsuvOym5rCe8I_jz5oy3C6gj7lcpWAQo5PcDpZEWsUE6NTMFEwHQYDVR0OBBYEFLvXiqulvfs-OY8n8RtheaQtAVj0MB8GA1UdIwQYMBaAFLvXiqulvfs-OY8n8RtheaQtAVj0MA8GA1UdEwEB_wQFMAMBAf8wCgYIKoZIzj0EAwIDRgAwQwIfPbL64z8qlhP-zqxf_nRvCf5-LVYthlrYXelMOeHsRwIgSA1DEK5xcsFTx-FIMWvZ7pnEmvitHhP_0lu1ZkCjBXY"
+        ],
+        "value": "ahFrFop-TEdqaZmsy6vdjRcNIlx8X61-Wv-xCDrrca3VBvAUjir_il4ZFynINoky-YmlqHb_ArWpgTomiJprTg"
+    }
+}

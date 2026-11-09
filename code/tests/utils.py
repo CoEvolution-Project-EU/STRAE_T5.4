@@ -1,19 +1,13 @@
-import base64
-import copy
 import json
 from pathlib import Path
 
-import jcs
 from app.utils.utils import ReportType
-from cryptography import x509
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 
 from tests.mock_storage import MockStorageClient
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "data/reports"
 AIMBOMS_DIR = Path(__file__).resolve().parent.parent / "data/aimboms"
+JSF_DIR = Path(__file__).resolve().parent.parent / "data/jsf"
 MODEL_UUID = "4ff2dab7-bffe-414d-88a5-1826b9fea8df"
 MODEL_VERSION = "1.0"
 
@@ -46,9 +40,13 @@ def create_new_mock_storage():
         f"reports/{MODEL_UUID}/{MODEL_VERSION}/assessment_report_updated.json"
     ] = load_json(REPORTS_DIR / "assessment_report_updated.json")
 
+    storage.data[f"reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report_updated.json"] = (
+        load_json(REPORTS_DIR / "risk_report_updated.json")
+    )
+
     storage.data[
-        f"reports/{MODEL_UUID}/{MODEL_VERSION}/risk_report_updated.json"
-    ] = load_json(REPORTS_DIR / "risk_report_updated.json")
+        f"reports/{MODEL_UUID}/{MODEL_VERSION}/gadgets_report_updated.json"
+    ] = load_json(REPORTS_DIR / "gadgets_report_updated.json")
 
     storage.data[f"aimboms/{MODEL_UUID}/{MODEL_VERSION}/aimbom.json"] = load_json(
         AIMBOMS_DIR / "aimbom.json"
@@ -60,90 +58,78 @@ def create_new_mock_storage():
 def get_generation_metadata(model_uuid: str, model_version: str):
     reports = {
         report_type.value: {
+            "filename": f"{report_type.value}.json",
             "download_url": get_url_for_report_type(
                 model_uuid, model_version, report_type
-            )
+            ),
         }
         for report_type in ReportType
     }
 
-    return {"previous_aimbom": None, "reports": reports}
+    return {
+        "model_uuid": model_uuid,
+        "version": model_version,
+        "previous_aimbom": None,
+        "reports": reports,
+    }
 
 
 def get_generation_metadata_deprecation(model_uuid: str, model_version: str):
 
     return {
+        "model_uuid": model_uuid,
+        "version": model_version,
         "previous_aimbom": {
-            "download_url": f"aimboms/{model_uuid}/{model_version}/aimbom.json"
+            "filename": "aimbom.json",
+            "download_url": f"aimboms/{model_uuid}/{model_version}/aimbom.json",
         },
         "reports": {
             "assessment_report": {
-                "download_url": f"reports/{model_uuid}/{model_version}/assessment_report_updated.json"
+                "filename": "assessment_report_updated.json",
+                "download_url": f"reports/{model_uuid}/{model_version}/assessment_report_updated.json",
             },
             "risk_report": {
-                "download_url": f"reports/{model_uuid}/{model_version}/risk_report_updated.json"
+                "filename": "risk_report_updated.json",
+                "download_url": f"reports/{model_uuid}/{model_version}/risk_report_updated.json",
             },
         },
     }
 
 
-# ============Signing utility functions for tests============
+def get_generation_metadata_deprecation_with_gadgets(
+    model_uuid: str, model_version: str
+):
+    metadata = get_generation_metadata_deprecation(model_uuid, model_version)
+    metadata["reports"]["gadgets_report"] = {
+        "filename": "gadgets_report_updated.json",
+        "download_url": f"reports/{model_uuid}/{model_version}/gadgets_report_updated.json",
+    }
+
+    return metadata
 
 
-def decode_base64url(value: str) -> bytes:
-    """Decode unpadded Base64URL."""
+def get_signing_event(*download_urls: str):
+    """Return a `strae_sign_requests` event for the given download URLs."""
 
-    padding = "=" * (-len(value) % 4)
-    return base64.urlsafe_b64decode(value + padding)
-
-
-def verify_es256_signature(
-    public_key: ec.EllipticCurvePublicKey,
-    data: bytes,
-    signature_value: str,
-) -> bool:
-    raw_signature = decode_base64url(signature_value)
-
-    if len(raw_signature) != 64:
-        return False
-
-    r = int.from_bytes(raw_signature[:32], "big")
-    s = int.from_bytes(raw_signature[32:], "big")
-
-    der_signature = encode_dss_signature(r, s)
-
-    public_key.verify(
-        der_signature,
-        data,
-        ec.ECDSA(hashes.SHA256()),
-    )
-
-    return True
-
-
-def get_public_key_from_certificate_path(
-    certificate_path: list[str],
-) -> ec.EllipticCurvePublicKey:
-    cert_der = base64.b64decode(certificate_path[0])
-
-    certificate = x509.load_der_x509_certificate(cert_der)
-
-    return certificate.public_key()
-
-
-def verify_signature(report: dict) -> bool:
-    report = copy.deepcopy(report)
-
-    signature = report["signature"]
-
-    signature_value = signature.pop("value")
-
-    public_key = get_public_key_from_certificate_path(signature["certificatePath"])
-
-    data = jcs.canonicalize(report)
-
-    return verify_es256_signature(
-        public_key,
-        data,
-        signature_value,
-    )
+    return {
+        "event": "strae_sign_requests",
+        "model_name": "MyModel",
+        "model_uuid": MODEL_UUID,
+        "version": MODEL_VERSION,
+        "uploadedBy": "coevolution_user",
+        "uploadedAt": "2026-11-01T12:51:47.754Z",
+        "pool": "RP",
+        "target_pool": "RP",
+        "target_bucket": "risk-reports",
+        "tags": [],
+        "total_files": len(download_urls),
+        "files": [
+            {
+                "_id": f"original-{index}",
+                "bucket": "risk-reports-pending",
+                "filename": download_url.rsplit("/", 1)[-1],
+                "download_url": download_url,
+            }
+            for index, download_url in enumerate(download_urls)
+        ],
+    }

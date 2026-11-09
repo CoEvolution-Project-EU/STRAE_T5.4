@@ -4,12 +4,15 @@ from typing import Dict, Iterable
 
 from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
-from pydantic import ValidationError
 
 from app.clients.storage_client import (
+    StorageAuthError,
+    StorageBadRequestError,
     StorageClient,
     StorageConnectionError,
     StorageError,
+    StorageInvalidFileError,
+    StorageNotFoundError,
     StorageOperationError,
     get_storage_client,
 )
@@ -23,19 +26,17 @@ from app.models.aimbom import (
     Tool,
 )
 from app.models.requests import GenerationMetadata
-from app.services import signing, validation
+from app.services import signing, validator
 from app.utils.utils import (
-    REPORT_MODELS,
+    OPTIONAL_UPDATABLE_REPORT_TYPES,
     REPORT_TO_COMMENT,
     REPORT_TYPES,
-    TIER_REPORT_COMMENTS,
-    UPDATABLE_REPORT_TYPES,
-    AIMBOMTier,
-    ReportComment,
+    REQUIRED_UPDATABLE_REPORT_TYPES,
+    BOMType,
     ReportModel,
     ReportType,
+    bom_link,
     utc_now_datetime,
-    uuid_from_serial_number,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,22 @@ class GeneratorError(Exception):
 
 class GeneratorMissingReportError(GeneratorError):
     """Raised when a required security report is missing."""
+
+    pass
+
+
+class GeneratorInvalidReportError(GeneratorError):
+    """Raised when a fetched report fails CycloneDX schema or report model
+    validation.
+    """
+
+    pass
+
+
+class GeneratorUploadRejectedError(GeneratorError):
+    """Raised when the storage backend rejects the generated AIMBOM (e.g. the
+    model version does not exist there).
+    """
 
     pass
 
@@ -89,21 +106,18 @@ class AIMBOMGenerator:
 
     async def generate(
         self,
-        model_uuid: str,
-        model_version: str,
         generation_metadata: GenerationMetadata,
-    ) -> Dict[AIMBOMTier, AIMBOM]:
+    ) -> AIMBOM:
         """Run the full AIMBOM generation pipeline.
 
         This retrieves reports for the given model, constructs an AIMBOM from
-        those reports, signs and validates it, and persists tiered AIMBOMs to
+        those reports, signs and validates it, and persists the AIMBOM to
         the configured storage backend.
 
         Args:
-            model_uuid: Unique identifier of the AI model.
-            model_version: Version string of the AI model.
-            generation_metadata: Optional metadata used to fetch reports from an
-                external orchestrator.
+            generation_metadata: Metadata describing the unique identifier and
+            the version of the AI model and the reports that should be included
+            in the generated AIMBOM.
 
         Returns:
             The generated `AIMBOM` instance.
@@ -111,16 +125,16 @@ class AIMBOMGenerator:
 
         logger.debug(
             "Starting generation pipeline model_uuid=%s, model_version=%s",
-            model_uuid,
-            model_version,
+            generation_metadata.model_uuid,
+            generation_metadata.version,
         )
 
         if generation_metadata.previous_aimbom is not None:
             logger.info(
                 "Previous AIMBOM exists for model_uuid=%s, model_version=%s. "
                 "Generating new version of AIMBOM.",
-                model_uuid,
-                model_version,
+                generation_metadata.model_uuid,
+                generation_metadata.version,
             )
 
             # Load previous AIMBOM.
@@ -129,14 +143,17 @@ class AIMBOMGenerator:
             )
 
             # Fetch and validate the updated reports for the given model UUID and version
-            # (see UPDATABLE_REPORT_TYPES for which reports are expected to change).
+            # (see REQUIRED_UPDATABLE_REPORT_TYPES and OPTIONAL_UPDATABLE_REPORT_TYPES for
+            # which reports are expected to change). Optional reports are only validated
+            # when they were provided.
             new_raw_reports = await self._fetch_raw_reports(generation_metadata)
-            new_reports = self._validate_reports(
-                new_raw_reports, UPDATABLE_REPORT_TYPES
+            report_types = REQUIRED_UPDATABLE_REPORT_TYPES + tuple(
+                t for t in OPTIONAL_UPDATABLE_REPORT_TYPES if t.value in new_raw_reports
             )
+            new_reports = self._validate_reports(new_raw_reports, report_types)
 
             # Create a new updated AIMBOM with the updated reports and increment the version number.
-            tiered_aimbom = await self._create_updated_aimbom(
+            aimbom = await self._create_updated_aimbom(
                 previous_aimbom,
                 new_reports,
             )
@@ -145,8 +162,8 @@ class AIMBOMGenerator:
             logger.info(
                 "No previous AIMBOM exists for model_uuid=%s, model_version=%s. "
                 "Generating new AIMBOM.",
-                model_uuid,
-                model_version,
+                generation_metadata.model_uuid,
+                generation_metadata.version,
             )
 
             # Fetch reports from the storage backend using the provided model UUID, version and generation metadata.
@@ -155,17 +172,19 @@ class AIMBOMGenerator:
             # Validate and parse each retrieved report, ensuring they are compliant with the CycloneDX schema
             # and our specific report models.
             reports = self._validate_reports(raw_reports, REPORT_TYPES)
-            tiered_aimbom = self._create_aimbom_from_reports(reports)
+            aimbom = self._create_aimbom_from_reports(reports)
 
         # Save the generated AIMBOM to the configured storage backend (MinIO or Orchestrator).
-        await self._save_aimbom(model_uuid, model_version, tiered_aimbom)
+        await self._save_aimbom(
+            generation_metadata.model_uuid, generation_metadata.version, aimbom
+        )
 
         logger.debug(
             "Generation completed model_uuid=%s, model_version=%s",
-            model_uuid,
-            model_version,
+            generation_metadata.model_uuid,
+            generation_metadata.version,
         )
-        return tiered_aimbom
+        return aimbom
 
     async def _get_previous_aimbom(
         self,
@@ -173,36 +192,76 @@ class AIMBOMGenerator:
     ) -> AIMBOM:
         """Retrieve the previous AIMBOM for a given model UUID and version.
 
+        The AIMBOM is validated and its signature verified, because the updated
+        AIMBOM is signed by STRAE and would otherwise vouch for its content.
+
         Args:
             download_url: The download URL of the previous AIMBOM.
+
+        Returns:
+            The validated previous `AIMBOM`.
+
+        Raises:
+            GeneratorInvalidReportError: If the previous AIMBOM is not valid
+                JSON, fails schema validation or has a missing or invalid
+                signature.
+            GeneratorMissingReportError: If the previous AIMBOM does not exist.
+            GeneratorStorageError: If storage is unavailable.
+            GeneratorGenerationError: If storage refuses to return the previous
+                AIMBOM for any other reason (e.g. a 403).
         """
 
         try:
             previous_aimbom = await self.client.get_file_from_url(
                 download_url=download_url
             )
-            return AIMBOM(**previous_aimbom)
+            return validator.validate_report(BOMType.AIMBOM, previous_aimbom)
+        # Base class of the schema and signature errors.
+        except validator.ValidatorInvalidAIMBOMError as e:
+            raise GeneratorInvalidReportError(
+                f"Previous AIMBOM is invalid: {str(e)}"
+            ) from e
         except StorageConnectionError as e:
             logger.error(
-                "Storage connection error retrieving previous AIMBOM",
-                exc_info=True,
+                "Storage connection error retrieving previous AIMBOM: %s",
+                e,
             )
             raise GeneratorStorageError(
                 f"Failed to retrieve previous AIMBOM from storage: {str(e)}"
             ) from e
-        except StorageOperationError as e:
+        # Subclass of `StorageOperationError`, so it must come first.
+        except StorageInvalidFileError as e:
             logger.warning(
-                "No previous AIMBOM found",
+                "Previous AIMBOM is not valid JSON: %s",
+                e,
             )
-            raise GeneratorStorageError(
-                f"Failed to retrieve previous AIMBOM from storage: {str(e)}"
+            raise GeneratorInvalidReportError(
+                f"Previous AIMBOM is not valid JSON: {str(e)}"
+            ) from e
+        except StorageNotFoundError as e:
+            logger.warning(
+                "Previous AIMBOM is missing: %s",
+                e,
+            )
+            raise GeneratorMissingReportError(
+                f"Previous AIMBOM is missing: {str(e)}"
+            ) from e
+        # Another 4xx or an S3 error: the previous AIMBOM may exist but can't
+        # be read, and retrying won't fix it.
+        except StorageOperationError as e:
+            logger.error(
+                "Failed to retrieve previous AIMBOM: %s",
+                e,
+            )
+            raise GeneratorGenerationError(
+                f"Failed to retrieve previous AIMBOM: {str(e)}"
             ) from e
 
     async def _create_updated_aimbom(
         self,
         previous_aimbom: AIMBOM,
         new_reports: Dict[ReportType, ReportModel],
-    ) -> Dict[AIMBOMTier, AIMBOM]:
+    ) -> AIMBOM:
         """Create an updated AIMBOM based on the previous AIMBOM and the changed reports.
 
         Args:
@@ -228,7 +287,7 @@ class AIMBOMGenerator:
         ] + [
             ExternalReference(
                 type="bom",
-                url=f"urn:cdx:{uuid_from_serial_number(report.serial_number)}/{report.version}",
+                url=bom_link(report.serial_number, report.version),
                 comment=REPORT_TO_COMMENT.get(report_type.value),
             )
             for report_type, report in new_reports.items()
@@ -240,7 +299,7 @@ class AIMBOMGenerator:
         # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.
         self._validate_aimbom(aimbom)
 
-        return self._create_tiered_aimbom(aimbom)
+        return aimbom
 
     async def _fetch_raw_reports(
         self,
@@ -256,107 +315,50 @@ class AIMBOMGenerator:
             A mapping of `ReportType` to json dictionaries.
 
         Raises:
-            GeneratorMissingReportError: When required reports are missing.
-            GeneratorStorageError: When storage operations fail.
+            GeneratorInvalidReportError: When a report is not valid JSON.
+            GeneratorMissingReportError: When a report does not exist.
+            GeneratorStorageError: When storage is unavailable.
+            GeneratorGenerationError: When storage refuses to return a report
+                for any other reason (e.g. a 403).
         """
 
         try:
             return await self.client.get_reports_for_model(generation_metadata)
         except StorageConnectionError as e:
             logger.error(
-                "Storage connection error retrieving reports",
-                exc_info=True,
+                "Storage connection error retrieving reports: %s",
+                e,
             )
             raise GeneratorStorageError(
                 f"Failed to retrieve reports from MinIO storage: {str(e)}"
             ) from e
-        except StorageOperationError as e:
+        # Subclass of `StorageOperationError`, so it must come first.
+        except StorageInvalidFileError as e:
             logger.warning(
-                "Missing reports",
-                exc_info=True,
+                "Report is not valid JSON: %s",
+                e,
+            )
+            raise GeneratorInvalidReportError(
+                f"Report is not valid JSON: {str(e)}"
+            ) from e
+        except StorageNotFoundError as e:
+            logger.warning(
+                "Missing reports: %s",
+                e,
             )
             raise GeneratorMissingReportError(
                 f"Required reports are missing: {str(e)}"
             ) from e
-
-    def _validate_report(
-        self, report_type: ReportType, raw_report: Dict
-    ) -> ReportModel:
-        """Validate a single raw report against the CycloneDX schema and its
-        report-specific Pydantic model.
-
-        Presence is not checked here: `GenerationMetadata` already guarantees
-        that a report is only referenced (and therefore only fetched) when
-        it's actually required, for both new generations and updates.
-
-        Args:
-            report_type: The type of report being validated.
-            raw_report: The raw JSON dict for the report.
-
-        Returns:
-            The validated `ReportModel` instance.
-
-        Raises:
-            GeneratorGenerationError: When report validation fails.
-        """
-
-        try:
-            # Generic CycloneDX validation
-            validation.cdx_validate_dict(raw_report)
-
-            # Schema-specific validation
-            model_cls = REPORT_MODELS[report_type]
-            return model_cls.model_validate(raw_report)
-        except ValueError as e:
-            logger.warning(
-                "Invalid CycloneDX report %s: %s",
-                report_type.value,
-                str(e),
+        # Another 4xx or an S3 error: the report may exist but can't be read,
+        # and retrying won't fix it.
+        except StorageOperationError as e:
+            logger.error(
+                "Failed to retrieve reports: %s",
+                e,
             )
             raise GeneratorGenerationError(
-                f"Report {report_type.value} is invalid: {str(e)}"
+                f"Failed to retrieve reports: {str(e)}"
             ) from e
-        except ValidationError as e:
-            logger.warning(
-                "Schema validation failed for report %s: %s",
-                report_type.value,
-                str(e),
-            )
-            raise GeneratorGenerationError(
-                f"Report {report_type.value} failed schema validation: {str(e)}"
-            ) from e
-
-    def _validate_reports(
-        self,
-        raw_reports: Dict[str, Dict],
-        report_types: Iterable[ReportType],
-    ) -> Dict[ReportType, ReportModel]:
-        """
-        Validate a set of raw reports for a given model UUID and version.
-
-        Args:
-            raw_reports: A mapping of report type value to raw JSON dictionaries.
-            report_types: Which report types to validate -- `REPORT_TYPES`
-                for a new generation (every report type), or
-                `UPDATABLE_REPORT_TYPES` for an AIMBOM update.
-
-        Returns:
-            A mapping of `ReportType` to validated `ReportModel` instances,
-            one entry per `report_types`.
-
-        Raises:
-            GeneratorGenerationError: When report validation fails.
-        """
-
-        reports: Dict[ReportType, ReportModel] = {}
-
-        for report_type in report_types:
-            reports[report_type] = self._validate_report(
-                report_type, raw_reports.get(report_type.value)
-            )
-            logger.debug("Retrieved report %s", report_type.value)
-
-        return reports
 
     def _build_metadata(self, reports: Dict[ReportType, ReportModel]) -> Metadata:
         """Construct the `Metadata` section of the AIMBOM from the reports.
@@ -397,7 +399,7 @@ class AIMBOMGenerator:
                 ],
             )
         except Exception as e:
-            logger.error("Error creating AIMBOM metadata from reports", exc_info=True)
+            logger.error("Error creating AIMBOM metadata from reports: %s", e)
             raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM metadata from reports: {str(e)}"
             ) from e
@@ -422,7 +424,7 @@ class AIMBOMGenerator:
             return [
                 ExternalReference(
                     type="bom",
-                    url=f"urn:cdx:{uuid_from_serial_number(r.serial_number)}/{r.version}",
+                    url=bom_link(r.serial_number, r.version),
                     comment=REPORT_TO_COMMENT.get(o.value),
                 )
                 for o, r in reports.items()
@@ -430,10 +432,58 @@ class AIMBOMGenerator:
             ]
         except Exception as e:
             logger.error(
-                "Error creating AIMBOM external references from reports", exc_info=True
+                "Error creating AIMBOM external references from reports: %s", e
             )
             raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM external references from reports: {str(e)}"
+            ) from e
+
+    def _validate_reports(
+        self,
+        raw_reports: Dict[str, Dict],
+        report_types: Iterable[ReportType],
+    ) -> Dict[ReportType, ReportModel]:
+        """Validate the raw reports with `validator.validate_reports`.
+
+        Args:
+            raw_reports: A mapping of report type value to raw JSON dictionaries.
+            report_types: Which report types to validate.
+
+        Returns:
+            A mapping of `ReportType` to validated `ReportModel` instances.
+
+        Raises:
+            GeneratorInvalidReportError: When a report fails schema validation
+                or has a missing or invalid signature.
+        """
+
+        try:
+            return validator.validate_reports(raw_reports, report_types)
+        # Base class of the schema and signature errors.
+        except validator.ValidatorInvalidAIMBOMError as e:
+            raise GeneratorInvalidReportError(str(e)) from e
+
+    def _validate_aimbom(self, aimbom: AIMBOM) -> None:
+        """Validate the AIMBOM against the CycloneDX schema and the AIMBOM model.
+
+        Args:
+            aimbom: The `AIMBOM` instance to validate.
+
+        Raises:
+            GeneratorGenerationError: If schema or signature validation fails.
+        """
+
+        try:
+            logger.debug("Validating AIMBOM")
+            validator.validate_report(
+                BOMType.AIMBOM, jsonable_encoder(aimbom, exclude_none=True)
+            )
+            logger.debug("AIMBOM validation successful")
+        # Base class of the schema and signature errors.
+        except validator.ValidatorInvalidAIMBOMError as e:
+            logger.error("AIMBOM validation failed: %s", str(e))
+            raise GeneratorGenerationError(
+                f"Generated AIMBOM is invalid: {str(e)}"
             ) from e
 
     def _sign_aimbom(self, aimbom: AIMBOM) -> AIMBOM:
@@ -461,101 +511,15 @@ class AIMBOMGenerator:
 
             return aimbom
         except signing.SigningError as e:
-            logger.error(
-                "Signing material mismatch while signing AIMBOM", exc_info=True
-            )
+            logger.error("Signing material mismatch while signing AIMBOM: %s", e)
             raise GeneratorSigningError(f"Failed to sign AIMBOM: {str(e)}") from e
         except Exception as e:
-            logger.error("Error signing AIMBOM", exc_info=True)
+            logger.error("Error signing AIMBOM: %s", e)
             raise GeneratorGenerationError(f"Failed to sign AIMBOM: {str(e)}") from e
-
-    def _validate_aimbom(self, aimbom: AIMBOM) -> None:
-        """Validate the AIMBOM against the CycloneDX schema.
-
-        Args:
-            aimbom: The `AIMBOM` instance to validate.
-
-        Raises:
-            GeneratorGenerationError: If validation fails.
-        """
-
-        try:
-            logger.debug("Validating AIMBOM")
-            validation.cdx_validate_dict(jsonable_encoder(aimbom, exclude_none=True))
-            logger.debug("AIMBOM validation successful")
-        except ValueError as e:
-            logger.error("AIMBOM validation failed: %s", str(e))
-            raise GeneratorGenerationError(
-                f"Generated AIMBOM is invalid: {str(e)}"
-            ) from e
-
-    def _filter_aimbom_references(
-        self, aimbom: AIMBOM, references_to_keep: set[ReportComment]
-    ) -> AIMBOM:
-        """
-        Filter AIMBOM external references based on specified references.
-        Remove signature from the  AIMBOM, as it is no longer valid after filtering.
-
-        Args:
-            aimbom: The original `AIMBOM` instance.
-            references_to_keep: A set of `ReportComment` values to retain in the external references.
-
-        Returns:
-            A new `AIMBOM` instance with filtered external references and no signature.
-        """
-
-        # NOTE: We are removing the signature from the AIMBOM after filtering the external
-        # references because the signature is no longer valid after filtering. The signature
-        # is generated over the entire AIMBOM, and if we remove any external references, the
-        # signature will not match the new AIMBOM.
-        return aimbom.model_copy(
-            update={
-                "external_references": [
-                    ref
-                    for ref in aimbom.external_references
-                    if ref.comment in references_to_keep
-                ],
-                "signature": None,
-            }
-        )
-
-    def _create_tiered_aimbom(self, aimbom: AIMBOM) -> Dict[AIMBOMTier, AIMBOM]:
-        """Create a dictionary of tiered AIMBOMs from the full AIMBOM.
-
-        Args:
-            aimbom: The full Tier 3 `AIMBOM` instance.
-
-        Returns:
-            A dictionary mapping `AIMBOMTier` to the corresponding tiered `AIMBOM` instances.
-
-        Raises:
-            GeneratorGenerationError: If tiered AIMBOM creation fails.
-        """
-
-        logger.debug(
-            "Creating tiered AIMBOMs from full AIMBOM with serial_number=%s",
-            aimbom.serial_number,
-        )
-
-        try:
-            return {
-                AIMBOMTier.TIER_1: self._filter_aimbom_references(
-                    aimbom, TIER_REPORT_COMMENTS[AIMBOMTier.TIER_1]
-                ),
-                AIMBOMTier.TIER_2: self._filter_aimbom_references(
-                    aimbom, TIER_REPORT_COMMENTS[AIMBOMTier.TIER_2]
-                ),
-                AIMBOMTier.TIER_3: aimbom,
-            }
-        except Exception as e:
-            logger.error("Error creating tiered AIMBOM", exc_info=True)
-            raise GeneratorGenerationError(
-                f"Failed to create tiered AIMBOM: {str(e)}"
-            ) from e
 
     def _create_aimbom_from_reports(
         self, reports: Dict[ReportType, ReportModel]
-    ) -> Dict[AIMBOMTier, AIMBOM]:
+    ) -> AIMBOM:
         """Construct an `AIMBOM` object from validated reports.
 
         Args:
@@ -584,40 +548,41 @@ class AIMBOMGenerator:
             )
             logger.debug("AIMBOM created with serial_number=%s", aimbom.serial_number)
         except Exception as e:
-            logger.error("Error creating AIMBOM from reports", exc_info=True)
+            logger.error("Error creating AIMBOM from reports: %s", e)
             raise GeneratorGenerationError(
                 f"Failed to generate AIMBOM from reports: {str(e)}"
             ) from e
 
         # Sign the AIMBOM to ensure its integrity and authenticity.
-        # NOTE: We sign the AIMBOM before creating the Tiers. In Tiers 1-2 we remove the signature.
-        # TODO:Maybe sign each Tier separately, but this would require a new signature for each Tier
-        # and the signature would be different for each Tier.
         aimbom = self._sign_aimbom(aimbom)
 
         # Validate the generated AIMBOM against the CycloneDX schema to ensure it is compliant.
         self._validate_aimbom(aimbom)
 
-        return self._create_tiered_aimbom(aimbom)
+        return aimbom
 
     async def _save_aimbom(
         self,
         model_uuid: str,
         model_version: str,
-        tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
+        aimbom: AIMBOM,
     ):
-        """Persist tiered AIMBOMs to the configured storage backend.
+        """Persist the AIMBOM to the configured storage backend.
 
         Args:
-            model_uuid: Model UUID to associate with stored AIMBOMs.
-            model_version: Model version to associate with stored AIMBOMs.
-            tiered_aimbom: The tiered `AIMBOM` instances to store.
+            model_uuid: Model UUID to associate with the stored AIMBOM.
+            model_version: Model version to associate with the stored AIMBOM.
+            aimbom: The `AIMBOM` instance to store.
 
         Returns:
             None
 
         Raises:
-            GeneratorStorageError: If storage operations fail.
+            GeneratorUploadRejectedError: If the storage backend rejects the
+                AIMBOM (400).
+            GeneratorStorageError: If storage is unavailable or
+                authentication fails.
+            GeneratorGenerationError: If saving fails for any other reason.
         """
 
         logger.debug(
@@ -629,14 +594,25 @@ class AIMBOMGenerator:
             await self.client.save_aimbom(
                 model_uuid=model_uuid,
                 model_version=model_version,
-                tiered_aimbom=tiered_aimbom,
+                aimbom=aimbom,
             )
             logger.debug("AIMBOM saved successfully")
-        except StorageError as e:
-            logger.error("Error saving AIMBOM to bucket", exc_info=True)
+        except StorageBadRequestError as e:
+            logger.warning("AIMBOM rejected by storage: %s", e)
+            raise GeneratorUploadRejectedError(
+                f"Generated AIMBOM was rejected: {e}"
+            ) from e
+        except (StorageConnectionError, StorageAuthError) as e:
+            logger.error("Storage unavailable while saving AIMBOM: %s", e)
             raise GeneratorStorageError(
                 f"Storage error while saving AIMBOM: {e}"
             ) from e
+        # A 409, another 4xx or an S3 error: retrying won't fix it. A 409 is
+        # not "already saved" here, unlike for signed reports: each AIMBOM has
+        # a fresh serial number, so it was not stored.
+        except StorageError as e:
+            logger.error("Error saving AIMBOM: %s", e)
+            raise GeneratorGenerationError(f"Failed to save AIMBOM: {e}") from e
 
 
 # AIMBOMGenerator dependency

@@ -1,10 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, Tuple
 
 from fastapi import Request
 
 from app.models.aimbom import AIMBOM
-from app.utils.utils import AIMBOMTier
+from app.models.storage import UploadReportMetadata
+
+# Content type of uploaded AIMBOMs. Other files are uploaded as plain JSON.
+CYCLONEDX_CONTENT_TYPE = "application/vnd.cyclonedx+json"
 
 
 class StorageError(Exception):
@@ -19,6 +22,22 @@ class StorageOperationError(StorageError):
     """Generic failure during storage operation."""
 
 
+class StorageConflictError(StorageOperationError):
+    """The file already exists in storage (e.g. the original was already signed)."""
+
+
+class StorageBadRequestError(StorageOperationError):
+    """The storage backend rejected the request as invalid."""
+
+
+class StorageNotFoundError(StorageOperationError):
+    """The requested file does not exist in storage."""
+
+
+class StorageInvalidFileError(StorageOperationError):
+    """Retrieved file is not valid JSON."""
+
+
 class StorageAuthError(StorageError):
     """Authentication failure."""
 
@@ -26,6 +45,14 @@ class StorageAuthError(StorageError):
 class StorageClient(ABC):
     @abstractmethod
     async def get_file_from_url(self, download_url: str) -> Dict: ...
+
+    @abstractmethod
+    async def save_file(
+        self,
+        file: Dict,
+        filename: str,
+        upload_report_metadata: UploadReportMetadata,
+    ): ...
 
     @abstractmethod
     async def get_reports_for_model(
@@ -38,8 +65,32 @@ class StorageClient(ABC):
         self,
         model_uuid: str,
         model_version: str,
-        tiered_aimbom: Dict[AIMBOMTier, AIMBOM],
+        aimbom: AIMBOM,
     ): ...
+
+    @abstractmethod
+    async def get_aimbom(
+        self,
+        model_uuid: str,
+        model_version: str,
+    ) -> Tuple[Dict, Dict[str, Dict]]: ...
+
+
+async def get_file_if_exists(client, download_url: str) -> Dict | None:
+    """Download a file, returning `None` if it does not exist.
+
+    Args:
+        client: The storage client to download with.
+        download_url: The download URL of the file.
+
+    Returns:
+        The parsed file, or `None` if storage has no such file.
+    """
+
+    try:
+        return await client.get_file_from_url(download_url)
+    except StorageNotFoundError:
+        return None
 
 
 async def get_storage_client(request: Request) -> StorageClient:

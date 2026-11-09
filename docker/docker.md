@@ -100,8 +100,8 @@ This project uses **Docker Compose profiles** to distinguish between different d
 * **`kafka` profile**
 
   * Runs the background Kafka worker (`app.worker`)
-  * Consumes and processes AIMBOM generation messages from configured Kafka topics
-  * Can be used alongside the `prod` profile in deployments that require asynchronous processing of AIMBOM generation messages
+  * Consumes AIMBOM generation requests (`KAFKA_TOPIC`) and report signing requests (`KAFKA_SIGNING_TOPIC`), with one consumer per topic
+  * Can be used alongside the `prod` profile in deployments that require asynchronous processing of AIMBOM generation and report signing
 
 The `kafka` and `prod` profiles are planned to work with the **CoEvolution Knowledge Base**.
 
@@ -202,9 +202,10 @@ python -m app.worker
 
 Responsibilities include:
 
-* Consuming messages from configured Kafka topics
-* Processing incoming security reports
-* AIMBOM generation
+* Consuming AIMBOM generation requests from `KAFKA_TOPIC` and generating or updating the AIMBOM
+* Consuming report signing requests from `KAFKA_SIGNING_TOPIC`, and downloading, signing and uploading each report
+
+See [Architecture](../docs/architecture.md#kafka-worker) for the consumer groups, commits and error handling.
 
 The worker does not expose any HTTP endpoints and is intended to run alongside the API service when Kafka-based integrations are enabled.
 

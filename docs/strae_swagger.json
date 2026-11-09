@@ -34,22 +34,20 @@
                     "api"
                 ],
                 "summary": "Sign Report",
-                "description": "Digitally sign a report using the configured signing certificate and private key.\n\nThis endpoint applies a cryptographic signature to the provided report,\nallowing consumers to verify its authenticity and integrity.\n\n**Request Body**\n\n`report`: A JSON report to be signed.\n\n**Response**\n\nReturns the signed report together with a confirmation message.",
+                "description": "Digitally sign reports using the configured signing certificate and private key.\n\nEach file is downloaded, signed and uploaded to `target_pool` /\n`target_bucket` as a signed copy of the original. Files that have already\nbeen signed are treated as done.\n\n**Request Body**\n\n`signing_metadata`: The files to sign and where to upload the signed\ncopies, in the format of the `strae_sign_requests` Kafka event.\n\n**Response**\n\nReturns the destination, the files of the request, and how many of them\nwere signed by this request (`signed`) or had already been signed\n(`already_signed`).",
                 "operationId": "sign_report_api_sign_post",
                 "requestBody": {
                     "content": {
                         "application/json": {
                             "schema": {
-                                "additionalProperties": true,
-                                "type": "object",
-                                "title": "Report"
+                                "$ref": "#/components/schemas/SigningMetadata"
                             }
                         }
                     },
                     "required": true
                 },
                 "responses": {
-                    "200": {
+                    "201": {
                         "description": "Successful Response",
                         "content": {
                             "application/json": {
@@ -72,49 +70,23 @@
                 }
             }
         },
-        "/api/generate/{model_uuid}/{model_version}": {
+        "/api/generate": {
             "post": {
                 "tags": [
                     "api"
                 ],
                 "summary": "Generate Aimbom",
-                "description": "Generate an AIMBOM for a specific AI model version.\n\nThis endpoint aggregates the provided security reports and generates\nan AI Model Bill of Materials (AIMBOM).\n\n**Path Parameters**\n\n`model_uuid`: Unique identifier of the AI model.\n\n`model_version`: Version of the AI model.\n\n**Request Body**\n\n`generation_metadata`: Metadata describing the reports that should be\nincluded in the generated AIMBOM.\n\n**Response**\n\nReturns the serial number and metadata of the generated AIMBOM.",
-                "operationId": "generate_aimbom_api_generate__model_uuid___model_version__post",
-                "parameters": [
-                    {
-                        "name": "model_uuid",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "description": "Unique identifier of the AI model",
-                            "title": "Model Uuid"
-                        },
-                        "description": "Unique identifier of the AI model",
-                        "example": "e6a0d3f2-085a-4a32-8844-454666b293b1"
-                    },
-                    {
-                        "name": "model_version",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "description": "Version of the AI model",
-                            "title": "Model Version"
-                        },
-                        "description": "Version of the AI model",
-                        "example": "v1.0"
-                    }
-                ],
+                "description": "Generate an AIMBOM for a specific AI model version.\n\nThis endpoint aggregates the provided security reports and generates\nan AI Model Bill of Materials (AIMBOM).\n\n**Request Body**\n\n`generation_metadata`: Metadata describing the unique identifier and the\nversion of the AI model and the reports that should be included in the generated AIMBOM.\n\n**Response**\n\nReturns the serial number and metadata of the generated AIMBOM.",
+                "operationId": "generate_aimbom_api_generate_post",
                 "requestBody": {
-                    "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "$ref": "#/components/schemas/GenerationMetadata"
                             }
                         }
-                    }
+                    },
+                    "required": true
                 },
                 "responses": {
                     "201": {
@@ -123,6 +95,64 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/AIMBOMGeneratedResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/validation/{uuid}/{version}": {
+            "get": {
+                "tags": [
+                    "api"
+                ],
+                "summary": "Validate Aimbom",
+                "description": "Validate the AIMBOM of a specific AI model version and its reports.\n\nThe AIMBOM and its reports are fetched from storage, validated against\nthe CycloneDX schema and their models, and the AIMBOM's references are\nchecked against the reports. Validation stops at the first problem.\n\n**Response**\n\n`status` is `VALID` if every check passed. If not, `status` is `INVALID`\nand `detail` describes the first problem found. Returns 404 if the model\nversion has no AIMBOM and 503 if storage is unavailable.",
+                "operationId": "validate_aimbom_api_validation__uuid___version__get",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "description": "Unique identifier of the AI model",
+                            "title": "Uuid"
+                        },
+                        "description": "Unique identifier of the AI model",
+                        "example": "163723c9-173b-4ce2-abc1-4de2b25a7012"
+                    },
+                    {
+                        "name": "version",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "description": "Version of the AI model",
+                            "title": "Version"
+                        },
+                        "description": "Version of the AI model",
+                        "example": "v1.0"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AIMBOMValidationResponse"
                                 }
                             }
                         }
@@ -228,7 +258,7 @@
                     },
                     "aimbom_version": {
                         "type": "integer",
-                        "minimum": 1,
+                        "minimum": 1.0,
                         "title": "Aimbom Version"
                     },
                     "model_uuid": {
@@ -252,8 +282,53 @@
                 ],
                 "title": "AIMBOMGeneratedResponse"
             },
+            "AIMBOMValidationResponse": {
+                "properties": {
+                    "detail": {
+                        "type": "string",
+                        "title": "Detail"
+                    },
+                    "model_uuid": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Model Uuid"
+                    },
+                    "model_version": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Model Version"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "VALID",
+                            "INVALID"
+                        ],
+                        "title": "Status",
+                        "description": "Validation status of the AIMBOM."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "detail",
+                    "model_uuid",
+                    "model_version",
+                    "status"
+                ],
+                "title": "AIMBOMValidationResponse"
+            },
             "GenerationMetadata": {
                 "properties": {
+                    "model_uuid": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Model Uuid"
+                    },
+                    "version": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Version"
+                    },
                     "previous_aimbom": {
                         "anyOf": [
                             {
@@ -270,47 +345,85 @@
                 },
                 "type": "object",
                 "required": [
+                    "model_uuid",
+                    "version",
                     "reports"
                 ],
                 "title": "GenerationMetadata",
                 "examples": [
                     {
+                        "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
                         "reports": {
                             "aimodelinfo_report": {
-                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/aimodelinfo_report.json"
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/aimodelinfo_report.json",
+                                "filename": "aimodelinfo_report.json"
                             },
                             "assessment_report": {
-                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report.json"
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report.json",
+                                "filename": "assessment_report.json"
                             },
                             "datasets_report": {
-                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/datasets_report.json"
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/datasets_report.json",
+                                "filename": "datasets_report.json"
                             },
                             "defence_report": {
-                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/defence_report.json"
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/defence_report.json",
+                                "filename": "defence_report.json"
                             },
                             "euaiact_report": {
-                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/euaiact_report.json"
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/euaiact_report.json",
+                                "filename": "euaiact_report.json"
                             },
                             "gadgets_report": {
-                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/gadgets_report.json"
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/gadgets_report.json",
+                                "filename": "gadgets_report.json"
                             },
                             "risk_report": {
-                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report.json"
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report.json",
+                                "filename": "risk_report.json"
                             }
-                        }
+                        },
+                        "version": "v1.0"
                     },
                     {
+                        "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
                         "previous_aimbom": {
-                            "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1-tier-3.json"
+                            "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json",
+                            "filename": "previous_aimbom.json"
                         },
                         "reports": {
                             "assessment_report": {
-                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report_2.json"
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report_2.json",
+                                "filename": "assessment_report_2.json"
                             },
                             "risk_report": {
-                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json"
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json",
+                                "filename": "risk_report_2.json"
                             }
-                        }
+                        },
+                        "version": "v1.0"
+                    },
+                    {
+                        "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                        "previous_aimbom": {
+                            "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json",
+                            "filename": "previous_aimbom.json"
+                        },
+                        "reports": {
+                            "assessment_report": {
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report_2.json",
+                                "filename": "assessment_report_2.json"
+                            },
+                            "gadgets_report": {
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/gadgets_report_2.json",
+                                "filename": "gadgets_report_2.json"
+                            },
+                            "risk_report": {
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json",
+                                "filename": "risk_report_2.json"
+                            }
+                        },
+                        "version": "v1.0"
                     }
                 ]
             },
@@ -352,18 +465,13 @@
                         "title": "Bucket"
                     },
                     "filename": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
+                        "type": "string",
+                        "minLength": 1,
                         "title": "Filename"
                     },
                     "download_url": {
                         "type": "string",
+                        "minLength": 1,
                         "title": "Download Url"
                     },
                     "createdAt": {
@@ -381,6 +489,7 @@
                 },
                 "type": "object",
                 "required": [
+                    "filename",
                     "download_url"
                 ],
                 "title": "ReportDetails"
@@ -495,8 +604,29 @@
                         ]
                     }
                 },
+                "additionalProperties": false,
                 "type": "object",
                 "title": "Reports"
+            },
+            "SignedFile": {
+                "properties": {
+                    "original_file_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Original File Id"
+                    },
+                    "filename": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Filename"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "original_file_id",
+                    "filename"
+                ],
+                "title": "SignedFile"
             },
             "SignedReportResponse": {
                 "properties": {
@@ -504,18 +634,172 @@
                         "type": "string",
                         "title": "Detail"
                     },
-                    "signed_report": {
-                        "additionalProperties": true,
-                        "type": "object",
-                        "title": "Signed Report"
+                    "model_uuid": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Model Uuid"
+                    },
+                    "model_version": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Model Version"
+                    },
+                    "target_pool": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Target Pool"
+                    },
+                    "target_bucket": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Target Bucket"
+                    },
+                    "files": {
+                        "items": {
+                            "$ref": "#/components/schemas/SignedFile"
+                        },
+                        "type": "array",
+                        "title": "Files"
+                    },
+                    "signed": {
+                        "type": "integer",
+                        "minimum": 0.0,
+                        "title": "Signed"
+                    },
+                    "already_signed": {
+                        "type": "integer",
+                        "minimum": 0.0,
+                        "title": "Already Signed"
                     }
                 },
                 "type": "object",
                 "required": [
                     "detail",
-                    "signed_report"
+                    "model_uuid",
+                    "model_version",
+                    "target_pool",
+                    "target_bucket",
+                    "files",
+                    "signed",
+                    "already_signed"
                 ],
                 "title": "SignedReportResponse"
+            },
+            "SigningFile": {
+                "properties": {
+                    "_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Id"
+                    },
+                    "bucket": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Bucket"
+                    },
+                    "filename": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Filename"
+                    },
+                    "download_url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Download Url"
+                    },
+                    "createdAt": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Createdat"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "_id",
+                    "filename",
+                    "download_url"
+                ],
+                "title": "SigningFile"
+            },
+            "SigningMetadata": {
+                "properties": {
+                    "model_uuid": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Model Uuid"
+                    },
+                    "version": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Version"
+                    },
+                    "target_pool": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Target Pool"
+                    },
+                    "target_bucket": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Target Bucket"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Tags",
+                        "default": []
+                    },
+                    "files": {
+                        "items": {
+                            "$ref": "#/components/schemas/SigningFile"
+                        },
+                        "type": "array",
+                        "minItems": 1,
+                        "title": "Files"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "model_uuid",
+                    "version",
+                    "target_pool",
+                    "target_bucket",
+                    "files"
+                ],
+                "title": "SigningMetadata",
+                "description": "A signing request, in the format of the `strae_sign_requests` Kafka event.\n\n`tags` are sent with every signed copy, comma-separated. Other fields of\nthe event (`event`, `model_name`, `pool`, ...) are not needed for signing\nand are ignored.",
+                "examples": [
+                    {
+                        "files": [
+                            {
+                                "_id": "6ae735e37ceea4671026265d",
+                                "bucket": "user-assessments",
+                                "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/user-assessments.json",
+                                "filename": "user-assessments.json"
+                            }
+                        ],
+                        "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                        "tags": [],
+                        "target_bucket": "user-assessments",
+                        "target_pool": "RP",
+                        "version": "v1.0"
+                    }
+                ]
             },
             "StatusResponse": {
                 "properties": {

@@ -3,14 +3,18 @@ from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 from typing_extensions import Self
 
-from app.utils.utils import REPORT_TYPES, UPDATABLE_REPORT_TYPES
+from app.utils.utils import (
+    OPTIONAL_UPDATABLE_REPORT_TYPES,
+    REPORT_TYPES,
+    REQUIRED_UPDATABLE_REPORT_TYPES,
+)
 
 
 class ReportDetails(BaseModel):
     id: str | None = Field(None, alias="_id")
     bucket: str | None = None
-    filename: str | None = None
-    download_url: str
+    filename: str = Field(..., min_length=1)
+    download_url: str = Field(..., min_length=1)
     createdAt: datetime | None = None
 
 
@@ -23,8 +27,14 @@ class Reports(BaseModel):
     euaiact_report: ReportDetails | None = None
     datasets_report: ReportDetails | None = None
 
+    # Reject unknown keys so a misspelled report (e.g. `gadget_report`) fails
+    # validation instead of being silently dropped.
+    model_config = {"extra": "forbid"}
+
 
 class GenerationMetadata(BaseModel):
+    model_uuid: str = Field(..., min_length=1)
+    version: str = Field(..., min_length=1)
     previous_aimbom: ReportDetails | None = None
     reports: Reports
 
@@ -35,11 +45,13 @@ class GenerationMetadata(BaseModel):
         - New generation (`previous_aimbom` is `None`): the generator builds
           the AIMBOM from scratch, so every report type must be present.
         - Update (`previous_aimbom` set): the generator only recomputes the
-          reports in `UPDATABLE_REPORT_TYPES` (currently the assessment and
-          risk reports) and carries the rest over from the previous AIMBOM
-          unchanged, so only those may be present -- any other report field
-          would be fetched but silently ignored downstream, so it's
-          rejected here instead.
+          changed reports and carries the rest over from the previous AIMBOM
+          unchanged. The reports in `REQUIRED_UPDATABLE_REPORT_TYPES`
+          (currently the assessment and risk reports) must be present, and
+          the reports in `OPTIONAL_UPDATABLE_REPORT_TYPES` (currently the
+          gadgets report) may be present. Any other report field would be
+          fetched but silently ignored downstream, so it's rejected here
+          instead.
         """
 
         # If no previous AIMBOM is provided, all report types must be present.
@@ -55,10 +67,10 @@ class GenerationMetadata(BaseModel):
                 )
             return self
 
-        # If a previous AIMBOM is provided, only the updatable report types may be present.
+        # If a previous AIMBOM is provided, the required updatable report types must be present.
         missing = [
             report_type.value
-            for report_type in UPDATABLE_REPORT_TYPES
+            for report_type in REQUIRED_UPDATABLE_REPORT_TYPES
             if getattr(self.reports, report_type.value) is None
         ]
         if missing:
@@ -66,12 +78,16 @@ class GenerationMetadata(BaseModel):
                 f"reports fields required when previous_aimbom is set: {missing}"
             )
 
-        # Any other report types must not be present, as they will be ignored by the generator.
-        non_updatable_types = set(REPORT_TYPES) - set(UPDATABLE_REPORT_TYPES)
+        # Optional updatable report types may be present. Any other report types
+        # must not be present, as they will be ignored by the generator.
+        updatable_types = (
+            REQUIRED_UPDATABLE_REPORT_TYPES + OPTIONAL_UPDATABLE_REPORT_TYPES
+        )
         unexpected = [
             report_type.value
-            for report_type in non_updatable_types
-            if getattr(self.reports, report_type.value) is not None
+            for report_type in REPORT_TYPES
+            if report_type not in updatable_types
+            and getattr(self.reports, report_type.value) is not None
         ]
         if unexpected:
             raise ValueError(
@@ -84,43 +100,122 @@ class GenerationMetadata(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
+                    "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                    "version": "v1.0",
                     "reports": {
                         "risk_report": {
+                            "filename": "risk_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report.json",
                         },
                         "assessment_report": {
+                            "filename": "assessment_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report.json",
                         },
                         "defence_report": {
+                            "filename": "defence_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/defence_report.json",
                         },
                         "gadgets_report": {
+                            "filename": "gadgets_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/gadgets_report.json",
                         },
                         "aimodelinfo_report": {
+                            "filename": "aimodelinfo_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/aimodelinfo_report.json",
                         },
                         "euaiact_report": {
+                            "filename": "euaiact_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/euaiact_report.json",
                         },
                         "datasets_report": {
+                            "filename": "datasets_report.json",
                             "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/datasets_report.json",
                         },
                     },
                 },
                 {
+                    "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                    "version": "v1.0",
                     "previous_aimbom": {
-                        "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1-tier-3.json"
+                        "filename": "previous_aimbom.json",
+                        "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json",
                     },
                     "reports": {
                         "assessment_report": {
-                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report_2.json"
+                            "filename": "assessment_report_2.json",
+                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report_2.json",
                         },
                         "risk_report": {
-                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json"
+                            "filename": "risk_report_2.json",
+                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json",
                         },
                     },
                 },
+                {
+                    "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                    "version": "v1.0",
+                    "previous_aimbom": {
+                        "filename": "previous_aimbom.json",
+                        "download_url": "aimboms/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/4707cbed-e4e7-4550-84bf-5e1e41c49786-v1.json",
+                    },
+                    "reports": {
+                        "assessment_report": {
+                            "filename": "assessment_report_2.json",
+                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/assessment_report_2.json",
+                        },
+                        "risk_report": {
+                            "filename": "risk_report_2.json",
+                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/risk_report_2.json",
+                        },
+                        "gadgets_report": {
+                            "filename": "gadgets_report_2.json",
+                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/gadgets_report_2.json",
+                        },
+                    },
+                },
+            ]
+        }
+    }
+
+
+class SigningFile(ReportDetails):
+    # The orchestrator needs the original's ID to accept the signed copy.
+    id: str = Field(..., min_length=1, alias="_id")
+
+
+class SigningMetadata(BaseModel):
+    """A signing request, in the format of the `strae_sign_requests` Kafka event.
+
+    `tags` are sent with every signed copy, comma-separated. Other fields of
+    the event (`event`, `model_name`, `pool`, ...) are not needed for signing
+    and are ignored.
+    """
+
+    model_uuid: str = Field(..., min_length=1)
+    version: str = Field(..., min_length=1)
+    target_pool: str = Field(..., min_length=1)
+    target_bucket: str = Field(..., min_length=1)
+    tags: list[str] = []
+    files: list[SigningFile] = Field(min_length=1)
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "model_uuid": "e6a0d3f2-085a-4a32-8844-454666b293b1",
+                    "version": "v1.0",
+                    "target_pool": "RP",
+                    "target_bucket": "user-assessments",
+                    "tags": [],
+                    "files": [
+                        {
+                            "_id": "6ae735e37ceea4671026265d",
+                            "bucket": "user-assessments",
+                            "filename": "user-assessments.json",
+                            "download_url": "reports/e6a0d3f2-085a-4a32-8844-454666b293b1/v1.0/user-assessments.json",
+                        },
+                    ],
+                }
             ]
         }
     }
