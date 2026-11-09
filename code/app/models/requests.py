@@ -4,9 +4,9 @@ from pydantic import BaseModel, Field, model_validator
 from typing_extensions import Self
 
 from app.utils.utils import (
-    OPTIONAL_UPDATABLE_REPORT_TYPES,
+    ALLOWED_UPDATED_REPORT_SETS,
     REPORT_TYPES,
-    REQUIRED_UPDATABLE_REPORT_TYPES,
+    UPDATABLE_REPORT_TYPES,
 )
 
 
@@ -46,12 +46,13 @@ class GenerationMetadata(BaseModel):
           the AIMBOM from scratch, so every report type must be present.
         - Update (`previous_aimbom` set): the generator only recomputes the
           changed reports and carries the rest over from the previous AIMBOM
-          unchanged. The reports in `REQUIRED_UPDATABLE_REPORT_TYPES`
-          (currently the assessment and risk reports) must be present, and
-          the reports in `OPTIONAL_UPDATABLE_REPORT_TYPES` (currently the
-          gadgets report) may be present. Any other report field would be
-          fetched but silently ignored downstream, so it's rejected here
-          instead.
+          unchanged. Only the reports in `UPDATABLE_REPORT_TYPES` may change
+          (any other report would be fetched but silently ignored downstream,
+          so it's rejected here instead), and only in one of the combinations
+          in `ALLOWED_UPDATED_REPORT_SETS`:
+            1. the assessment and risk reports,
+            2. the gadgets report alone, or
+            3. all three.
         """
 
         # If no previous AIMBOM is provided, all report types must be present.
@@ -67,31 +68,33 @@ class GenerationMetadata(BaseModel):
                 )
             return self
 
-        # If a previous AIMBOM is provided, the required updatable report types must be present.
-        missing = [
-            report_type.value
-            for report_type in REQUIRED_UPDATABLE_REPORT_TYPES
-            if getattr(self.reports, report_type.value) is None
-        ]
-        if missing:
-            raise ValueError(
-                f"reports fields required when previous_aimbom is set: {missing}"
-            )
-
-        # Optional updatable report types may be present. Any other report types
-        # must not be present, as they will be ignored by the generator.
-        updatable_types = (
-            REQUIRED_UPDATABLE_REPORT_TYPES + OPTIONAL_UPDATABLE_REPORT_TYPES
-        )
-        unexpected = [
-            report_type.value
+        present = {
+            report_type
             for report_type in REPORT_TYPES
-            if report_type not in updatable_types
-            and getattr(self.reports, report_type.value) is not None
-        ]
+            if getattr(self.reports, report_type.value) is not None
+        }
+
+        # Non-updatable report types must not be present, as they would be
+        # ignored by the generator.
+        unexpected = sorted(
+            report_type.value
+            for report_type in present
+            if report_type not in UPDATABLE_REPORT_TYPES
+        )
         if unexpected:
             raise ValueError(
                 f"reports fields not allowed when previous_aimbom is set: {unexpected}"
+            )
+
+        # The updated reports must form one of the allowed combinations.
+        if present not in ALLOWED_UPDATED_REPORT_SETS:
+            allowed = [
+                sorted(report_type.value for report_type in allowed_set)
+                for allowed_set in ALLOWED_UPDATED_REPORT_SETS
+            ]
+            raise ValueError(
+                "reports fields when previous_aimbom is set must be one of "
+                f"{allowed}, got: {sorted(t.value for t in present)}"
             )
 
         return self

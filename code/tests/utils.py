@@ -108,6 +108,18 @@ def get_generation_metadata_deprecation_with_gadgets(
     return metadata
 
 
+def get_generation_metadata_deprecation_gadgets_only(
+    model_uuid: str, model_version: str
+):
+    metadata = get_generation_metadata_deprecation_with_gadgets(
+        model_uuid, model_version
+    )
+    del metadata["reports"]["assessment_report"]
+    del metadata["reports"]["risk_report"]
+
+    return metadata
+
+
 def get_signing_event(*download_urls: str):
     """Return a `strae_sign_requests` event for the given download URLs."""
 

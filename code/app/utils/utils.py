@@ -107,11 +107,21 @@ REPORT_TYPES = (
 )
 
 
-# Report types that must be present when updating (deprecating) an existing AIMBOM.
-REQUIRED_UPDATABLE_REPORT_TYPES = (ReportType.ASSESSMENTS, ReportType.RISK_REPORT)
+# Report types that may change when updating (deprecating) an existing AIMBOM.
+UPDATABLE_REPORT_TYPES = (
+    ReportType.ASSESSMENTS,
+    ReportType.GADGETS,
+    ReportType.RISK_REPORT,
+)
 
-# Report types that may be present when updating (deprecating) an existing AIMBOM.
-OPTIONAL_UPDATABLE_REPORT_TYPES = (ReportType.GADGETS,)
+# The exact combinations of changed reports accepted when updating (deprecating)
+# an existing AIMBOM: an assessment report always comes with a risk report, and
+# a gadgets report may change on its own or together with both of them.
+ALLOWED_UPDATED_REPORT_SETS = (
+    frozenset({ReportType.ASSESSMENTS, ReportType.RISK_REPORT}),
+    frozenset({ReportType.GADGETS}),
+    frozenset({ReportType.ASSESSMENTS, ReportType.GADGETS, ReportType.RISK_REPORT}),
+)
 
 
 REPORT_TO_COMMENT = {

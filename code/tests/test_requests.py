@@ -18,25 +18,50 @@ def test_new_generation_metadata_missing_all_reports_is_invalid():
         assert report_type.value in str(exc_info.value)
 
 
-def test_update_metadata_with_only_gadgets_report_is_invalid():
-    # The gadgets report is optional, but it doesn't replace the required ones.
-    with pytest.raises(ValidationError) as exc_info:
-        GenerationMetadata(
-            **_ids(),
-            previous_aimbom={
-                "filename": "aimbom.json",
-                "download_url": "aimboms/x/1.0/aimbom.json",
-            },
-            reports={
-                "gadgets_report": {
-                    "filename": "g.json",
-                    "download_url": "reports/x/1.0/g.json",
-                },
-            },
-        )
+def _update_metadata(*report_types):
+    return GenerationMetadata(
+        **_ids(),
+        previous_aimbom={
+            "filename": "aimbom.json",
+            "download_url": "aimboms/x/1.0/aimbom.json",
+        },
+        reports={
+            report_type.value: {
+                "filename": f"{report_type.value}.json",
+                "download_url": f"reports/x/1.0/{report_type.value}.json",
+            }
+            for report_type in report_types
+        },
+    )
 
-    assert "assessment_report" in str(exc_info.value)
-    assert "risk_report" in str(exc_info.value)
+
+@pytest.mark.parametrize(
+    "report_types",
+    [
+        (ReportType.ASSESSMENTS, ReportType.RISK_REPORT),
+        (ReportType.GADGETS,),
+        (ReportType.ASSESSMENTS, ReportType.RISK_REPORT, ReportType.GADGETS),
+    ],
+)
+def test_update_metadata_with_allowed_reports_is_valid(report_types):
+    _update_metadata(*report_types)
+
+
+@pytest.mark.parametrize(
+    "report_types",
+    [
+        (),
+        (ReportType.ASSESSMENTS,),
+        (ReportType.RISK_REPORT,),
+        (ReportType.ASSESSMENTS, ReportType.GADGETS),
+        (ReportType.RISK_REPORT, ReportType.GADGETS),
+    ],
+)
+def test_update_metadata_with_disallowed_report_combination_is_invalid(
+    report_types,
+):
+    with pytest.raises(ValidationError, match="must be one of"):
+        _update_metadata(*report_types)
 
 
 @pytest.mark.parametrize(

@@ -281,9 +281,8 @@ def validate_reports(
     Args:
         raw_reports: A mapping of report type value to raw JSON dictionaries.
         report_types: Which report types to validate -- `REPORT_TYPES`
-            for a new generation (every report type), or
-            `REQUIRED_UPDATABLE_REPORT_TYPES` plus any provided
-            `OPTIONAL_UPDATABLE_REPORT_TYPES` for an AIMBOM update.
+            for a new generation (every report type), or the changed
+            `UPDATABLE_REPORT_TYPES` for an AIMBOM update.
 
     Returns:
         A mapping of `ReportType` to validated `ReportModel` instances,
