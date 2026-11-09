@@ -1,75 +1,342 @@
 {
-    "bomFormat": "CycloneDX",
-    "specVersion": "1.7",
-    "serialNumber": "urn:uuid:7e8a5f72-1b3e-4f4c-94d1-3a2f6c4fbbd1",
-    "version": 1,
-    "properties": [
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.7",
+  "serialNumber": "urn:uuid:d352f713-466a-42cb-9804-009df5475b87",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-11-09T13:17:33Z",
+    "tools": {
+      "components": [
         {
-            "name": "eu_ai_act.system_trade_name",
-            "value": "Autonomous Perception Model"
-        },
-        {
-            "name": "eu_ai_act.provider_contact",
-            "value": "Example Autonomous Systems Lab, contact: ai-models@examplelab.org"
-        },
-        {
-            "name": "eu_ai_act.deployer_contact",
-            "value": "Autonomous Fleet Operations, contact: fleetops@examplefleet.org"
-        },
-        {
-            "name": "eu_ai_act.primary_purpose",
-            "value": "Real-time object detection for autonomous navigation"
-        },
-        {
-            "name": "eu_ai_act.information_used_by_system",
-            "value": "Projected LiDAR images; semantic segmentation inference; trained on labeled LiDAR dataset"
-        },
-        {
-            "name": "eu_ai_act.system_status",
-            "value": "active"
-        },
-        {
-            "name": "eu_ai_act.system_classification",
-            "value": "High-Risk"
-        },
-        {
-            "name": "eu_ai_act.instructions_for_use",
-            "value": "Use within autonomous vehicle perception pipeline only; follow deployment review checklist"
-        },
-        {
-            "name": "eu_ai_act.impact_assessment",
-            "value": "Fundamental Rights Impact Assessment and Data Protection Impact Assessment completed"
-        },
-        {
-            "name": "eu_ai_act.certification",
-            "value": "EU Declaration of Conformity v1.0, certificate #EU-APS-2026, valid until 2028-12-31"
-        },
-        {
-            "name": "eu_ai_act.testing_plan",
-            "value": "Real-world LiDAR testing under multiple environmental conditions"
-        },
-        {
-            "name": "eu_ai_act.testing_users",
-            "value": "Example Autonomous Systems Lab; Autonomous Fleet Operations"
-        },
-        {
-            "name": "eu_ai_act.market_placement",
-            "value": "GR, IT, DE, ES, IE, AT, CY, CH"
+          "type": "application",
+          "bom-ref": "b503142a-08f5-4836-8467-cb23f57815e1",
+          "name": "RAGRE",
+          "version": "1.1.1",
+          "properties": [
+            {
+              "name": "tool:vendor",
+              "value": "SLC"
+            }
+          ]
         }
-    ],
-    "dependencies": [
-        {
-            "ref": "model-4ff2dab7-bffe-414d-88a5-1826b9fea8df",
-            "dependsOn": [
-                "std-eu-ai-act-2024"
-            ]
-        }
-    ],
-    "signature": {
-        "algorithm": "ES256",
-        "certificatePath": [
-            "MIIB1TCCAX2gAwIBAgIUfTfzBdabc2Yu2RLZlGv2FtpCqbswCgYIKoZIzj0EAwIwQTELMAkGA1UEBhMCR1IxDjAMBgNVBAoMBVNUUkFFMSIwIAYDVQQDDBlTVFJBRSBTaWduaW5nIENlcnRpZmljYXRlMB4XDTI2MDcyMDE0MjcxNFoXDTI3MDcyMDE0MjcxNFowQTELMAkGA1UEBhMCR1IxDjAMBgNVBAoMBVNUUkFFMSIwIAYDVQQDDBlTVFJBRSBTaWduaW5nIENlcnRpZmljYXRlMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVFCkntzu8dG_s5suC-_kPFu5yuQyj0zWsu3S_FfvQ8rsuvOym5rCe8I_jz5oy3C6gj7lcpWAQo5PcDpZEWsUE6NTMFEwHQYDVR0OBBYEFLvXiqulvfs-OY8n8RtheaQtAVj0MB8GA1UdIwQYMBaAFLvXiqulvfs-OY8n8RtheaQtAVj0MA8GA1UdEwEB_wQFMAMBAf8wCgYIKoZIzj0EAwIDRgAwQwIfPbL64z8qlhP-zqxf_nRvCf5-LVYthlrYXelMOeHsRwIgSA1DEK5xcsFTx-FIMWvZ7pnEmvitHhP_0lu1ZkCjBXY"
-        ],
-        "value": "NHP0pW9wRxkHsbNJzLHdlyhazqCoiSRQndnd3GFr9VFWmIXO3W-5TeA7RV-TILabGguTqy01elpJhiDtwUNoXQ"
+      ]
+    },
+    "component": {
+      "type": "machine-learning-model",
+      "bom-ref": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+      "name": "d928ad67-1421-4df9-8374-3730b1cf2069",
+      "version": "v1.0"
     }
+  },
+  "definitions": {
+    "standards": [
+      {
+        "bom-ref": "standard-ragre-ethical-guidelines",
+        "name": "ragre-ethical-guidelines",
+        "version": "2026-10",
+        "description": "RAGRE ethical guidelines catalogue",
+        "requirements": [
+          {
+            "bom-ref": "requirement-aia-2-1",
+            "identifier": "AIA-2.1",
+            "text": "NOT HIGH-RISK under Article 6(1)."
+          },
+          {
+            "bom-ref": "requirement-aia-2-2",
+            "identifier": "AIA-2.2",
+            "text": "NOT HIGH-RISK under Article 6(1)."
+          },
+          {
+            "bom-ref": "requirement-aia-3",
+            "identifier": "AIA-3",
+            "text": "Perform the Article 6 par. 2 Annex III high-risk assessment to examine if the system falls under high risk categorizations and certain obligations apply."
+          },
+          {
+            "bom-ref": "requirement-aia-6",
+            "identifier": "AIA-6",
+            "text": "Set up procedures for ongoing risk monitoring, review and updating throughout the AI system's lifecycle."
+          },
+          {
+            "bom-ref": "requirement-aia-10",
+            "identifier": "AIA-10",
+            "text": "Assess potential dataset biases and implement measures to detect and mitigate any identified risks."
+          },
+          {
+            "bom-ref": "requirement-aia-15b",
+            "identifier": "AIA-15b",
+            "text": "Establish appropriate accuracy levels and relevant accuracy metrics for the system's intended purpose and declare them in the accompanying instructions for use."
+          },
+          {
+            "bom-ref": "requirement-aia-16",
+            "identifier": "AIA-16",
+            "text": "Identify relevant vulnerabilities, implement appropriate cybersecurity measures and test their effectiveness against relevant AI-specific attacks."
+          },
+          {
+            "bom-ref": "requirement-aia-22b",
+            "identifier": "AIA-22b",
+            "text": "Establish a procedure for the timely reporting, investigation and management of serious incidents in accordance with Article 73 of the AI Act."
+          },
+          {
+            "bom-ref": "requirement-aia-19",
+            "identifier": "AIA-19",
+            "text": "Prepare and sign the EU declaration of conformity, including the information required under Annex V and confirming compliance with the applicable AI Act requirements."
+          },
+          {
+            "bom-ref": "requirement-aia-22",
+            "identifier": "AIA-22",
+            "text": "Proceed also with the GDPR Questionnaire to assess the applicable data protection requirements."
+          },
+          {
+            "bom-ref": "requirement-aia-24",
+            "identifier": "AIA-24",
+            "text": "Comply with all applicable obligations for providers of GPAI models under Article 53, and, where the provider is established outside the EU, Article 54."
+          },
+          {
+            "bom-ref": "requirement-gdpr-1",
+            "identifier": "GDPR-1",
+            "text": "Identify the personal data processed and apply the relevant GDPR requirements throughout the AI system's lifecycle."
+          },
+          {
+            "bom-ref": "requirement-gdpr-10",
+            "identifier": "GDPR-10",
+            "text": "Implement such measures to correct or delete inaccurate personal data."
+          },
+          {
+            "bom-ref": "requirement-gdpr-11",
+            "identifier": "GDPR-11",
+            "text": "Define appropriate retention periods or criteria for determining them, and ensure that personal data are deleted or anonymised when they are no longer necessary for the purposes for which they are processed."
+          },
+          {
+            "bom-ref": "requirement-gdpr-13",
+            "identifier": "GDPR-13",
+            "text": "Carry out and document a DPIA before commencing the processing, in accordance with Article 35 GDPR."
+          }
+        ]
+      }
+    ]
+  },
+  "declarations": {
+    "claims": [
+      {
+        "bom-ref": "claim-aia-2-1",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Is the AI system a product, or a safety component of a product, covered by EU product safety legislation listed in Annex I of the AI Act?",
+        "reasoning": "NO"
+      },
+      {
+        "bom-ref": "claim-aia-2-2",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Is the product, or the system itself where it is a product, required to undergo a third-party conformity assessment under Annex I of the AI Act?",
+        "reasoning": "NO"
+      },
+      {
+        "bom-ref": "claim-aia-3",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Is the AI system intended to be used in an area listed in Annex III, such as biometrics, critical infrastructure, education, employment, essential services, law enforcement, migration/border control, or administration of justice/democratic processes?",
+        "reasoning": "YES"
+      },
+      {
+        "bom-ref": "claim-aia-6",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Is a continuous and iterative risk management process maintained throughout the AI system's lifecycle, including regular review and updating?",
+        "reasoning": "NO"
+      },
+      {
+        "bom-ref": "claim-aia-10",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Have the relevant datasets been examined for possible biases that could affect health or safety, negatively impact fundamental rights or lead to discrimination prohibited under EU law?",
+        "reasoning": "NO"
+      },
+      {
+        "bom-ref": "claim-aia-15b",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Have appropriate accuracy levels and relevant accuracy metrics been established for the high-risk AI system, taking into account its intended purpose?",
+        "reasoning": "NO"
+      },
+      {
+        "bom-ref": "claim-aia-16",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Have appropriate cybersecurity measures been implemented and tested to protect the high-risk AI system against attempts to exploit vulnerabilities or alter its use, outputs or performance, including through AI-specific attacks such as data poisoning, model poisoning, adversarial examples/model evasion and confidentiality attacks?",
+        "reasoning": "NO"
+      },
+      {
+        "bom-ref": "claim-aia-22b",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Is there a procedure in place to identify, document, investigate and report serious incidents involving the high-risk AI system?",
+        "reasoning": "NO"
+      },
+      {
+        "bom-ref": "claim-aia-19",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Where the organisation is the provider of a high-risk AI system, has an EU declaration of conformity been drawn up in accordance with Article 47 and Annex V?",
+        "reasoning": "NO"
+      },
+      {
+        "bom-ref": "claim-aia-22",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Does the AI system process personal data at any stage of its lifecycle, including during training, validation, testing, deployment or monitoring?",
+        "reasoning": "YES"
+      },
+      {
+        "bom-ref": "claim-aia-24",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Does the GPAI model qualify for the open-source exception under Article 53(2), e.g. is it released under a free and open-source licence and are its parameters, including weights, model architecture and usage information, publicly available?",
+        "reasoning": "NO"
+      },
+      {
+        "bom-ref": "claim-gdpr-1",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Does the AI system process personal data (i.e. information relating to an identified or identifiable natural person) at any stage of its lifecycle, including during data collection, training, validation, testing, deployment, or logging?",
+        "reasoning": "YES"
+      },
+      {
+        "bom-ref": "claim-gdpr-10",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Are measures in place to ensure that personal data processed by the AI system are accurate and, where necessary, kept up to date?",
+        "reasoning": "NO"
+      },
+      {
+        "bom-ref": "claim-gdpr-11",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Have clear retention periods or criteria for determining the retention period been defined for the personal data processed?",
+        "reasoning": "NO"
+      },
+      {
+        "bom-ref": "claim-gdpr-13",
+        "target": "model-d928ad67-1421-4df9-8374-3730b1cf2069",
+        "predicate": "Is the processing of personal data likely to result in a high risk to the rights and freedoms of individuals, requiring a Data Protection Impact Assessment (DPIA) under Article 35 GDPR?",
+        "reasoning": "YES"
+      }
+    ],
+    "attestations": [
+      {
+        "summary": "Links each triggered guideline to the questionnaire answer that triggered it",
+        "map": [
+          {
+            "requirement": "requirement-aia-2-1",
+            "claims": [
+              "claim-aia-2-1"
+            ]
+          },
+          {
+            "requirement": "requirement-aia-2-2",
+            "claims": [
+              "claim-aia-2-2"
+            ]
+          },
+          {
+            "requirement": "requirement-aia-3",
+            "claims": [
+              "claim-aia-3"
+            ]
+          },
+          {
+            "requirement": "requirement-aia-6",
+            "claims": [
+              "claim-aia-6"
+            ]
+          },
+          {
+            "requirement": "requirement-aia-10",
+            "claims": [
+              "claim-aia-10"
+            ]
+          },
+          {
+            "requirement": "requirement-aia-15b",
+            "claims": [
+              "claim-aia-15b"
+            ]
+          },
+          {
+            "requirement": "requirement-aia-16",
+            "claims": [
+              "claim-aia-16"
+            ]
+          },
+          {
+            "requirement": "requirement-aia-22b",
+            "claims": [
+              "claim-aia-22b"
+            ]
+          },
+          {
+            "requirement": "requirement-aia-19",
+            "claims": [
+              "claim-aia-19"
+            ]
+          },
+          {
+            "requirement": "requirement-aia-22",
+            "claims": [
+              "claim-aia-22"
+            ]
+          },
+          {
+            "requirement": "requirement-aia-24",
+            "claims": [
+              "claim-aia-24"
+            ]
+          },
+          {
+            "requirement": "requirement-gdpr-1",
+            "claims": [
+              "claim-gdpr-1"
+            ]
+          },
+          {
+            "requirement": "requirement-gdpr-10",
+            "claims": [
+              "claim-gdpr-10"
+            ]
+          },
+          {
+            "requirement": "requirement-gdpr-11",
+            "claims": [
+              "claim-gdpr-11"
+            ]
+          },
+          {
+            "requirement": "requirement-gdpr-13",
+            "claims": [
+              "claim-gdpr-13"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "properties": [
+    {
+      "name": "ethics:model_uuid",
+      "value": "d928ad67-1421-4df9-8374-3730b1cf2069"
+    },
+    {
+      "name": "ethics:model_version",
+      "value": "v1.0"
+    },
+    {
+      "name": "ethics:catalogue_id",
+      "value": "ragre-ethical-guidelines"
+    },
+    {
+      "name": "ethics:catalogue_version",
+      "value": "2026-10"
+    },
+    {
+      "name": "ethics:answered_questions",
+      "value": "42"
+    },
+    {
+      "name": "ethics:triggered_guidelines",
+      "value": "15"
+    }
+  ],
+  "signature": {
+    "algorithm": "ES256",
+    "certificatePath": [
+      "MIIB1TCCAX2gAwIBAgIUfTfzBdabc2Yu2RLZlGv2FtpCqbswCgYIKoZIzj0EAwIwQTELMAkGA1UEBhMCR1IxDjAMBgNVBAoMBVNUUkFFMSIwIAYDVQQDDBlTVFJBRSBTaWduaW5nIENlcnRpZmljYXRlMB4XDTI2MDcyMDE0MjcxNFoXDTI3MDcyMDE0MjcxNFowQTELMAkGA1UEBhMCR1IxDjAMBgNVBAoMBVNUUkFFMSIwIAYDVQQDDBlTVFJBRSBTaWduaW5nIENlcnRpZmljYXRlMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVFCkntzu8dG_s5suC-_kPFu5yuQyj0zWsu3S_FfvQ8rsuvOym5rCe8I_jz5oy3C6gj7lcpWAQo5PcDpZEWsUE6NTMFEwHQYDVR0OBBYEFLvXiqulvfs-OY8n8RtheaQtAVj0MB8GA1UdIwQYMBaAFLvXiqulvfs-OY8n8RtheaQtAVj0MA8GA1UdEwEB_wQFMAMBAf8wCgYIKoZIzj0EAwIDRgAwQwIfPbL64z8qlhP-zqxf_nRvCf5-LVYthlrYXelMOeHsRwIgSA1DEK5xcsFTx-FIMWvZ7pnEmvitHhP_0lu1ZkCjBXY"
+    ],
+    "value": "Z-udBt-g8X-eq-Eq0cfHINaZQVNSSvqSMT5tBlbvPuftaz_GZwhUaShPhlIt8j4czj61p3-KZ4Jji6Jly4FPxw"
+  }
 }

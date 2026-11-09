@@ -73,6 +73,21 @@ def _extract_previous_aimbom_and_reports(
         if not isinstance(reports, dict):
             raise WorkerInvalidPayloadError("Event requires a 'reports' field")
 
+        # The orchestrator includes an `aimbom_report: null` placeholder in
+        # new-generation requests, since no AIMBOM exists yet. Drop it so it
+        # isn't rejected as an unknown report. A non-null value has no
+        # meaning for a new generation, so reject it explicitly.
+        if "aimbom_report" in reports:
+            if reports["aimbom_report"] is not None:
+                raise WorkerInvalidPayloadError(
+                    "'reports.aimbom_report' must be null for a new "
+                    f"generation; use a '{settings.UPDATED_AIMBOM_EVENT}' "
+                    "event to update an existing AIMBOM"
+                )
+
+            # Copy to avoid mutating the original Kafka message value.
+            reports = {k: v for k, v in reports.items() if k != "aimbom_report"}
+
     return previous_aimbom, reports
 
 
