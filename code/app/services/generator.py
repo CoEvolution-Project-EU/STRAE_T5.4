@@ -28,10 +28,9 @@ from app.models.aimbom import (
 from app.models.requests import GenerationMetadata
 from app.services import signing, validator
 from app.utils.utils import (
-    OPTIONAL_UPDATABLE_REPORT_TYPES,
     REPORT_TO_COMMENT,
     REPORT_TYPES,
-    REQUIRED_UPDATABLE_REPORT_TYPES,
+    UPDATABLE_REPORT_TYPES,
     BOMType,
     ReportModel,
     ReportType,
@@ -142,13 +141,15 @@ class AIMBOMGenerator:
                 generation_metadata.previous_aimbom.download_url,
             )
 
-            # Fetch and validate the updated reports for the given model UUID and version
-            # (see REQUIRED_UPDATABLE_REPORT_TYPES and OPTIONAL_UPDATABLE_REPORT_TYPES for
-            # which reports are expected to change). Optional reports are only validated
-            # when they were provided.
+            # Fetch and validate the updated reports for the given model UUID and version.
+            # Which updatable reports changed is taken from the request (see
+            # ALLOWED_UPDATED_REPORT_SETS for the accepted combinations), so a requested
+            # report that fails to download is reported as missing.
             new_raw_reports = await self._fetch_raw_reports(generation_metadata)
-            report_types = REQUIRED_UPDATABLE_REPORT_TYPES + tuple(
-                t for t in OPTIONAL_UPDATABLE_REPORT_TYPES if t.value in new_raw_reports
+            report_types = tuple(
+                t
+                for t in UPDATABLE_REPORT_TYPES
+                if getattr(generation_metadata.reports, t.value) is not None
             )
             new_reports = self._validate_reports(new_raw_reports, report_types)
 

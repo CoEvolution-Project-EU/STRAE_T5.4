@@ -35,6 +35,7 @@ from tests.utils import (
     create_new_mock_storage,
     get_generation_metadata,
     get_generation_metadata_deprecation,
+    get_generation_metadata_deprecation_gadgets_only,
     get_generation_metadata_deprecation_with_gadgets,
     load_json,
 )
@@ -397,4 +398,40 @@ async def test_deprecate_with_gadgets_report_success():
     assert len(aimbom.external_references) == len(previous_aimbom.external_references)
 
     # Check that the re-signed AIMBOM's signature is valid and can be verified
+    verify_report(jsonable_encoder(aimbom, exclude_none=True))
+
+
+@pytest.mark.anyio
+async def test_deprecate_with_only_gadgets_report_success():
+    storage = create_new_mock_storage()
+    generator = AIMBOMGenerator(storage)
+
+    previous_aimbom = AIMBOM(**load_json(AIMBOMS_DIR / "aimbom.json"))
+    original_references = {
+        ref.comment: ref for ref in previous_aimbom.external_references
+    }
+
+    aimbom = await generator.generate(
+        GenerationMetadata(
+            **get_generation_metadata_deprecation_gadgets_only(
+                MODEL_UUID, MODEL_VERSION
+            )
+        ),
+    )
+
+    assert aimbom.version == previous_aimbom.version + 1
+    assert aimbom.serial_number == previous_aimbom.serial_number
+
+    references = {ref.comment: ref for ref in aimbom.external_references}
+
+    # Only the gadgets report's external reference changes.
+    assert references[ReportComment.GADGETS].url == report_link(
+        "gadgets_report_updated.json"
+    )
+    for comment, reference in original_references.items():
+        if comment != ReportComment.GADGETS:
+            assert references[comment].url == reference.url
+
+    assert len(aimbom.external_references) == len(previous_aimbom.external_references)
+
     verify_report(jsonable_encoder(aimbom, exclude_none=True))
