@@ -40,7 +40,8 @@ STRAE_T5.4/
 │   │   ├── models/                     ← AIMBOM, request / response and storage schema models
 │   │   ├── routers/
 │   │   │   ├── api.py                  ← public API routes
-│   │   │   └── dev.py                  ← development / debug routes
+│   │   │   ├── dev.py                  ← development / debug routes
+│   │   │   └── error_responses.py      ← error responses documented in Swagger
 │   │   ├── services/
 │   │   │   ├── generator.py            ← AIMBOM generation logic
 │   │   │   ├── report_signer.py        ← download → sign → upload pipeline for reports

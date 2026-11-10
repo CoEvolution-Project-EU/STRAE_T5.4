@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "STR Assurance Engine API",
-        "description": "Collects the security reports from the rest of the CoEvolution components and generate, based on those reports, the AIMBOM for a given assessed/secured/robust AI model.",
+        "description": "\nThe **Security, Trust, Robustness Assurance Engine (STRAE)** of the CoEvolution Hub.\n\nSTRAE signs the security reports produced by the CoEvolution components and\nbuilds from them an **AI Model Bill of Materials (AIMBOM)**: a signed\n[CycloneDX](https://cyclonedx.org) document describing an assessed AI model\nversion.\n\n## Operations\n\n| Endpoint | Purpose |\n|---|---|\n| `POST /api/sign` | Sign reports and upload the signed copies to their target bucket. |\n| `POST /api/generate` | Generate the signed AIMBOM of an AI model version from its reports. |\n| `GET /api/validation/{uuid}/{version}` | Check that an AIMBOM and the reports it references are valid, correctly signed and consistent with each other. |\n| `GET /api/status` | Health check. |\n\nSigning and generation are also triggered by Kafka events, through the\nSTRAE worker.\n",
         "version": "1.0.0"
     },
     "paths": {
@@ -57,12 +57,42 @@
                             }
                         }
                     },
-                    "422": {
-                        "description": "Validation Error",
+                    "409": {
+                        "description": "A report to sign does not exist in storage.",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request body is invalid, a file is not a valid report, or storage rejected the signed copy.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UnprocessableEntityResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "The signing material is unusable, a report could not be signed, or an unexpected error occurred.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Storage is unavailable.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
                                 }
                             }
                         }
@@ -99,12 +129,42 @@
                             }
                         }
                     },
-                    "422": {
-                        "description": "Validation Error",
+                    "409": {
+                        "description": "A required report does not exist in storage.",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request body is invalid, a report is invalid, or storage rejected the generated AIMBOM.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UnprocessableEntityResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "The signing material is unusable, the AIMBOM could not be generated, or an unexpected error occurred.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Storage is unavailable.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
                                 }
                             }
                         }
@@ -153,6 +213,36 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/AIMBOMValidationResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The model version has no AIMBOM.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "The AIMBOM or a report could not be read from storage, or an unexpected error occurred.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Storage is unavailable.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
                                 }
                             }
                         }
@@ -225,6 +315,16 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ReportSavedResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "MinIO is unavailable.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
                                 }
                             }
                         }
@@ -316,6 +416,21 @@
                     "status"
                 ],
                 "title": "AIMBOMValidationResponse"
+            },
+            "ErrorResponse": {
+                "properties": {
+                    "detail": {
+                        "type": "string",
+                        "title": "Detail",
+                        "description": "Human-readable description of the error."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "detail"
+                ],
+                "title": "ErrorResponse",
+                "description": "Body of an error response."
             },
             "GenerationMetadata": {
                 "properties": {
@@ -819,6 +934,30 @@
                 ],
                 "title": "StatusResponse"
             },
+            "UnprocessableEntityResponse": {
+                "properties": {
+                    "detail": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "items": {
+                                    "$ref": "#/components/schemas/ValidationErrorItem"
+                                },
+                                "type": "array"
+                            }
+                        ],
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "detail"
+                ],
+                "title": "UnprocessableEntityResponse",
+                "description": "Body of a 422 response.\n\n`detail` is a list of errors when the request itself fails validation,\nand a string when a report or AIMBOM it refers to is invalid."
+            },
             "ValidationError": {
                 "properties": {
                     "loc": {
@@ -851,6 +990,42 @@
                     "type"
                 ],
                 "title": "ValidationError"
+            },
+            "ValidationErrorItem": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Loc"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Msg"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Type"
+                    },
+                    "input": {
+                        "title": "Input"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationErrorItem"
             }
         }
     }

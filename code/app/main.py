@@ -59,10 +59,32 @@ async def lifespan(app: FastAPI):
         await app.state.client.close()
 
 
+API_DESCRIPTION = """
+The **Security, Trust, Robustness Assurance Engine (STRAE)** of the CoEvolution Hub.
+
+STRAE signs the security reports produced by the CoEvolution components and
+builds from them an **AI Model Bill of Materials (AIMBOM)**: a signed
+[CycloneDX](https://cyclonedx.org) document describing an assessed AI model
+version.
+
+## Operations
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/sign` | Sign reports and upload the signed copies to their target bucket. |
+| `POST /api/generate` | Generate the signed AIMBOM of an AI model version from its reports. |
+| `GET /api/validation/{uuid}/{version}` | Check that an AIMBOM and the reports it references are valid, correctly signed and consistent with each other. |
+| `GET /api/status` | Health check. |
+
+Signing and generation are also triggered by Kafka events, through the
+STRAE worker.
+"""
+
+
 app = FastAPI(
     title="STR Assurance Engine API",
     version=settings.VERSION,
-    description="Collects the security reports from the rest of the CoEvolution components and generate, based on those reports, the AIMBOM for a given assessed/secured/robust AI model.",
+    description=API_DESCRIPTION,
     lifespan=lifespan,
 )
 
