@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "STR Assurance Engine API",
-        "description": "\nThe **Security, Trust, Robustness Assurance Engine (STRAE)** of the CoEvolution Hub.\n\nSTRAE signs the security reports produced by the CoEvolution components and\nbuilds from them an **AI Model Bill of Materials (AIMBOM)**: a signed\n[CycloneDX](https://cyclonedx.org) document describing an assessed AI model\nversion.\n\n## Operations\n\n| Endpoint | Purpose |\n|---|---|\n| `POST /api/sign` | Sign reports and upload the signed copies to their target bucket. |\n| `POST /api/generate` | Generate the signed AIMBOM of an AI model version from its reports. |\n| `GET /api/validation/{uuid}/{version}` | Check that an AIMBOM and the reports it references are valid, correctly signed and consistent with each other. |\n| `GET /api/status` | Health check. |\n\nSigning and generation are also triggered by Kafka events, through the\nSTRAE worker.\n",
+        "description": "\nThe **Security, Trust, Robustness Assurance Engine (STRAE)** of the CoEvolution Hub.\n\nSTRAE signs the security reports produced by the CoEvolution components and\nbuilds from them an **AI Model Bill of Materials (AIMBOM)**: a signed\n[CycloneDX](https://cyclonedx.org) document describing an assessed AI model\nversion.\n\n## Operations\n\n| Endpoint | Purpose |\n|---|---|\n| `POST /api/sign` | Sign reports and upload the signed copies to their target bucket. |\n| `POST /api/generate` | Generate the signed AIMBOM of an AI model version from its reports. |\n| `GET /api/validation/{uuid}/{version}` | Check that an AIMBOM and the reports it references are valid, correctly signed and consistent with each other. |\n| `GET /api/status` | Health check. |\n\nSigning and generation are also triggered by Kafka events, through the\nSTRAE worker.\n\n## Authentication\n\n`POST /api/sign` and `POST /api/generate` require a Keycloak access token of\nthe `coevolution` realm, sent as `Authorization: Bearer <token>`. Get one from\nthe realm's token endpoint\n(`/realms/coevolution/protocol/openid-connect/token`). The other endpoints\nare public.\n",
         "version": "1.0.0"
     },
     "paths": {
@@ -57,6 +57,16 @@
                             }
                         }
                     },
+                    "401": {
+                        "description": "The access token is missing, invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "409": {
                         "description": "A report to sign does not exist in storage.",
                         "content": {
@@ -88,7 +98,7 @@
                         }
                     },
                     "503": {
-                        "description": "Storage is unavailable.",
+                        "description": "Storage is unavailable, or Keycloak's public keys could not be fetched to check the access token.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -97,7 +107,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/generate": {
@@ -125,6 +140,16 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/AIMBOMGeneratedResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "The access token is missing, invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
                                 }
                             }
                         }
@@ -160,7 +185,7 @@
                         }
                     },
                     "503": {
-                        "description": "Storage is unavailable.",
+                        "description": "Storage is unavailable, or Keycloak's public keys could not be fetched to check the access token.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -169,7 +194,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/validation/{uuid}/{version}": {
@@ -1026,6 +1056,13 @@
                     "type"
                 ],
                 "title": "ValidationErrorItem"
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Keycloak access token of the `coevolution` realm, from `POST /realms/coevolution/protocol/openid-connect/token`.",
+                "scheme": "bearer"
             }
         }
     }

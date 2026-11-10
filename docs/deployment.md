@@ -141,6 +141,13 @@ Deploy the stack.
 
 STRAE has no CORS middleware, since it is only called by other services (the Orchestrator and the SRME) and not from browsers. Access to endpoints such as `/api/validation` is restricted at the reverse proxy instead, with an IP allowlist for the services that may call them. Make sure STRAE's port is not also published directly on the host, so the proxy can't be bypassed.
 
+`/api/sign` and `/api/generate` also require a Keycloak access token of the realm set by `KEYCLOAK_BASE_URL` and `KEYCLOAK_REALM` (see [Architecture](architecture.md#api-endpoints)):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUTH_ENABLED` | `true` | Require an access token on `/api/sign` and `/api/generate` |
+| `KEYCLOAK_AUDIENCE` | unset | Required `aud` claim of the token. Unset, the audience is not checked. Only set it once the calling clients have an audience mapper for STRAE in Keycloak |
+
 ## Replaying dropped signing requests
 
 The worker doesn't retry failed requests. When a request fails for a reason not caused by the request itself (e.g. the Orchestrator is unreachable), the worker logs it as `request dropped` together with the full event.

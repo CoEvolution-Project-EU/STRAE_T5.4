@@ -82,6 +82,9 @@ version.
 | `GET /api/validation/{uuid}/{version}` | Check that an AIMBOM and the reports it references are valid, correctly signed and consistent with each other. |
 | `GET /api/status` | Health check. |
 
+Signing and generation are also triggered by Kafka events, through the
+STRAE worker.
+
 ## Authentication
 
 `POST /api/sign` and `POST /api/generate` require a Keycloak access token of
@@ -89,9 +92,6 @@ the `coevolution` realm, sent as `Authorization: Bearer <token>`. Get one from
 the realm's token endpoint
 (`/realms/coevolution/protocol/openid-connect/token`). The other endpoints
 are public.
-
-Signing and generation are also triggered by Kafka events, through the
-STRAE worker.
 """
 
 

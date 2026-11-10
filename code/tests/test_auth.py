@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import jwt
 import pytest
 from app.clients.storage_client import get_storage_client
-from app.core import security
+from app.core import auth
 from app.core.config import settings
 from app.main import app
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -40,7 +40,7 @@ class FakeJWKSClient:
 def make_token(key=REALM_KEY, **overrides) -> str:
     now = int(time.time())
     claims = {
-        "iss": security.issuer(),
+        "iss": auth.issuer(),
         "sub": "user-id",
         "aud": "account",
         "typ": "Bearer",
@@ -60,7 +60,7 @@ def bearer(token: str) -> dict:
 def setup(monkeypatch):
     monkeypatch.setattr(settings, "AUTH_ENABLED", True)
     monkeypatch.setattr(settings, "KEYCLOAK_AUDIENCE", None)
-    monkeypatch.setattr(security, "get_jwks_client", lambda: FakeJWKSClient())
+    monkeypatch.setattr(auth, "get_jwks_client", lambda: FakeJWKSClient())
     storage = create_new_mock_storage()
     app.dependency_overrides[get_storage_client] = lambda: storage
     yield
@@ -139,7 +139,7 @@ async def test_audience_is_checked_when_configured(
 )
 @pytest.mark.anyio
 async def test_key_lookup_failure(client, monkeypatch, error, expected_status):
-    monkeypatch.setattr(security, "get_jwks_client", lambda: FakeJWKSClient(error))
+    monkeypatch.setattr(auth, "get_jwks_client", lambda: FakeJWKSClient(error))
 
     response = await client.post(SIGN_URL, json=SIGN_BODY, headers=bearer(make_token()))
 

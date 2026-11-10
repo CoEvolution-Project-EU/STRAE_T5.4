@@ -28,12 +28,13 @@ STRAE_T5.4/
 │   │   ├── clients/
 │   │   │   ├── storage_client.py       ← storage client base class
 │   │   │   ├── minio_client.py         ← MinIO storage integration
+│   │   │   ├── orchestrator_auth.py    ← Keycloak token for calls to the orchestrator
 │   │   │   └── orchestrator_client.py  ← orchestrator / report retrieval client
 │   │   ├── consumers/
 │   │   │   ├── generation.py           ← Kafka handler for AIMBOM generation events
 │   │   │   └── signing.py              ← Kafka handler for report signing events
 │   │   ├── core/
-│   │   │   ├── auth.py                 ← authentication and authorization helpers
+│   │   │   ├── auth.py                 ← Keycloak token validation for the API
 │   │   │   ├── config.py               ← app configuration and settings
 │   │   │   ├── logging.py              ← logging configuration
 │   │   │   └── middleware.py           ← API middleware

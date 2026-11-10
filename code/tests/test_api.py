@@ -8,7 +8,7 @@ from app.clients.storage_client import (
     StorageOperationError,
     get_storage_client,
 )
-from app.core.security import require_token
+from app.core.auth import require_token
 from app.main import app
 from app.services.generator import (
     AIMBOMGenerator,
@@ -45,7 +45,7 @@ def get_mock_storage():
 @pytest.fixture(autouse=True)
 def override_storage(get_mock_storage):
     app.dependency_overrides[get_storage_client] = lambda: get_mock_storage
-    # Authentication is tested in test_security.py.
+    # Authentication is tested in test_auth.py.
     app.dependency_overrides[require_token] = lambda: {}
     yield
     app.dependency_overrides.clear()

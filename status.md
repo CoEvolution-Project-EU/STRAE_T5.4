@@ -4,7 +4,7 @@
 
 Status: In Progress
 
-Last Updated: 09/11/2026
+Last Updated: 10/11/2026
 
 Comments: AIMBOM generation, AIMBOM deprecation, signing, report signing for the Orchestrator's `strae_sign_requests` topic (#42) and AIMBOM validation (#25) are complete.
 
@@ -34,6 +34,7 @@ Comments: AIMBOM generation, AIMBOM deprecation, signing, report signing for the
 
 - The rate limiting, concurrency limiting and request size limiting middleware can be enabled independently of the environment (`SECURITY_MIDDLEWARE_ENABLED`).
 - Fixed the periodic cleanup of client IPs in rate limiting.
+- `/api/sign` and `/api/generate` require a Keycloak access token, validated locally against the realm's public keys (`AUTH_ENABLED`, optional `KEYCLOAK_AUDIENCE`). `/api/status` and `/api/validation` stay public, like the Orchestrator's read endpoints.
 
 ### Project structure, tests and CI
 
