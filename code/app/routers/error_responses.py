@@ -22,3 +22,9 @@ def unprocessable(description: str) -> dict[str, Any]:
     its model accepts both the validation error list and a string detail.
     """
     return {"model": UnprocessableEntityResponse, "description": description}
+
+
+def unauthorized() -> dict[str, Any]:
+    """Document the 401 of an endpoint that requires an access token."""
+    return error("The access token is missing, invalid or expired.")
+

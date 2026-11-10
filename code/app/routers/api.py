@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from app.core.config import settings
+from app.core.security import require_token
 from app.models.requests import GenerationMetadata, SigningMetadata
 from app.models.responses import (
     AIMBOMGeneratedResponse,
@@ -12,7 +13,7 @@ from app.models.responses import (
     SignedReportResponse,
     StatusResponse,
 )
-from app.routers.error_responses import error, unprocessable
+from app.routers.error_responses import error, unauthorized, unprocessable
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
@@ -73,9 +74,11 @@ def get_status():
 
 @router.post(
     "/sign",
+    dependencies=[Depends(require_token)],
     response_model=SignedReportResponse,
     status_code=status.HTTP_201_CREATED,
     responses={
+        401: unauthorized(),
         409: error("A report to sign does not exist in storage."),
         422: unprocessable(
             "The request body is invalid, a file is not a valid report, or "
@@ -85,7 +88,10 @@ def get_status():
             "The signing material is unusable, a report could not be signed, "
             "or an unexpected error occurred."
         ),
-        503: error("Storage is unavailable."),
+        503: error(
+            "Storage is unavailable, or Keycloak's public keys could not be "
+            "fetched to check the access token."
+        ),
     },
 )
 async def sign_report(
@@ -193,9 +199,11 @@ async def sign_report(
 
 @router.post(
     "/generate",
+    dependencies=[Depends(require_token)],
     response_model=AIMBOMGeneratedResponse,
     status_code=status.HTTP_201_CREATED,
     responses={
+        401: unauthorized(),
         409: error("A required report does not exist in storage."),
         422: unprocessable(
             "The request body is invalid, a report is invalid, or storage "
@@ -205,7 +213,10 @@ async def sign_report(
             "The signing material is unusable, the AIMBOM could not be "
             "generated, or an unexpected error occurred."
         ),
-        503: error("Storage is unavailable."),
+        503: error(
+            "Storage is unavailable, or Keycloak's public keys could not be "
+            "fetched to check the access token."
+        ),
     },
 )
 async def generate_aimbom(

@@ -10,6 +10,7 @@ services:
     environment:
       - ENVIRONMENT=prod
       - SECURITY_MIDDLEWARE_ENABLED=true
+      - AUTH_ENABLED=true
     ports:
       - "8000:8000"
     command: fastapi run app/main.py --proxy-headers --host 0.0.0.0 --port 8000
@@ -28,6 +29,7 @@ services:
     environment:
       - ENVIRONMENT=dev
       - SECURITY_MIDDLEWARE_ENABLED=false
+      - AUTH_ENABLED=false
     ports:
       - "8000:8000"
     command: fastapi run app/main.py --reload --host 0.0.0.0 --port 8000
