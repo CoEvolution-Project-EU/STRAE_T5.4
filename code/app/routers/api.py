@@ -12,6 +12,7 @@ from app.models.responses import (
     SignedReportResponse,
     StatusResponse,
 )
+from app.routers.error_responses import error, unprocessable
 from app.services.generator import (
     AIMBOMGenerator,
     GeneratorGenerationError,
@@ -74,6 +75,18 @@ def get_status():
     "/sign",
     response_model=SignedReportResponse,
     status_code=status.HTTP_201_CREATED,
+    responses={
+        409: error("A report to sign does not exist in storage."),
+        422: unprocessable(
+            "The request body is invalid, a file is not a valid report, or "
+            "storage rejected the signed copy."
+        ),
+        500: error(
+            "The signing material is unusable, a report could not be signed, "
+            "or an unexpected error occurred."
+        ),
+        503: error("Storage is unavailable."),
+    },
 )
 async def sign_report(
     signing_metadata: SigningMetadata, signer: ReportSigner = Depends(get_signer)
@@ -182,6 +195,18 @@ async def sign_report(
     "/generate",
     response_model=AIMBOMGeneratedResponse,
     status_code=status.HTTP_201_CREATED,
+    responses={
+        409: error("A required report does not exist in storage."),
+        422: unprocessable(
+            "The request body is invalid, a report is invalid, or storage "
+            "rejected the generated AIMBOM."
+        ),
+        500: error(
+            "The signing material is unusable, the AIMBOM could not be "
+            "generated, or an unexpected error occurred."
+        ),
+        503: error("Storage is unavailable."),
+    },
 )
 async def generate_aimbom(
     generation_metadata: GenerationMetadata,
@@ -290,6 +315,14 @@ async def generate_aimbom(
     "/validation/{uuid}/{version}",
     response_model=AIMBOMValidationResponse,
     status_code=status.HTTP_200_OK,
+    responses={
+        404: error("The model version has no AIMBOM."),
+        500: error(
+            "The AIMBOM or a report could not be read from storage, or an "
+            "unexpected error occurred."
+        ),
+        503: error("Storage is unavailable."),
+    },
 )
 async def validate_aimbom(
     uuid: Annotated[

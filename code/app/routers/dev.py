@@ -7,6 +7,7 @@ from app.clients.minio_client import MinioClient, get_minio_client
 from app.clients.storage_client import StorageError
 from app.core.config import settings
 from app.models.responses import ReportSavedResponse
+from app.routers.error_responses import error
 
 # !This router is excluded from production and should only be used for development!
 router = APIRouter(
@@ -19,6 +20,7 @@ router = APIRouter(
     "/{model_uuid}/{model_version}/reports/{report_name}",
     response_model=ReportSavedResponse,
     status_code=status.HTTP_200_OK,
+    responses={503: error("MinIO is unavailable.")},
 )
 async def save_report(
     model_uuid: str,

@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -48,3 +48,26 @@ class AIMBOMValidationResponse(BaseModel):
     status: Literal["VALID", "INVALID"] = Field(
         ..., description="Validation status of the AIMBOM."
     )
+
+
+class ErrorResponse(BaseModel):
+    """Body of an error response."""
+
+    detail: str = Field(..., description="Human-readable description of the error.")
+
+
+class ValidationErrorItem(BaseModel):
+    loc: list[Union[str, int]]
+    msg: str
+    type: str
+    input: Any = None
+
+
+class UnprocessableEntityResponse(BaseModel):
+    """Body of a 422 response.
+
+    `detail` is a list of errors when the request itself fails validation,
+    and a string when a report or AIMBOM it refers to is invalid.
+    """
+
+    detail: Union[str, list[ValidationErrorItem]]
