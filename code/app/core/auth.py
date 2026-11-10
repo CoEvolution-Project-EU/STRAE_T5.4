@@ -1,80 +1,148 @@
-import asyncio
-import logging
-from datetime import timedelta
+"""Bearer token authentication for the API, using the orchestrator's Keycloak.
 
-import httpx
+Access tokens are validated locally: the signature against the realm's
+public keys (JWKS), and the `iss`, `exp` and `typ` claims. The audience is
+only checked when `KEYCLOAK_AUDIENCE` is set, as Keycloak does not add the
+service to `aud` without an audience mapper on the calling client.
+"""
+
+import logging
+from functools import lru_cache
+from typing import Any
+
+import jwt
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
-from app.utils.utils import utc_now_datetime
 
 logger = logging.getLogger(__name__)
 
+# Keycloak signs access tokens with the realm's RS256 key by default.
+ALGORITHMS = ["RS256"]
 
-class OrchestratorAuth:
-    def __init__(self):
-        """Simple Keycloak token manager for orchestrator API calls.
+# `typ` claim of Keycloak access tokens. ID tokens have `ID` and refresh
+# tokens `Refresh`, and must not be accepted as access tokens.
+ACCESS_TOKEN_TYPE = "Bearer"
 
-        Manages an access token and expiry time with an asyncio lock to
-        prevent concurrent refreshes.
-        """
+# How long the realm's key set is cached. A token signed with an unknown key
+# (e.g. after a key rotation) refetches it regardless.
+JWKS_CACHE_SECONDS = 300
 
-        self._token = None
-        self._expires_at = None
-        self._lock = asyncio.Lock()
+_bearer = HTTPBearer(
+    auto_error=False,
+    scheme_name="bearerAuth",
+    description=(
+        "Keycloak access token of the `coevolution` realm, from "
+        "`POST /realms/coevolution/protocol/openid-connect/token`."
+    ),
+)
 
-    async def get_token(self) -> str:
-        """Return a valid access token, refreshing if necessary.
 
-        Uses an internal lock to ensure only one refresh occurs concurrently.
-        """
+def _unauthorized(detail: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
-        async with self._lock:
-            if self._is_token_valid():
-                return self._token
 
-            await self._authenticate()
+def issuer() -> str:
+    """Return the expected `iss` claim, the URL of the Keycloak realm."""
 
-            return self._token
+    return f"{settings.KEYCLOAK_BASE_URL.rstrip('/')}/realms/{settings.KEYCLOAK_REALM}"
 
-    def _is_token_valid(self) -> bool:
-        """Return True if there is a non-expired token available."""
 
-        return (
-            self._token is not None
-            and self._expires_at is not None
-            and utc_now_datetime() < self._expires_at
+@lru_cache
+def get_jwks_client() -> jwt.PyJWKClient:
+    """Return the cached client that fetches the realm's public keys."""
+
+    return jwt.PyJWKClient(
+        f"{issuer()}/protocol/openid-connect/certs",
+        cache_jwk_set=True,
+        lifespan=JWKS_CACHE_SECONDS,
+        timeout=10,
+    )
+
+
+def decode_token(token: str) -> dict[str, Any]:
+    """Validate an access token and return its claims.
+
+    Raises:
+        HTTPException: 401 if the token is invalid, 503 if the public keys
+            could not be fetched from Keycloak.
+    """
+
+    try:
+        key = get_jwks_client().get_signing_key_from_jwt(token).key
+    except jwt.PyJWKClientConnectionError:
+        logger.error("Could not fetch the Keycloak public keys", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable",
         )
+    except jwt.PyJWTError as e:
+        logger.warning("Rejected access token: %s", e)
+        raise _unauthorized("Invalid access token")
 
-    async def _authenticate(self):
-        """Authenticate with Keycloak and cache the access token.
+    audience = settings.KEYCLOAK_AUDIENCE
+    try:
+        claims = jwt.decode(
+            token,
+            key,
+            algorithms=ALGORITHMS,
+            issuer=issuer(),
+            audience=audience,
+            options={
+                "require": ["exp", "iat", "iss", "sub"],
+                # Without an audience, PyJWT would reject any token that has
+                # an `aud` claim, which Keycloak tokens usually have.
+                "verify_aud": audience is not None,
+            },
+        )
+    except jwt.PyJWTError as e:
+        logger.warning("Rejected access token: %s", e)
+        raise _unauthorized("Invalid access token")
 
-        Exchanges username/password for a token and computes an expiry time.
-        """
+    if claims.get("typ") != ACCESS_TOKEN_TYPE:
+        logger.warning("Rejected token of type %r", claims.get("typ"))
+        raise _unauthorized("Invalid access token")
 
-        logger.info("Authenticating with orchestrator")
+    return claims
 
-        async with httpx.AsyncClient(base_url=settings.KEYCLOAK_BASE_URL) as client:
-            response = await client.post(
-                (f"/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"),
-                headers={"Content-Type": ("application/x-www-form-urlencoded")},
-                data={
-                    "grant_type": "password",
-                    "client_id": settings.KEYCLOAK_CLIENT_ID,
-                    "username": settings.ORCHESTRATOR_USERNAME,
-                    "password": settings.ORCHESTRATOR_PASSWORD,
-                },
-            )
 
-            response.raise_for_status()
+def require_token(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> dict[str, Any]:
+    """Require a valid Keycloak access token and return its claims.
 
-            payload = response.json()
+    Returns an empty dict without checking anything when `AUTH_ENABLED` is
+    false.
 
-            self._token = payload["access_token"]
+    This is a sync dependency on purpose: fetching the public keys blocks, so
+    FastAPI runs it in its thread pool instead of the event loop.
 
-            expires_in = payload.get("expires_in", 3600)
-            if "expires_in" not in payload:
-                logger.warning("Keycloak did not return expires_in, using default 3600")
+    Raises:
+        HTTPException: 401 if the token is missing or invalid, 503 if
+            Keycloak's public keys could not be fetched.
+    """
 
-            self._expires_at = utc_now_datetime() + timedelta(seconds=expires_in - 60)
+    if not settings.AUTH_ENABLED:
+        return {}
 
-            logger.info("Authentication successful")
+    if credentials is None:
+        raise _unauthorized("Not authenticated")
+
+    claims = decode_token(credentials.credentials)
+
+    logger.info(
+        "Authenticated %s %s: sub=%s, username=%s, client=%s",
+        request.method,
+        request.url.path,
+        claims.get("sub"),
+        claims.get("preferred_username"),
+        claims.get("azp"),
+    )
+
+    return claims

@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     KEYCLOAK_BASE_URL: str = "https://aegis.coevolution-project.eu/"
     KEYCLOAK_REALM: str = "coevolution"
     KEYCLOAK_CLIENT_ID: str = "strae"
+    # Required `aud` claim of incoming access tokens. Unset, the audience is
+    # not checked, as Keycloak only adds it through an audience mapper.
+    KEYCLOAK_AUDIENCE: str | None = None
     ORCHESTRATOR_USERNAME: str = "strae-orchestrator"
     ORCHESTRATOR_PASSWORD: str = "strae-orchestrator-password"
 
@@ -58,6 +61,12 @@ class Settings(BaseSettings):
     # non-"dev" profile, or load testing). See docker/docker.md for the
     # single-instance assumption these middleware make.
     SECURITY_MIDDLEWARE_ENABLED: bool = True
+
+    # Requires a Keycloak access token on the endpoints that sign or generate
+    # (`/api/sign`, `/api/generate`), independently of ENVIRONMENT. Defaults
+    # to enabled so it isn't accidentally left off in a production
+    # deployment. See docker/docker.md.
+    AUTH_ENABLED: bool = True
 
     # Logging
     LOG_LEVEL: str = "INFO"

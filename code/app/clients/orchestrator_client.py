@@ -7,6 +7,7 @@ from urllib.parse import quote
 import httpx
 from fastapi.encoders import jsonable_encoder
 
+from app.clients.orchestrator_auth import OrchestratorAuth
 from app.clients.storage_client import (
     CYCLONEDX_CONTENT_TYPE,
     StorageAuthError,
@@ -18,7 +19,6 @@ from app.clients.storage_client import (
     StorageOperationError,
     get_file_if_exists,
 )
-from app.core.auth import OrchestratorAuth
 from app.core.config import settings
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata

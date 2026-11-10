@@ -86,6 +86,14 @@ This project uses **Docker Compose profiles** to distinguish between different d
   > `api-dev`) rather than in `.env`, so change it there to affect a
   > specific profile.
   >
+  > **Token authentication:** `POST /api/sign` and `POST /api/generate`
+  > require a Keycloak access token (`Authorization: Bearer <token>`) of the
+  > realm set by `KEYCLOAK_BASE_URL` / `KEYCLOAK_REALM`. It's controlled by
+  > `AUTH_ENABLED` (default `true`), set per service in
+  > `docker-compose.yml` like `SECURITY_MIDDLEWARE_ENABLED` (`true` for
+  > `api`, `false` for `api-dev`). Set `KEYCLOAK_AUDIENCE` in `.env` to also
+  > require that `aud` claim.
+  >
   > **Single-instance assumption:** the rate limiting and concurrency limiting
   > middleware keep their state in the process's own memory. They only
   > enforce the configured limits correctly when exactly **one** API

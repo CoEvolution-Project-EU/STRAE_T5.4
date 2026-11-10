@@ -47,6 +47,12 @@ async def lifespan(app: FastAPI):
 
         app.state.client = minio
 
+    if not settings.AUTH_ENABLED:
+        logger.warning(
+            "AUTH_ENABLED is false: /api/sign and /api/generate accept "
+            "requests without an access token"
+        )
+
     # Validate signing material
     signing.validate_signing_material()
 
@@ -78,6 +84,14 @@ version.
 
 Signing and generation are also triggered by Kafka events, through the
 STRAE worker.
+
+## Authentication
+
+`POST /api/sign` and `POST /api/generate` require a Keycloak access token of
+the `coevolution` realm, sent as `Authorization: Bearer <token>`. Get one from
+the realm's token endpoint
+(`/realms/coevolution/protocol/openid-connect/token`). The other endpoints
+are public.
 """
 
 
