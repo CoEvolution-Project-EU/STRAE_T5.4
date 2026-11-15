@@ -31,6 +31,7 @@ from tests.utils import (
     MODEL_UUID,
     MODEL_VERSION,
     REPORTS_DIR,
+    Rendezvous,
     create_empty_mock_storage,
     create_new_mock_storage,
     get_generation_metadata,
@@ -435,3 +436,31 @@ async def test_deprecate_with_only_gadgets_report_success():
     assert len(aimbom.external_references) == len(previous_aimbom.external_references)
 
     verify_report(jsonable_encoder(aimbom, exclude_none=True))
+
+
+@pytest.mark.anyio
+async def test_update_downloads_previous_aimbom_and_reports_concurrently():
+    storage = create_new_mock_storage()
+    metadata = get_generation_metadata_deprecation(MODEL_UUID, MODEL_VERSION)
+    previous_aimbom_url = metadata["previous_aimbom"]["download_url"]
+    # Neither download finishes until both have started.
+    rendezvous = Rendezvous(2)
+
+    get_file_from_url = storage.get_file_from_url
+    get_reports_for_model = storage.get_reports_for_model
+
+    async def get_previous_aimbom(download_url):
+        if download_url == previous_aimbom_url:
+            await rendezvous.arrive()
+        return await get_file_from_url(download_url)
+
+    async def get_reports(generation_metadata):
+        await rendezvous.arrive()
+        return await get_reports_for_model(generation_metadata)
+
+    storage.get_file_from_url = get_previous_aimbom
+    storage.get_reports_for_model = get_reports
+
+    aimbom = await AIMBOMGenerator(storage).generate(GenerationMetadata(**metadata))
+
+    assert isinstance(aimbom, AIMBOM)

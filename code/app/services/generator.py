@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import uuid
 from typing import Dict, Iterable
@@ -136,16 +137,25 @@ class AIMBOMGenerator:
                 generation_metadata.version,
             )
 
-            # Load previous AIMBOM.
-            previous_aimbom = await self._get_previous_aimbom(
-                generation_metadata.previous_aimbom.download_url,
+            # Download the previous AIMBOM and the updated reports for the given
+            # model UUID and version. They don't depend on each other, so they are
+            # downloaded concurrently. If both fail, the first error raised wins.
+            raw_previous_aimbom, new_raw_reports = await asyncio.gather(
+                self._get_previous_aimbom(
+                    generation_metadata.previous_aimbom.download_url,
+                ),
+                self._fetch_raw_reports(generation_metadata),
             )
 
-            # Fetch and validate the updated reports for the given model UUID and version.
-            # Which updatable reports changed is taken from the request (see
-            # ALLOWED_UPDATED_REPORT_SETS for the accepted combinations), so a requested
-            # report that fails to download is reported as missing.
-            new_raw_reports = await self._fetch_raw_reports(generation_metadata)
+            # Validate the previous AIMBOM only once the downloads are done:
+            # validation blocks the event loop, so doing it inside the download
+            # would hold up the report downloads.
+            previous_aimbom = self._validate_previous_aimbom(raw_previous_aimbom)
+
+            # Validate the updated reports. Which updatable reports changed is taken
+            # from the request (see ALLOWED_UPDATED_REPORT_SETS for the accepted
+            # combinations), so a requested report that fails to download is
+            # reported as missing.
             report_types = tuple(
                 t
                 for t in UPDATABLE_REPORT_TYPES
@@ -190,22 +200,20 @@ class AIMBOMGenerator:
     async def _get_previous_aimbom(
         self,
         download_url: str,
-    ) -> AIMBOM:
-        """Retrieve the previous AIMBOM for a given model UUID and version.
+    ) -> Dict:
+        """Download the previous AIMBOM for a given model UUID and version.
 
-        The AIMBOM is validated and its signature verified, because the updated
-        AIMBOM is signed by STRAE and would otherwise vouch for its content.
+        The AIMBOM is not validated here; see `_validate_previous_aimbom`.
 
         Args:
             download_url: The download URL of the previous AIMBOM.
 
         Returns:
-            The validated previous `AIMBOM`.
+            The previous AIMBOM as parsed JSON.
 
         Raises:
             GeneratorInvalidReportError: If the previous AIMBOM is not valid
-                JSON, fails schema validation or has a missing or invalid
-                signature.
+                JSON.
             GeneratorMissingReportError: If the previous AIMBOM does not exist.
             GeneratorStorageError: If storage is unavailable.
             GeneratorGenerationError: If storage refuses to return the previous
@@ -213,15 +221,7 @@ class AIMBOMGenerator:
         """
 
         try:
-            previous_aimbom = await self.client.get_file_from_url(
-                download_url=download_url
-            )
-            return validator.validate_report(BOMType.AIMBOM, previous_aimbom)
-        # Base class of the schema and signature errors.
-        except validator.ValidatorInvalidAIMBOMError as e:
-            raise GeneratorInvalidReportError(
-                f"Previous AIMBOM is invalid: {str(e)}"
-            ) from e
+            return await self.client.get_file_from_url(download_url=download_url)
         except StorageConnectionError as e:
             logger.error(
                 "Storage connection error retrieving previous AIMBOM: %s",
@@ -256,6 +256,31 @@ class AIMBOMGenerator:
             )
             raise GeneratorGenerationError(
                 f"Failed to retrieve previous AIMBOM: {str(e)}"
+            ) from e
+
+    def _validate_previous_aimbom(self, raw_previous_aimbom: Dict) -> AIMBOM:
+        """Validate the previous AIMBOM and verify its signature.
+
+        This is needed because the updated AIMBOM is signed by STRAE and would
+        otherwise vouch for the previous AIMBOM's content.
+
+        Args:
+            raw_previous_aimbom: The previous AIMBOM as parsed JSON.
+
+        Returns:
+            The validated previous `AIMBOM`.
+
+        Raises:
+            GeneratorInvalidReportError: If the previous AIMBOM fails schema
+                validation or has a missing or invalid signature.
+        """
+
+        try:
+            return validator.validate_report(BOMType.AIMBOM, raw_previous_aimbom)
+        # Base class of the schema and signature errors.
+        except validator.ValidatorInvalidAIMBOMError as e:
+            raise GeneratorInvalidReportError(
+                f"Previous AIMBOM is invalid: {str(e)}"
             ) from e
 
     async def _create_updated_aimbom(
