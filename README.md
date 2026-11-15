@@ -53,7 +53,8 @@ STRAE_T5.4/
 │   │       └── utils.py                ← shared helper utilities
 │   ├── tests/                          ← tests folder
 │   ├── data/                           ← example reports, AIMBOM and JSF signature example
-|   ├── requirements.txt                ← app requirements
+|   ├── requirements.txt                ← app (runtime) requirements
+|   ├── requirements-dev.txt            ← dev/test tooling (pytest, ruff)
 |   └── tests.md                        ← tests docs
 ├── docker/
 │   ├── secrets/                        ← folder to store signing key and certificate
