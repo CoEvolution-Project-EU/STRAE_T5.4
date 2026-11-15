@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 
@@ -145,3 +146,23 @@ def get_signing_event(*download_urls: str):
             for index, download_url in enumerate(download_urls)
         ],
     }
+
+
+class Rendezvous:
+    """Lets `parties` downloads through only once all of them have started.
+
+    Sequential downloads never get that far, so `arrive` times out instead of
+    hanging the test.
+    """
+
+    def __init__(self, parties: int, timeout: float = 1.0):
+        self.parties = parties
+        self.timeout = timeout
+        self.arrived = 0
+        self.all_arrived = asyncio.Event()
+
+    async def arrive(self):
+        self.arrived += 1
+        if self.arrived == self.parties:
+            self.all_arrived.set()
+        await asyncio.wait_for(self.all_arrived.wait(), self.timeout)
