@@ -301,9 +301,7 @@ def verify_data(
     s = int.from_bytes(raw_signature[32:], "big")
 
     try:
-        public_key.verify(
-            encode_dss_signature(r, s), data, ec.ECDSA(hashes.SHA256())
-        )
+        public_key.verify(encode_dss_signature(r, s), data, ec.ECDSA(hashes.SHA256()))
     except InvalidSignature as e:
         raise SignatureVerificationError("Signature does not match") from e
 
@@ -360,9 +358,7 @@ def verify_report(report: Dict) -> None:
     try:
         canonical_json = jcs.canonicalize(report)
     except ValueError as e:
-        raise SignatureVerificationError(
-            f"Report cannot be canonicalized: {e}"
-        ) from e
+        raise SignatureVerificationError(f"Report cannot be canonicalized: {e}") from e
 
     verify_data(public_key, canonical_json, signature_value)
 

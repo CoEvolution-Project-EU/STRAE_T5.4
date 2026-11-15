@@ -27,4 +27,3 @@ def unprocessable(description: str) -> dict[str, Any]:
 def unauthorized() -> dict[str, Any]:
     """Document the 401 of an endpoint that requires an access token."""
     return error("The access token is missing, invalid or expired.")
-
