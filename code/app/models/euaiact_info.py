@@ -5,6 +5,7 @@ from pydantic import Field
 from app.models.cyclonedx import (
     CamelModel,
     ComponentTypes,
+    OrganizationalEntity,
     Property,
     SerialNumber,
     Signature,
@@ -16,6 +17,7 @@ class ToolComponent(CamelModel):
     type: ComponentTypes
     name: str
     version: str | None = None
+    manufacturer: OrganizationalEntity | None = None
     properties: List[Property] | None = None
 
 
