@@ -30,10 +30,10 @@ logger = logging.getLogger(__name__)
 
 
 def _get_download_url(file: object, name: str) -> str:
-    """Get the download URL of an entry of the orchestrator's latest files.
+    """Get the download URL of an entry of the orchestrator's AIMBOM files.
 
     Args:
-        file: The entry from the `/latest` response.
+        file: The entry from the `/aimbom` response.
         name: The entry's key in the response, for the error message.
 
     Returns:
@@ -46,7 +46,7 @@ def _get_download_url(file: object, name: str) -> str:
     url = file.get("download_url") if isinstance(file, dict) else None
     if not url or not isinstance(url, str):
         raise StorageOperationError(
-            f"Orchestrator response for the latest files has no 'download_url' "
+            f"Orchestrator response for the AIMBOM files has no 'download_url' "
             f"for '{name}'"
         )
 
@@ -238,12 +238,15 @@ class OrchestratorClient:
         model_uuid: str,
         model_version: str,
     ) -> Tuple[Dict, Dict[str, Dict]]:
-        """Retrieve a model version's latest AIMBOM and latest signed reports.
+        """Retrieve a model version's AIMBOM and the reports it was generated from.
 
-        Asks the orchestrator's `GET /models/{uuid}/versions/{version}/latest`
-        endpoint for the files, then downloads them concurrently. Report
-        types the orchestrator lists as missing, or whose file does not exist,
-        are left out of the result.
+        Asks the orchestrator's `GET /models/{uuid}/versions/{version}/aimbom`
+        endpoint for the files, then downloads them concurrently. If a
+        completed AIMBOM exists, the orchestrator returns it with the exact
+        signed reports it was generated from. Otherwise it returns
+        `aimbom_report: null` (and the latest signed reports), which is
+        treated as not found. Report types the orchestrator lists as missing,
+        or whose file does not exist, are left out of the result.
 
         Args:
             model_uuid: The UUID of the model.
@@ -259,21 +262,21 @@ class OrchestratorClient:
             StorageConnectionError: On connection issues or 5xx responses.
             StorageInvalidFileError: If a downloaded file is not valid JSON.
             StorageOperationError: On other non-2xx HTTP responses, or if the
-                `/latest` response is malformed.
+                `/aimbom` response is malformed.
         """
 
         logger.info(
-            "Retrieving latest AIMBOM for model_uuid=%s model_version=%s",
+            "Retrieving AIMBOM for model_uuid=%s model_version=%s",
             model_uuid,
             model_version,
         )
 
-        latest = await self._get_latest_files(model_uuid, model_version)
+        response = await self._get_aimbom_files(model_uuid, model_version)
 
-        files = latest.get("reports") if isinstance(latest, dict) else None
+        files = response.get("reports") if isinstance(response, dict) else None
         if not isinstance(files, dict):
             raise StorageOperationError(
-                "Orchestrator response for the latest files has no 'reports'"
+                "Orchestrator response for the AIMBOM files has no 'reports'"
             )
 
         aimbom_file = files.get("aimbom_report")
@@ -320,15 +323,15 @@ class OrchestratorClient:
 
         return aimbom, reports
 
-    async def _get_latest_files(self, model_uuid: str, model_version: str) -> Dict:
-        """Get the orchestrator's latest files of a model version.
+    async def _get_aimbom_files(self, model_uuid: str, model_version: str) -> Dict:
+        """Get the orchestrator's AIMBOM and source report files of a model version.
 
         Args:
             model_uuid: The UUID of the model.
             model_version: The version of the model.
 
         Returns:
-            The parsed response of `GET /models/{uuid}/versions/{version}/latest`.
+            The parsed response of `GET /models/{uuid}/versions/{version}/aimbom`.
 
         Raises:
             StorageNotFoundError: If the model version does not exist or has
@@ -340,7 +343,7 @@ class OrchestratorClient:
 
         url = (
             f"/models/{quote(model_uuid, safe='')}"
-            f"/versions/{quote(model_version, safe='')}/latest"
+            f"/versions/{quote(model_version, safe='')}/aimbom"
         )
 
         try:

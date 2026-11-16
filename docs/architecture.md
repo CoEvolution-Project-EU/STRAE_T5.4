@@ -40,7 +40,7 @@ If an input report fails any of these checks, generation is rejected (`422` from
 
 `GET /api/validation/{uuid}/{version}` checks the AIMBOM of a model version and the reports it references. The AIMBOM and its reports are fetched from the storage backend:
 
-- **Orchestrator:** `GET /models/{uuid}/versions/{version}/latest` returns the latest AIMBOM (`aimbom_report`) and reports of the model version, which are then downloaded concurrently. This endpoint doesn't need authentication. Reports that are `null`, or whose file does not exist, are left out, and the validator reports them as missing.
+- **Orchestrator:** `GET /models/{uuid}/versions/{version}/aimbom` returns the model version's completed AIMBOM (`aimbom_report`) and the exact signed reports it was generated from, which are then downloaded concurrently. If no completed AIMBOM exists, `aimbom_report` is `null` (with the latest signed reports) and the AIMBOM is reported as not found. This endpoint doesn't need authentication. Reports that are `null`, or whose file does not exist, are left out, and the validator reports them as missing.
 - **MinIO:** the first (earliest uploaded) AIMBOM under `<AIMBOMS_BUCKET>/<uuid>/<version>/` and the version 1 reports `<REPORTS_BUCKET>/<uuid>/<version>/<report_type>.json`.
 
 The validator then checks, stopping at the first problem:
