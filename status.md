@@ -66,7 +66,7 @@ AIMBOM validation: `GET /api/validation/{uuid}/{version}` checks the AIMBOM of a
 - Report validation moved from the generator to `services/validator.py`, and is shared by generation and validation. Generation now also verifies report signatures, and rejects invalid reports with `422`.
 - Signatures follow the JSON Signature Format (JSF): `certificatePath` is now encoded as base64url, and the JSF specification's `ES256` example is verified in the tests. Verification only accepts unpadded base64url.
 - The test reports and AIMBOM are signed, and were re-signed with a base64url `certificatePath`.
-- Removed the CORS middleware: STRAE is only called by other services, and access is restricted at the reverse proxy.
+- Removed the CORS middleware: STRAE is only called by other services, not from browsers.
 
 ### Documentation
 

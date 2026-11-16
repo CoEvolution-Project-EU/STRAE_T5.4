@@ -116,7 +116,6 @@ async def test_missing_file_does_not_stop_other_files():
     assert [upload.original_file_id for upload in storage.uploads] == ["original-1"]
 
 
-
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     "download_urls",

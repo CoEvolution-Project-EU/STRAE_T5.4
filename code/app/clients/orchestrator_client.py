@@ -18,6 +18,7 @@ from app.clients.storage_client import (
     StorageNotFoundError,
     StorageOperationError,
     get_file_if_exists,
+    get_reports_concurrently,
 )
 from app.core.config import settings
 from app.models.aimbom import AIMBOM
@@ -187,23 +188,7 @@ class OrchestratorClient:
 
         logger.info("Retrieving reports")
 
-        reports = {}
-
-        # TODO: Retrieve reports concurrently
-        for (
-            report_type,
-            metadata,
-        ) in generation_metadata.reports.model_dump().items():
-            logger.debug("Downloading report type=%s from orchestrator", report_type)
-
-            if metadata is None:
-                logger.warning("No metadata for report type=%s", report_type)
-                continue
-
-            reports[report_type] = await self.get_file_from_url(
-                download_url=metadata["download_url"]
-            )
-        return reports
+        return await get_reports_concurrently(self, generation_metadata)
 
     async def save_aimbom(
         self,

@@ -8,6 +8,7 @@ from app.models.cyclonedx import (
     BomLinkElement,
     CamelModel,
     ComponentTypes,
+    OrganizationalEntity,
     Property,
     SerialNumber,
     Signature,
@@ -27,13 +28,20 @@ class Component(CamelModel):
     group: str | None = None
     version: str | None = None
     supplier: Dict | None = None
+    manufacturer: OrganizationalEntity | None = None
     description: str | None = None
     properties: List[Property] | None = None
     external_references: List[ExternalReference] | None = None
 
 
+class Tools(CamelModel):
+    components: List[Component]
+
+
 class Metadata(CamelModel):
     timestamp: datetime
+    tools: Tools | None = None
+    component: Component | None = None
 
 
 class DefencesInfo(CamelModel):

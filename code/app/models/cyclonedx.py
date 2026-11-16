@@ -73,6 +73,10 @@ class Signature(CamelModel):
     value: str
 
 
+class OrganizationalEntity(CamelModel):
+    name: str
+
+
 class Property(CamelModel):
     name: str
     value: str | None = None

@@ -39,7 +39,7 @@ openssl ecparam \
   -out signing-key.pem
 ```
 
-Generate a certificate using that key:
+Generate a self-signed certificate using that key, valid for 10 years:
 
 ```bash
 openssl req \
@@ -47,7 +47,7 @@ openssl req \
   -x509 \
   -key signing-key.pem \
   -out signing-cert.pem \
-  -days 365 \
+  -days 3650 \
   -sha256 \
   -subj "/C=GR/O=STRAE/CN=STRAE Signing Certificate"
 ```

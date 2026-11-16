@@ -5,6 +5,7 @@ from pydantic import Field
 from app.models.cyclonedx import (
     CamelModel,
     ComponentTypes,
+    OrganizationalEntity,
     Property,
     SerialNumber,
     Signature,
@@ -16,6 +17,7 @@ class ToolComponent(CamelModel):
     type: ComponentTypes
     name: str
     version: str | None = None
+    manufacturer: OrganizationalEntity | None = None
     properties: List[Property] | None = None
 
 
@@ -84,7 +86,7 @@ class EUAIActInfo(CamelModel):
     version: int = Field(
         1, ge=1, description="Document version, defaults to 1, must be >= 1"
     )
-    metadata: Metadata | None = None
+    metadata: Metadata
     definitions: Definitions | None = None
     declarations: Declarations | None = None
     properties: List[Property] | None = None

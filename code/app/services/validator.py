@@ -234,20 +234,10 @@ def validate_report(
         report = model_cls.model_validate(raw_report)
     # `ValidationError` is a subclass of `ValueError`, so it must come first.
     except ValidationError as e:
-        logger.warning(
-            "Schema validation failed for report %s: %s",
-            report_type.value,
-            str(e),
-        )
         raise ValidatorSchemaValidationError(
             f"Report {report_type.value} failed schema validation: {str(e)}"
         ) from e
     except ValueError as e:
-        logger.warning(
-            "Invalid CycloneDX report %s: %s",
-            report_type.value,
-            str(e),
-        )
         raise ValidatorSchemaValidationError(
             f"Report {report_type.value} is invalid: {str(e)}"
         ) from e
@@ -259,11 +249,6 @@ def validate_report(
     try:
         signing.verify_report(raw_report)
     except signing.SignatureVerificationError as e:
-        logger.warning(
-            "Signature verification failed for report %s: %s",
-            report_type.value,
-            str(e),
-        )
         raise ValidatorSignatureError(
             f"Report {report_type.value} has an invalid signature: {str(e)}"
         ) from e

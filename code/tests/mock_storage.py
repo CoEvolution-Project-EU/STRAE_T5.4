@@ -4,6 +4,7 @@ from app.clients.storage_client import (
     StorageClient,
     StorageNotFoundError,
     get_file_if_exists,
+    get_reports_concurrently,
 )
 from app.models.aimbom import AIMBOM
 from app.models.requests import GenerationMetadata
@@ -39,21 +40,7 @@ class MockStorageClient(StorageClient):
         self,
         generation_metadata: GenerationMetadata,
     ):
-        reports = {}
-
-        for report_type, metadata in generation_metadata.reports.model_dump().items():
-            if metadata is None:
-                continue
-
-            download_url = metadata.get("download_url")
-            if not download_url:
-                continue
-
-            reports[report_type] = await self.get_file_from_url(
-                download_url=download_url
-            )
-
-        return reports
+        return await get_reports_concurrently(self, generation_metadata)
 
     async def save_aimbom(
         self,
@@ -73,7 +60,7 @@ class MockStorageClient(StorageClient):
         # Same layout as `MinioClient`: the AIMBOM saved by `save_aimbom`, and
         # the version 1 report of each type, keyed by report type value, leaving
         # out reports that do not exist.
-        aimbom =self.data.get(f"aimboms/{model_uuid}/{model_version}/aimbom.json")
+        aimbom = self.data.get(f"aimboms/{model_uuid}/{model_version}/aimbom.json")
         if aimbom is None:
             raise StorageNotFoundError(
                 f"No AIMBOM found for model_uuid='{model_uuid}', "
