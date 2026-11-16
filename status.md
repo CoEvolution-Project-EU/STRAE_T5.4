@@ -59,7 +59,7 @@ Report signing for the Orchestrator: every report uploaded to the CoEvolution Hu
 
 AIMBOM validation: `GET /api/validation/{uuid}/{version}` checks the AIMBOM of a model version and the reports it references.
 
-- The AIMBOM and its reports are fetched from the Orchestrator's `/models/{uuid}/versions/{version}/latest` endpoint, or from MinIO.
+- The AIMBOM and its reports are fetched from the Orchestrator's `/models/{uuid}/versions/{version}/aimbom` endpoint, or from MinIO.
 - The AIMBOM and each report are validated against the CycloneDX schema and their models, and their signatures are verified (integrity only; certificate trust is not checked yet).
 - The AIMBOM's external references must point at the BOM-Links of exactly its reports.
 - Validation stops at the first problem. The response has `status` `VALID` or `INVALID`, with the problem in `detail`.

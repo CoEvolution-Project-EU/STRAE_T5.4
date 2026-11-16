@@ -15,7 +15,7 @@ from app.utils.utils import ReportType
 from tests.utils import MODEL_UUID, MODEL_VERSION
 
 BASE_URL = "https://orchestrator.test/api/v1/"
-LATEST_PATH = f"/api/v1/models/{MODEL_UUID}/versions/{MODEL_VERSION}/latest"
+AIMBOM_PATH = f"/api/v1/models/{MODEL_UUID}/versions/{MODEL_VERSION}/aimbom"
 DOWNLOAD_URL = "https://orchestrator.test/api/v1/files/download/"
 
 
@@ -29,7 +29,7 @@ def file_entry(file_id: str) -> dict:
     }
 
 
-def latest_response(missing=()) -> dict:
+def aimbom_response(missing=()) -> dict:
     reports = {
         report_type.value: None
         if report_type.value in missing
@@ -48,7 +48,7 @@ def latest_response(missing=()) -> dict:
 
 
 def make_client(
-    latest_status=200, latest_json=None, download_responses=None
+    aimbom_status=200, aimbom_json=None, download_responses=None
 ) -> tuple[OrchestratorClient, list]:
     """Client against a fake orchestrator. Downloads return `{"id": <file id>}`,
     unless `download_responses` has a response for that file id.
@@ -58,8 +58,8 @@ def make_client(
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        if request.url.path == LATEST_PATH:
-            return httpx.Response(latest_status, json=latest_json)
+        if request.url.path == AIMBOM_PATH:
+            return httpx.Response(aimbom_status, json=aimbom_json)
         file_id = request.url.path.rsplit("/", 1)[1]
         if download_responses and file_id in download_responses:
             return download_responses[file_id]
@@ -68,13 +68,13 @@ def make_client(
     client = httpx.AsyncClient(
         base_url=BASE_URL, transport=httpx.MockTransport(handler)
     )
-    # `/latest` and the downloads don't authenticate, so no auth is needed.
+    # `/aimbom` and the downloads don't authenticate, so no auth is needed.
     return OrchestratorClient(client=client, auth=None), requests
 
 
 @pytest.mark.anyio
 async def test_get_aimbom_returns_aimbom_and_reports_by_type():
-    client, _ = make_client(latest_json=latest_response())
+    client, _ = make_client(aimbom_json=aimbom_response())
 
     aimbom, reports = await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
 
@@ -86,7 +86,7 @@ async def test_get_aimbom_returns_aimbom_and_reports_by_type():
 
 @pytest.mark.anyio
 async def test_get_aimbom_leaves_out_missing_reports():
-    client, _ = make_client(latest_json=latest_response(missing=["risk_report"]))
+    client, _ = make_client(aimbom_json=aimbom_response(missing=["risk_report"]))
 
     _, reports = await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
 
@@ -96,9 +96,9 @@ async def test_get_aimbom_leaves_out_missing_reports():
 
 @pytest.mark.anyio
 async def test_get_aimbom_without_aimbom_raises_not_found():
-    latest = latest_response()
-    latest["reports"]["aimbom_report"] = None
-    client, _ = make_client(latest_json=latest)
+    response = aimbom_response()
+    response["reports"]["aimbom_report"] = None
+    client, _ = make_client(aimbom_json=response)
 
     with pytest.raises(StorageNotFoundError, match="No AIMBOM"):
         await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
@@ -106,7 +106,7 @@ async def test_get_aimbom_without_aimbom_raises_not_found():
 
 @pytest.mark.anyio
 async def test_get_aimbom_unknown_model_raises_not_found():
-    client, _ = make_client(latest_status=404, latest_json={"detail": "not found"})
+    client, _ = make_client(aimbom_status=404, aimbom_json={"detail": "not found"})
 
     with pytest.raises(StorageNotFoundError, match="Model not found"):
         await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
@@ -114,7 +114,7 @@ async def test_get_aimbom_unknown_model_raises_not_found():
 
 @pytest.mark.anyio
 async def test_get_aimbom_server_error_raises_connection_error():
-    client, _ = make_client(latest_status=503, latest_json={})
+    client, _ = make_client(aimbom_status=503, aimbom_json={})
 
     with pytest.raises(StorageConnectionError):
         await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
@@ -122,15 +122,15 @@ async def test_get_aimbom_server_error_raises_connection_error():
 
 @pytest.mark.anyio
 async def test_get_aimbom_client_error_raises_operation_error():
-    client, _ = make_client(latest_status=400, latest_json={})
+    client, _ = make_client(aimbom_status=400, aimbom_json={})
 
     with pytest.raises(StorageOperationError, match="400"):
         await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
 
 
 @pytest.mark.anyio
-async def test_get_aimbom_malformed_latest_response_is_not_an_invalid_file():
-    client, _ = make_client(latest_json={"model_uuid": MODEL_UUID})
+async def test_get_aimbom_malformed_aimbom_response_is_not_an_invalid_file():
+    client, _ = make_client(aimbom_json={"model_uuid": MODEL_UUID})
 
     with pytest.raises(StorageOperationError) as exc_info:
         await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
@@ -139,8 +139,8 @@ async def test_get_aimbom_malformed_latest_response_is_not_an_invalid_file():
 
 
 @pytest.mark.anyio
-async def test_get_aimbom_latest_response_not_an_object_raises_operation_error():
-    client, _ = make_client(latest_json=[])
+async def test_get_aimbom_aimbom_response_not_an_object_raises_operation_error():
+    client, _ = make_client(aimbom_json=[])
 
     with pytest.raises(StorageOperationError):
         await client.get_aimbom(MODEL_UUID, MODEL_VERSION)
@@ -159,9 +159,9 @@ async def test_get_aimbom_latest_response_not_an_object_raises_operation_error()
 async def test_get_aimbom_entry_without_download_url_raises_operation_error(
     name, entry
 ):
-    latest = latest_response()
-    latest["reports"][name] = entry
-    client, _ = make_client(latest_json=latest)
+    response = aimbom_response()
+    response["reports"][name] = entry
+    client, _ = make_client(aimbom_json=response)
 
     # A bad URL would also fail later, when it is downloaded, so check that
     # the entry itself was rejected.
@@ -172,7 +172,7 @@ async def test_get_aimbom_entry_without_download_url_raises_operation_error(
 @pytest.mark.anyio
 async def test_get_aimbom_leaves_out_report_whose_file_does_not_exist():
     client, _ = make_client(
-        latest_json=latest_response(),
+        aimbom_json=aimbom_response(),
         download_responses={"risk_report": httpx.Response(404)},
     )
 
@@ -185,7 +185,7 @@ async def test_get_aimbom_leaves_out_report_whose_file_does_not_exist():
 @pytest.mark.anyio
 async def test_get_aimbom_aimbom_file_does_not_exist_raises_not_found():
     client, _ = make_client(
-        latest_json=latest_response(),
+        aimbom_json=aimbom_response(),
         download_responses={"aimbom": httpx.Response(404)},
     )
 
@@ -200,7 +200,7 @@ async def test_get_aimbom_aimbom_file_does_not_exist_raises_not_found():
 )
 async def test_get_aimbom_report_download_failure_raises(status_code, expected_error):
     client, _ = make_client(
-        latest_json=latest_response(),
+        aimbom_json=aimbom_response(),
         download_responses={"risk_report": httpx.Response(status_code)},
     )
 
@@ -211,7 +211,7 @@ async def test_get_aimbom_report_download_failure_raises(status_code, expected_e
 @pytest.mark.anyio
 async def test_get_aimbom_report_not_json_raises_invalid_file():
     client, _ = make_client(
-        latest_json=latest_response(),
+        aimbom_json=aimbom_response(),
         download_responses={"risk_report": httpx.Response(200, text="not json")},
     )
 
