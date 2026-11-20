@@ -25,6 +25,15 @@ The private key is used to sign AIMBOMs and reports and must be protected.
 Prepare the three files on your machine, in `docker/secrets`, then copy them to the
 server together.
 
+#### Create the key and certificate
+
+Create a P-256 private key and a self-signed certificate for it, valid for 10 years,
+as described in [docker.md](../docker/docker.md#3-configure-signing-key).
+
+Don't deploy the example key (`signing-key.pem.example`). It is public in the
+repository and listed in `trusted-keys.json.example`, so anyone could sign documents
+that STRAE would accept as its own.
+
 #### Create the trust list
 
 The trust list, `trusted-keys.json`, lists the public keys STRAE signs, or has signed,
@@ -33,7 +42,7 @@ that is not in it, and reports documents signed with any other key as
 `signed_by_coevolution: false` in `/api/validation`.
 
 Create it next to the key and certificate with the rotation script, run from `code/`
-with the project's virtual environment:
+with the requirements installed (here in the project's virtual environment):
 
 ```bash
 cd code
@@ -68,13 +77,17 @@ restored.
 
 #### Copy the files to the server
 
-Create the secrets directory on the deployment server.
+Create the secrets directory on the deployment server, as the deployment user.
 
 Example:
 
 ```bash
 mkdir -p /home/strae/docker/secrets
 ```
+
+The directory must be owned by the deployment user, not root (don't create it with
+`sudo`): the [certificate renewer](#scheduled-certificate-renewal) writes its new and
+backup files into it.
 
 Copy the trust list, the signing key and the certificate from your machine to the
 server:
@@ -118,13 +131,19 @@ trust list, so the local key and trust list stay correct. Don't copy the local
 certificate to the server again; if you need the current one, copy it back from the
 server.
 
+This holds until a [key rotation](#rotating-the-key-and-certificate) on the server,
+which replaces the key and the trust list too. After one, copy the key, the
+certificate and the trust list back from the server.
+
 **Before enabling this on an existing deployment**, add the keys of every certificate
 that has signed AIMBOMs and reports in storage (`signature.certificatePath[0]`) to the
 list, if they are STRAE's. Otherwise existing AIMBOMs return
 `signed_by_coevolution: false`, and generating a new version of them fails. Also check
 that the certificate in use has not expired (see
 [Checking the certificate's expiry date](#checking-the-certificates-expiry-date)):
-signing stops as soon as this is deployed if it has.
+signing stops as soon as this is deployed if it has. The renewer renews an expired
+certificate on its first run, as long as its key is in the trust list, so signing
+resumes after that.
 
 ### 2. Deploy the STRAE stack
 
@@ -264,12 +283,15 @@ Keep the consumer group names stable between deployments. A new group starts at 
 
 8. Deploy the stack.
 
-9. Check that both containers are running and that `strae-api` is `healthy`:
+9. Check that the three containers are running and that `strae-api` is `healthy`:
 
 ```bash
 docker ps --filter name=strae
 curl http://localhost:9000/api/status
 ```
+
+The log of `strae-cert-renewer` should show its first run: either that the certificate
+is not expiring, or that it was renewed.
 
 ### Updating to a new image
 
@@ -323,9 +345,11 @@ The trust list identifies keys, not certificates:
   verify. This changes what is trusted, so it is never scheduled.
 
 Both are done with the rotation script, `app.scripts.rotate_signing_cert`, shipped in
-the STRAE image. It is run as a one-off container, with the secrets directory mounted
-read-write for that run only. Use the image of the running stack, so the script
-writes a trust list that the running services can load:
+the STRAE image. Renewal runs automatically in the `strae-cert-renewer` service (see
+[Scheduled certificate renewal](#scheduled-certificate-renewal)). For a key rotation, or
+to run the script by hand, run it as a one-off container, with the secrets directory
+mounted read-write for that run only. Use the image of the running stack, so the
+script writes a trust list that the running services can load:
 
 ```bash
 docker run --rm \
@@ -411,7 +435,12 @@ replaced certificate as a `.bak` file.
 
 ### Rotating the key and certificate
 
-Rotate the key if it may have been exposed, or to replace it as a precaution:
+Rotate the key if it may have been exposed, or to replace it as a precaution.
+
+First stop `strae-cert-renewer` in Portainer, and start it again when the rotation is
+done. If it renews at the same time, it can write a certificate for the old key over
+the new one. Signing then fails with a "Signing material error" until the files are
+fixed.
 
 ```bash
 docker run --rm \
@@ -431,6 +460,8 @@ yet.
 ### Manual rotation
 
 The script is the recommended way. Without it, the files can be replaced by hand.
+Stop `strae-cert-renewer` first, as for a scripted rotation, and start it again when
+you're done.
 
 **Renewing only the certificate.** Issue a new certificate for the existing key:
 
