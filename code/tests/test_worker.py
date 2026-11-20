@@ -1,5 +1,6 @@
+import logging
 from functools import partial
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from aiokafka import TopicPartition
@@ -7,13 +8,15 @@ from app.consumers.generation import handle_generation_event
 from app.consumers.signing import handle_signing_event
 from app.core.config import settings
 from app.models.requests import GenerationMetadata, SigningMetadata
-from app.services.generator import GeneratorStorageError
+from app.services.generator import AIMBOMGenerator, GeneratorStorageError
 from app.services.report_signer import SigningResult
 from app.worker import _deserialize, consume_messages
 
+from tests.signing_utils import expired_example_certificate
 from tests.utils import (
     MODEL_UUID,
     MODEL_VERSION,
+    create_new_mock_storage,
     get_generation_metadata,
     get_generation_metadata_deprecation,
     get_signing_event,
@@ -297,3 +300,27 @@ async def test_unexpected_signing_error_is_committed():
     await run_signing(consumer, signer)
 
     assert consumer.commit_calls == 1
+
+
+@pytest.mark.anyio
+async def test_expired_certificate_drops_generation_request(caplog):
+    # Dropped (committed) and logged with the event, so it can be replayed
+    # once the certificate is renewed.
+    storage = create_new_mock_storage()
+    event = get_generation_metadata(MODEL_UUID, MODEL_VERSION)
+    consumer = FakeConsumer([event])
+
+    with (
+        patch(
+            "app.services.signing.get_certificate",
+            return_value=expired_example_certificate(),
+        ),
+        caplog.at_level(logging.ERROR),
+    ):
+        await run_generation(consumer, AIMBOMGenerator(storage))
+
+    assert consumer.commit_calls == 1
+    assert "Signing material error" in caplog.text
+    assert "request dropped" in caplog.text
+    assert "Signing certificate expired" in caplog.text
+    assert storage.uploads == []

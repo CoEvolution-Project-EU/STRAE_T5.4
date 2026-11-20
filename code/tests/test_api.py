@@ -23,10 +23,11 @@ from app.services.report_signer import (
     ReportSignerUploadRejectedError,
     get_signer,
 )
-from app.services.signing import verify_report
+from app.services.signing import TrustListError, verify_report
 from app.services.validator import get_validator
 from httpx import ASGITransport, AsyncClient
 
+from tests.signing_utils import expired_example_certificate, sign_with_foreign_key
 from tests.utils import (
     MODEL_UUID,
     MODEL_VERSION,
@@ -207,6 +208,20 @@ async def test_deprecate_aimbom_success(client):
     assert data["aimbom_version"] == 2
 
 
+@pytest.mark.anyio
+async def test_sign_report_with_expired_certificate_returns_500(client):
+    with patch(
+        "app.services.signing.get_certificate",
+        return_value=expired_example_certificate(),
+    ):
+        response = await client.post(
+            "/api/sign", json=get_signing_event(f"{REPORT_URL}/risk_report.json")
+        )
+
+    assert response.status_code == 500
+    assert "Signing certificate expired" in response.json()["detail"]
+
+
 # ============ /api/validation ============
 
 VALIDATION_URL = f"/api/validation/{MODEL_UUID}/{MODEL_VERSION}"
@@ -219,6 +234,7 @@ def assert_invalid(response):
     assert response.json()["status"] == "INVALID"
     assert response.json()["model_uuid"] == MODEL_UUID
     assert response.json()["model_version"] == MODEL_VERSION
+    assert response.json()["signed_by_coevolution"] is None
 
 
 @pytest.mark.anyio
@@ -230,6 +246,46 @@ async def test_validate_aimbom_valid(client):
     assert data["status"] == "VALID"
     assert data["model_uuid"] == MODEL_UUID
     assert data["model_version"] == MODEL_VERSION
+    assert data["signed_by_coevolution"] is True
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_from_unknown_signer_is_valid(client, get_mock_storage):
+    get_mock_storage.data[AIMBOM_URL] = sign_with_foreign_key(
+        get_mock_storage.data[AIMBOM_URL]
+    )
+
+    response = await client.get(VALIDATION_URL)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "VALID"
+    assert response.json()["signed_by_coevolution"] is False
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_with_report_from_unknown_signer_is_valid(
+    client, get_mock_storage
+):
+    get_mock_storage.data[RISK_REPORT_URL] = sign_with_foreign_key(
+        get_mock_storage.data[RISK_REPORT_URL]
+    )
+
+    response = await client.get(VALIDATION_URL)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "VALID"
+    assert response.json()["signed_by_coevolution"] is False
+
+
+@pytest.mark.anyio
+async def test_validate_aimbom_trust_list_error_is_not_invalid(client):
+    with patch(
+        "app.services.signing.get_trusted_keys",
+        side_effect=TrustListError("Trust list x can't be read"),
+    ):
+        response = await client.get(VALIDATION_URL)
+
+    assert response.status_code == 500
 
 
 @pytest.mark.anyio
@@ -279,7 +335,7 @@ async def test_validate_aimbom_wrong_reference(client, get_mock_storage):
 
     # Skip signature verification, so the edited AIMBOM fails on the
     # reference and not on its signature.
-    with patch("app.services.validator.signing.verify_report"):
+    with patch("app.services.validator.signing.verify_report", return_value=True):
         response = await client.get(VALIDATION_URL)
 
     assert_invalid(response)

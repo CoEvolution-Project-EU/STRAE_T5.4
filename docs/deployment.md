@@ -1,9 +1,10 @@
 # STR Assurance Engine - Deployment
 
-This document describes the steps required to deploy STRAE on a Docker host using a Portainer stack. The stack runs two containers from the same image:
+This document describes the steps required to deploy STRAE on a Docker host using a Portainer stack. The stack runs three containers from the same image:
 
 - `strae-api`: the REST API (`/api/sign`, `/api/generate`, `/api/validation`, `/api/status`).
 - `strae-kafka-worker`: the Kafka worker, which processes AIMBOM generation and report signing requests.
+- `strae-cert-renewer`: renews the signing certificate before it expires (see [Scheduled certificate renewal](#scheduled-certificate-renewal)).
 
 ## Prerequisites
 
@@ -12,13 +13,60 @@ The deployment requires:
 - The docker image pushed to the github registry (`ghcr.io/coevolution-project-eu/strae_t5.4:latest`)
 - signing-key.pem
 - signing-cert.pem
+- trusted-keys.json, the trust list (created in step 1 below)
 - An Orchestrator account (`ORCHESTRATOR_USERNAME` / `ORCHESTRATOR_PASSWORD`) with the Keycloak realm role `report-signer`. Only this role can upload signed reports to the final report buckets; without it, uploads of signed reports are rejected with `403`.
 
 The private key is used to sign AIMBOMs and reports and must be protected.
 
 ## Deploy STRAE
 
-### 1. Copy signing keys to the server
+### 1. Prepare the signing material and copy it to the server
+
+Prepare the three files on your machine, in `docker/secrets`, then copy them to the
+server together.
+
+#### Create the trust list
+
+The trust list, `trusted-keys.json`, lists the public keys STRAE signs, or has signed,
+with, identified by the SHA-256 of the public key. STRAE refuses to sign with a key
+that is not in it, and reports documents signed with any other key as
+`signed_by_coevolution: false` in `/api/validation`.
+
+Create it next to the key and certificate with the rotation script, run from `code/`
+with the project's virtual environment:
+
+```bash
+cd code
+venv/bin/python -m app.scripts.rotate_signing_cert --dir ../docker/secrets --init
+```
+
+Or by hand, with the fingerprint of the certificate's public key:
+
+```bash
+cd docker/secrets
+openssl x509 -in signing-cert.pem -noout -pubkey \
+  | openssl pkey -pubin -outform DER | sha256sum | cut -d' ' -f1
+```
+
+```json
+{
+  "keys": [
+    {
+      "sha256": "<fingerprint>",
+      "in_use_from": "<date the key went into use, e.g. 2026-03-01T00:00:00Z>",
+      "retired_at": null,
+      "note": "Current"
+    }
+  ]
+}
+```
+
+The trust list is not secret (fingerprints of public keys are public), but keep it
+with the backup of the signing key, and update both together. If it is lost, signing
+stops and every past document returns `signed_by_coevolution: false` until it is
+restored.
+
+#### Copy the files to the server
 
 Create the secrets directory on the deployment server.
 
@@ -28,12 +76,14 @@ Example:
 mkdir -p /home/strae/docker/secrets
 ```
 
-Copy the signing key and certificate from your machine to the server:
+Copy the trust list, the signing key and the certificate from your machine to the
+server:
 
 ```bash
 cd docker/secrets
-scp signing-key.pem <server-username>@<server-ip>:/home/strae/docker/secrets/
-scp signing-cert.pem <server-username>@<server-ip>:/home/strae/docker/secrets/
+scp trusted-keys.json <username>@<server-ip>:/home/strae/docker/secrets/
+scp signing-key.pem <username>@<server-ip>:/home/strae/docker/secrets/
+scp signing-cert.pem <username>@<server-ip>:/home/strae/docker/secrets/
 ```
 
 Verify that the files exist in the server:
@@ -47,6 +97,7 @@ Expected output:
 ```text
 signing-key.pem
 signing-cert.pem
+trusted-keys.json
 ```
 
 Set appropriate permissions in the server:
@@ -54,9 +105,26 @@ Set appropriate permissions in the server:
 ```bash
 chmod 600 /home/strae/docker/secrets/signing-key.pem
 chmod 644 /home/strae/docker/secrets/signing-cert.pem
+chmod 644 /home/strae/docker/secrets/trusted-keys.json
 ```
 
 The private key should only be readable by the deployment user.
+
+From here on, the server's copy is the one in use. The
+[scheduled certificate renewal](#scheduled-certificate-renewal) replaces the
+certificate on the server, so your local certificate falls behind after the first
+renewal. This is expected and safe: renewal keeps the same key and doesn't change the
+trust list, so the local key and trust list stay correct. Don't copy the local
+certificate to the server again; if you need the current one, copy it back from the
+server.
+
+**Before enabling this on an existing deployment**, add the keys of every certificate
+that has signed AIMBOMs and reports in storage (`signature.certificatePath[0]`) to the
+list, if they are STRAE's. Otherwise existing AIMBOMs return
+`signed_by_coevolution: false`, and generating a new version of them fails. Also check
+that the certificate in use has not expired (see
+[Checking the certificate's expiry date](#checking-the-certificates-expiry-date)):
+signing stops as soon as this is deployed if it has.
 
 ### 2. Deploy the STRAE stack
 
@@ -84,6 +152,7 @@ x-common-env: &common-env
   ORCHESTRATOR_PASSWORD: ${ORCHESTRATOR_PASSWORD}
   SIGNING_PRIVATE_KEY_PATH: "/run/secrets/signing-key.pem"
   SIGNING_CERTIFICATE_PATH: "/run/secrets/signing-cert.pem"
+  TRUSTED_KEYS_PATH: "/run/secrets/trusted-keys.json"
 
 services:
   strae-api:
@@ -122,9 +191,24 @@ services:
     volumes:
       - /home/strae/docker/secrets:/run/secrets:ro
     restart: unless-stopped
+
+  strae-cert-renewer:
+    image: ghcr.io/coevolution-project-eu/strae_t5.4:latest
+    container_name: strae-cert-renewer
+    user: "1000:1000"
+    volumes:
+      - /home/strae/docker/secrets:/secrets
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          python -m app.scripts.rotate_signing_cert --dir /secrets --if-expiring-within 30
+          sleep 86400
+        done
+    restart: unless-stopped
 ```
 
-The settings shared by both services are defined once in `x-common-env` and merged into each service with `<<: *common-env`. Set every value explicitly: a variable left empty falls back to the default in `code/app/core/config.py`.
+The settings shared by the API and the worker are defined once in `x-common-env` and merged into each service with `<<: *common-env`. Set every value explicitly: a variable left empty falls back to the default in `code/app/core/config.py`.
 
 4. Set the Orchestrator credentials in the stack's **Environment variables** section in Portainer, not in the compose file:
 
@@ -135,7 +219,7 @@ The settings shared by both services are defined once in `x-common-env` and merg
 
 Portainer substitutes them for `${ORCHESTRATOR_USERNAME}` and `${ORCHESTRATOR_PASSWORD}` when it deploys the stack.
 
-5. Ensure the secret volume is configured on both services:
+5. Ensure the secret volume is configured on the API and the worker:
 
 ```yaml
 volumes:
@@ -147,10 +231,13 @@ This mounts the host secrets directory into each container as:
 ```text
 /run/secrets/
 ├── signing-key.pem
-└── signing-cert.pem
+├── signing-cert.pem
+└── trusted-keys.json
 ```
 
-Both services sign (the API through `/api/sign` and `/api/generate`, the worker through Kafka requests), so both need the key and certificate.
+Both services sign (the API through `/api/sign` and `/api/generate`, the worker through Kafka requests), so both need the key, the certificate and the trust list. The mount is read-only: the API and the worker never change these files.
+
+The renewer mounts the same directory read-write at `/secrets`, because it replaces the certificate. Set its `user` to the UID and GID of the deployment user, the owner of `/home/strae/docker/secrets` (`echo "$(id -u):$(id -g)"` as that user, or `ls -ln /home/strae/docker/secrets`). The image has no `USER`, so without it the renewer runs as root and the renewed files become owned by root on the host.
 
 6. Review the API settings:
 
@@ -223,15 +310,129 @@ Don't do this for the AIMBOM generation group: processing generation requests ag
 
 ## Rotating the signing key/certificate
 
-STRAE reloads the signing key and certificate automatically whenever the files at
-`SIGNING_PRIVATE_KEY_PATH`/`SIGNING_CERTIFICATE_PATH` change, so rotation does not
-require restarting the API or the Kafka worker.
+STRAE reloads the signing key, the certificate and the trust list automatically
+whenever their files change, so rotation does not require restarting the API or the
+Kafka worker.
 
-### Rotating only the certificate
+The trust list identifies keys, not certificates:
 
-If the private key has not been compromised, keep it and replace only the
-certificate, e.g. when the certificate is about to expire. Issue a new certificate
-for the existing key:
+- **Renewing the certificate** for the same key (e.g. before it expires) does not
+  change the trust list. This is routine, and can be scheduled.
+- **Rotating the key** adds the new key to the trust list and marks the old one as
+  retired. Retired keys stay trusted, so documents signed before the rotation still
+  verify. This changes what is trusted, so it is never scheduled.
+
+Both are done with the rotation script, `app.scripts.rotate_signing_cert`, shipped in
+the STRAE image. It is run as a one-off container, with the secrets directory mounted
+read-write for that run only. Use the image of the running stack, so the script
+writes a trust list that the running services can load:
+
+```bash
+docker run --rm \
+  --user "$(id -u):$(id -g)" \
+  -v /home/strae/docker/secrets:/secrets \
+  "$(docker inspect --format '{{.Image}}' strae-api)" \
+  python -m app.scripts.rotate_signing_cert --dir /secrets [options]
+```
+
+| Option | Effect |
+|--------|--------|
+| *(none)* | Issue a new certificate for the current key. The trust list is not changed. |
+| `--new-key` | Generate a new key and a new certificate for it, add the key to the trust list, and mark the old key as retired. |
+| `--days N` | Validity of the new certificate, in days. Defaults to 3650. |
+| `--if-expiring-within N` | Do nothing unless the current certificate expires within N days. Used by the scheduled renewal. Can't be combined with `--new-key`. |
+| `--init` | Create the trust list with the current key, without rotating. |
+| `--dry-run` | Print what would change, and write nothing. |
+
+The script:
+
+1. Stops if the key and certificate don't match, or if the current key is not in the
+   trust list (the list is out of sync, and must be checked by hand first). An expired
+   certificate is not a reason to stop: renewing it is the fix.
+2. Generates the new certificate (and key), valid from 5 minutes ago, so a container
+   whose clock is slightly behind doesn't reject it.
+3. Writes every file as `<name>.new`, then moves them into place with atomic renames:
+   the trust list first, so the new key is trusted before it is used, then the key and
+   the certificate back to back. Permissions are `600` for the key and `644` for the
+   certificate and the trust list.
+4. Keeps the replaced files as `<name>.<timestamp>.bak`. It never deletes anything.
+5. Prints the old and new certificates and key fingerprints.
+
+If it fails before the renames, nothing in use has changed and the `.new` files are
+removed. If it fails between the renames, the key and certificate may not match:
+signing then fails with a "Signing material error" (nothing invalid is signed), and
+running the script again, or renaming the `.bak` files back, fixes it.
+
+After a key rotation, copy the new trust list and the new key to the backup of the
+signing material.
+
+### Checking the certificate's expiry date
+
+```bash
+openssl x509 -in /home/strae/docker/secrets/signing-cert.pem -noout -enddate
+```
+
+When the certificate expires, STRAE stops signing: `/api/sign` and `/api/generate`
+return `500` with "Signing certificate expired on ...", and the worker logs
+`Signing material error ... request dropped` with the event. Renew the certificate,
+then replay the dropped requests (see
+[Replaying dropped signing requests](#replaying-dropped-signing-requests); ask the
+Orchestrator team to send dropped generation requests again). Documents signed before
+the expiry still verify.
+
+### Scheduled certificate renewal
+
+Renewing the certificate is routine and does not touch the trust list, so the
+`strae-cert-renewer` service in the stack does it automatically. About once a day it
+runs the rotation script with `--if-expiring-within 30`: it does nothing unless the
+certificate expires within 30 days, and then issues a new certificate for the same key.
+
+The renewer:
+
+- Uses the STRAE image, so Portainer pulls and redeploys it together with the API and
+  the worker, and it always writes files the running services can load.
+- Doesn't need the Docker socket. It only runs the script against the mounted secrets
+  directory, and exposes no ports.
+- Logs each run to the container log (Portainer → Containers → `strae-cert-renewer` →
+  Logs): either that the certificate is not expiring, the renewal, or an error.
+
+A failed run doesn't stop the loop: the script runs again the next day. Nothing warns
+before expiry if renewals keep failing, or if the container stops, so check its log from
+time to time.
+
+The loop counts a day from when the container last started, not from a fixed time of
+day. With a 30-day margin this doesn't matter. If you change the command, write any `$`
+as `$$`, or Portainer substitutes it as a variable.
+
+After a renewal, the certificate on your machine from the
+[initial setup](#1-prepare-the-signing-material-and-copy-it-to-the-server) is out of
+date. That's fine: the key and the trust list are unchanged, and the server keeps the
+replaced certificate as a `.bak` file.
+
+### Rotating the key and certificate
+
+Rotate the key if it may have been exposed, or to replace it as a precaution:
+
+```bash
+docker run --rm \
+  --user "$(id -u):$(id -g)" \
+  -v /home/strae/docker/secrets:/secrets \
+  "$(docker inspect --format '{{.Image}}' strae-api)" \
+  python -m app.scripts.rotate_signing_cert --dir /secrets --new-key
+```
+
+The new key is generated on the server, so it never travels over the network. Copy
+it, and the new trust list, to the backup.
+
+Removing a key from the trust list makes the documents it signed return
+`signed_by_coevolution: false`. They still validate. Revoking a key is not supported
+yet.
+
+### Manual rotation
+
+The script is the recommended way. Without it, the files can be replaced by hand.
+
+**Renewing only the certificate.** Issue a new certificate for the existing key:
 
 ```bash
 cd docker/secrets
@@ -248,7 +449,7 @@ openssl req \
 Then upload it under a temporary name, set its permissions and move it into place:
 
 ```bash
-scp signing-cert.pem <server-username>@<server-ip>:/home/strae/docker/secrets/signing-cert.pem.new
+scp signing-cert.pem <username>@<server-ip>:/home/strae/docker/secrets/signing-cert.pem.new
 ```
 
 ```bash
@@ -256,45 +457,54 @@ chmod 644 /home/strae/docker/secrets/signing-cert.pem.new
 mv /home/strae/docker/secrets/signing-cert.pem.new /home/strae/docker/secrets/signing-cert.pem
 ```
 
-Since the key does not change, the new certificate always matches it, and signing
-never fails during the switch.
+Since the key does not change, the new certificate always matches it, it is already in
+the trust list, and signing never fails during the switch.
 
-### Rotating the key and certificate
+**Rotating the key and certificate.** The key and certificate are reloaded
+independently, each tracked by its own file's modification time. If the two files are
+overwritten one at a time in place, there is a narrow window where a sign operation
+could load the new key paired with the old certificate (or vice versa). STRAE detects
+this and fails the sign operation with an error rather than producing an invalid
+signature, but the window is avoided by moving both files into place with atomic
+renames. In this order:
 
-Replace both files if the private key may have been compromised.
+1. Add the new key to the trust list, **before** the swap, or signing fails in
+   between. Get its fingerprint with
+   `openssl x509 -in signing-cert.pem -noout -pubkey | openssl pkey -pubin -outform DER | sha256sum`,
+   add an entry to a copy of the list, upload it as `trusted-keys.json.new`, and move it
+   into place:
 
-The key and certificate are reloaded independently, each tracked by its own file's
-modification time. If the two files are overwritten one at a time in place, there is
-a narrow window where a sign operation could load the new key paired with the old
-certificate (or vice versa). STRAE detects this and fails the sign operation with an
-error rather than producing an invalid signature, but the window is avoided
-entirely by rotating both files atomically:
+```bash
+chmod 644 /home/strae/docker/secrets/trusted-keys.json.new
+mv /home/strae/docker/secrets/trusted-keys.json.new /home/strae/docker/secrets/trusted-keys.json
+```
 
-1. Upload the new files under temporary names, alongside the existing ones:
+2. Upload the new key and certificate under temporary names, alongside the existing
+   ones:
 
 ```bash
 cd docker/secrets
-scp signing-key.pem <server-username>@<server-ip>:/home/strae/docker/secrets/signing-key.pem.new
-scp signing-cert.pem <server-username>@<server-ip>:/home/strae/docker/secrets/signing-cert.pem.new
+scp signing-key.pem <username>@<server-ip>:/home/strae/docker/secrets/signing-key.pem.new
+scp signing-cert.pem <username>@<server-ip>:/home/strae/docker/secrets/signing-cert.pem.new
 ```
 
-2. Set permissions on the new files:
+3. Set permissions on the new files:
 
 ```bash
 chmod 600 /home/strae/docker/secrets/signing-key.pem.new
 chmod 644 /home/strae/docker/secrets/signing-cert.pem.new
 ```
 
-3. Move both into place with a single command, back-to-back with no pause in between:
+4. Move both into place with a single command, back-to-back with no pause in between:
 
 ```bash
 mv /home/strae/docker/secrets/signing-key.pem.new /home/strae/docker/secrets/signing-key.pem && \
 mv /home/strae/docker/secrets/signing-cert.pem.new /home/strae/docker/secrets/signing-cert.pem
 ```
 
+5. Set `retired_at` on the old key's entry in the trust list (same `.new` + `mv`
+   pattern). Retired keys stay trusted.
+
 `mv` within the same directory is an atomic rename, so each file switches over
 instantly with no partially-written content in between -- unlike overwriting an
 existing file in place, which a concurrent sign operation could read mid-write.
-
-The new key/certificate are picked up on the next sign operation. No restart or
-redeploy of the stack is needed.

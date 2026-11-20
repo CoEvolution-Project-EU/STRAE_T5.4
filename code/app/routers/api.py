@@ -361,6 +361,11 @@ async def validate_aimbom(
     `status` is `VALID` if every check passed. If not, `status` is `INVALID`
     and `detail` describes the first problem found. Returns 404 if the model
     version has no AIMBOM and 503 if storage is unavailable.
+
+    A document with a valid signature from a key that is not CoEvolution's is
+    still `VALID`. For a `VALID` AIMBOM, `signed_by_coevolution` says whether
+    the AIMBOM and all its reports are signed with a CoEvolution key. It is
+    `null` when `status` is `INVALID`, so check `status` first.
     """
 
     logger.info(
@@ -370,7 +375,7 @@ async def validate_aimbom(
     )
 
     try:
-        await validator.validate_aimbom(uuid, version)
+        signed_by_coevolution = await validator.validate_aimbom(uuid, version)
     except ValidatorInvalidAIMBOMError as e:
         logger.warning("Invalid AIMBOM for model_uuid=%s: %s", uuid, e)
         return AIMBOMValidationResponse(
@@ -403,4 +408,5 @@ async def validate_aimbom(
         model_uuid=uuid,
         model_version=version,
         status="VALID",
+        signed_by_coevolution=signed_by_coevolution,
     )

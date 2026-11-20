@@ -101,7 +101,7 @@ class AIMBOMValidator:
 
         self.client = client
 
-    async def validate_aimbom(self, model_uuid: str, model_version: str) -> None:
+    async def validate_aimbom(self, model_uuid: str, model_version: str) -> bool:
         """
         Validate the AIMBOM for the given model UUID and version.
 
@@ -111,6 +111,10 @@ class AIMBOMValidator:
             model_uuid (str): The UUID of the model.
             model_version (str): The version of the model.
 
+        Returns:
+            Whether the AIMBOM and every report are signed by CoEvolution
+            (with a key in the trust list).
+
         Raises:
             ValidatorInvalidAIMBOMError: If the AIMBOM or one of its reports is
                 invalid, missing or not valid JSON, or the AIMBOM does not
@@ -119,6 +123,7 @@ class AIMBOMValidator:
             ValidatorStorageError: If the storage backend is unavailable.
             ValidatorReadError: If the storage backend refuses to return the
                 files for any other reason.
+            signing.TrustListError: If the trust list is missing or malformed.
         """
 
         try:
@@ -138,18 +143,32 @@ class AIMBOMValidator:
         except StorageError as e:
             raise ValidatorReadError(str(e)) from e
 
-        aimbom = validate_report(BOMType.AIMBOM, raw_aimbom)
+        aimbom, aimbom_signed_by_coevolution = validate_report(
+            BOMType.AIMBOM, raw_aimbom
+        )
 
-        reports = validate_reports(raw_reports, REPORT_TYPES)
+        reports, reports_signed_by_coevolution = validate_reports(
+            raw_reports, REPORT_TYPES
+        )
 
         # Check that the AIMBOM references exactly the given reports.
         check_links(aimbom, reports)
 
+        # The reports count too: an AIMBOM signed by CoEvolution that links to
+        # foreign reports is not signed by CoEvolution as a whole.
+        signed_by_coevolution = aimbom_signed_by_coevolution and all(
+            reports_signed_by_coevolution.values()
+        )
+
         logger.info(
-            "AIMBOM is valid for model_uuid=%s, model_version=%s",
+            "AIMBOM is valid for model_uuid=%s, model_version=%s, "
+            "signed_by_coevolution=%s",
             model_uuid,
             model_version,
+            signed_by_coevolution,
         )
+
+        return signed_by_coevolution
 
 
 def check_links(aimbom: AIMBOM, reports: Dict[ReportType, ReportModel]) -> None:
@@ -205,24 +224,30 @@ def check_links(aimbom: AIMBOM, reports: Dict[ReportType, ReportModel]) -> None:
 
 def validate_report(
     report_type: DocumentType, raw_report: Dict
-) -> ReportModel | AIMBOM:
+) -> tuple[ReportModel | AIMBOM, bool]:
     """Validate a single raw report, or an AIMBOM, against the CycloneDX schema
-    and its Pydantic model.
+    and its Pydantic model, and verify its signature.
 
     Pass `BOMType.AIMBOM` as `report_type` to validate an AIMBOM against the
     `AIMBOM` model.
+
+    A valid signature from a key that is not in the trust list is not an
+    error: it is returned as `signed_by_coevolution == False`, and each caller
+    decides what to do with it.
 
     Args:
         report_type: The type of report being validated, or `BOMType.AIMBOM`.
         raw_report: The raw JSON dict for the report.
 
     Returns:
-        The validated `ReportModel` instance, or `AIMBOM` for `BOMType.AIMBOM`.
+        The validated `ReportModel` instance, or `AIMBOM` for `BOMType.AIMBOM`,
+        and whether it is signed by CoEvolution.
 
     Raises:
         ValidatorSchemaValidationError: When report validation fails.
         ValidatorSignatureError: When the signature is missing, malformed or
             invalid.
+        signing.TrustListError: When the trust list is missing or malformed.
     """
 
     try:
@@ -244,22 +269,30 @@ def validate_report(
 
     # Verified on the raw report: the model may drop or reformat fields,
     # which would change the signed content.
-    # NOTE: Signatures are checked for integrity only. Whether the signing
-    # certificates are trusted (authenticity) is not checked yet.
     try:
-        signing.verify_report(raw_report)
+        signed_by_coevolution = signing.verify_report(raw_report)
     except signing.SignatureVerificationError as e:
         raise ValidatorSignatureError(
             f"Report {report_type.value} has an invalid signature: {str(e)}"
         ) from e
 
-    return report
+    if not signed_by_coevolution:
+        # Shows which document it was, and helps when a key was simply never
+        # added to the trust list.
+        logger.info(
+            "Report %s is not signed by CoEvolution: signing key %s is not in "
+            "the trust list",
+            report_type.value,
+            signing.public_key_fingerprint(signing.load_signer_certificate(raw_report)),
+        )
+
+    return report, signed_by_coevolution
 
 
 def validate_reports(
     raw_reports: Dict[str, Dict],
     report_types: Iterable[ReportType],
-) -> Dict[ReportType, ReportModel]:
+) -> tuple[Dict[ReportType, ReportModel], Dict[ReportType, bool]]:
     """
     Validate a set of raw reports for a given model UUID and version.
 
@@ -271,16 +304,19 @@ def validate_reports(
 
     Returns:
         A mapping of `ReportType` to validated `ReportModel` instances,
-        one entry per `report_types`.
+        one entry per `report_types`, and for each, whether it is signed by
+        CoEvolution.
 
     Raises:
         ValidatorMissingReportError: When a report of `report_types` is missing.
         ValidatorSchemaValidationError: When report validation fails.
         ValidatorSignatureError: When a signature is missing, malformed or
             invalid.
+        signing.TrustListError: When the trust list is missing or malformed.
     """
 
     reports: Dict[ReportType, ReportModel] = {}
+    signed_by_coevolution: Dict[ReportType, bool] = {}
 
     for report_type in report_types:
         raw_report = raw_reports.get(report_type.value)
@@ -288,10 +324,12 @@ def validate_reports(
             logger.warning("Report %s is missing", report_type.value)
             raise ValidatorMissingReportError(f"Report {report_type.value} is missing")
 
-        reports[report_type] = validate_report(report_type, raw_report)
+        reports[report_type], signed_by_coevolution[report_type] = validate_report(
+            report_type, raw_report
+        )
         logger.debug("Retrieved report %s", report_type.value)
 
-    return reports
+    return reports, signed_by_coevolution
 
 
 async def get_validator(

@@ -1,25 +1,44 @@
 import os
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 from app.core.config import settings
+from app.models.trusted_keys import TrustedKeys
 from app.services.signing import (
     SignatureVerificationError,
     SigningError,
+    TrustListError,
+    check_signing_certificate,
     decode_base64url,
     encode_base64url,
+    get_certificate,
     get_certificate_path,
+    get_trusted_keys,
+    is_strae_key,
     load_if_changed,
+    load_trusted_keys,
+    public_key_fingerprint,
     sign_report,
     validate_signing_material,
     verify_report,
+    verify_signature,
 )
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from cryptography.x509.oid import NameOID
+from pydantic import ValidationError
 
+from tests.signing_utils import (
+    example_key,
+    expired_example_certificate,
+    make_certificate,
+    sign_with,
+    sign_with_foreign_key,
+    trust_list,
+)
 from tests.utils import JSF_DIR, REPORTS_DIR, load_json
 
 
@@ -87,12 +106,6 @@ def test_validate_signing_material_raises_signing_error_on_mismatch():
 
 
 # ============ verify_report ============
-
-
-def test_verify_report_accepts_signed_report():
-    signed_report = sign_report(load_json(REPORTS_DIR / "aimodelinfo_report.json"))
-
-    verify_report(signed_report)
 
 
 def test_verify_report_rejects_modified_report():
@@ -201,7 +214,8 @@ def test_verify_report_rejects_certificate_not_in_base64url():
 
 
 def test_verify_report_accepts_jsf_specification_example():
-    verify_report(load_json(JSF_DIR / "p256_es256_certificate_path.json"))
+    # The specification's key is not STRAE's, so only integrity is checked.
+    verify_signature(load_json(JSF_DIR / "p256_es256_certificate_path.json"))
 
 
 # ============ load_if_changed: hot-reload on file change ============
@@ -246,3 +260,124 @@ def test_load_if_changed_reloads_when_file_changes(tmp_path):
     _bump_mtime(path)
 
     assert load() == "v2"
+
+
+# ============ Signing certificate checks ============
+
+NOW = datetime(2030, 1, 1, tzinfo=timezone.utc)
+
+
+def _certificate(not_valid_before, not_valid_after):
+    return make_certificate(
+        example_key(),
+        not_valid_before=not_valid_before,
+        not_valid_after=not_valid_after,
+    )
+
+
+def test_check_signing_certificate_rejects_expired_certificate():
+    cert = _certificate(NOW - timedelta(days=10), NOW - timedelta(days=1))
+
+    with pytest.raises(SigningError, match="expired on 2029-12-31"):
+        check_signing_certificate(cert, trusted=trust_list(cert), now=NOW)
+
+
+def test_check_signing_certificate_rejects_not_yet_valid_certificate():
+    cert = _certificate(NOW + timedelta(days=1), NOW + timedelta(days=10))
+
+    with pytest.raises(SigningError, match="not valid until 2030-01-02"):
+        check_signing_certificate(cert, trusted=trust_list(cert), now=NOW)
+
+
+def test_check_signing_certificate_rejects_unlisted_key():
+    cert = _certificate(NOW - timedelta(days=1), NOW + timedelta(days=1))
+    other_key = ec.generate_private_key(ec.SECP256R1())
+    trusted = trust_list(make_certificate(other_key))
+
+    with pytest.raises(SigningError, match=public_key_fingerprint(cert)):
+        check_signing_certificate(cert, trusted=trusted, now=NOW)
+
+
+def test_check_signing_certificate_turns_trust_list_error_into_signing_error():
+    with patch(
+        "app.services.signing.get_trusted_keys",
+        side_effect=TrustListError("Trust list x can't be read"),
+    ):
+        with pytest.raises(SigningError, match="can't be read"):
+            check_signing_certificate(get_certificate())
+
+
+# ============ Verifying who signed ============
+
+
+def test_verify_report_returns_false_for_unknown_key():
+    report = sign_with_foreign_key(load_json(REPORTS_DIR / "risk_report.json"))
+
+    assert verify_report(report) is False
+
+
+def test_verify_report_accepts_expired_certificate_for_listed_key():
+    report = sign_with(
+        load_json(REPORTS_DIR / "risk_report.json"),
+        example_key(),
+        expired_example_certificate(),
+    )
+
+    assert verify_report(report) is True
+
+
+def test_is_strae_key_rejects_key_with_empty_list():
+    assert is_strae_key(get_certificate(), trusted={}) is False
+
+
+# ============ Trust list ============
+
+
+def _entry(sha256):
+    return {"sha256": sha256, "in_use_from": "2026-01-01T00:00:00Z"}
+
+
+def test_trust_list_normalizes_openssl_style_fingerprint():
+    fingerprint = public_key_fingerprint(get_certificate())
+    with_colons = ":".join(
+        fingerprint[i : i + 2] for i in range(0, len(fingerprint), 2)
+    ).upper()
+
+    trusted = TrustedKeys.model_validate({"keys": [_entry(with_colons)]})
+
+    assert trusted.keys[0].sha256 == fingerprint
+
+
+@pytest.mark.parametrize("sha256", ["z" * 64, "a" * 63])
+def test_trust_list_rejects_malformed_fingerprint(sha256):
+    with pytest.raises(ValidationError, match="64 hex"):
+        TrustedKeys.model_validate({"keys": [_entry(sha256)]})
+
+
+def test_trust_list_rejects_duplicate_fingerprint():
+    with pytest.raises(ValidationError, match="Duplicate"):
+        TrustedKeys.model_validate({"keys": [_entry("a" * 64), _entry("A" * 64)]})
+
+
+def test_get_trusted_keys_raises_trust_list_error_when_file_is_missing():
+    # `load_if_changed` stats the file before the loader runs.
+    with patch(
+        "app.services.signing.load_trusted_keys",
+        side_effect=FileNotFoundError("No such file"),
+    ):
+        with pytest.raises(TrustListError, match="can't be read"):
+            get_trusted_keys()
+
+
+@pytest.mark.parametrize("content", ["not json", '{"keys": [{"sha256": "abc"}]}'])
+def test_load_trusted_keys_raises_trust_list_error_when_file_is_malformed(
+    tmp_path, content
+):
+    path = tmp_path / "trusted-keys.json"
+    path.write_text(content)
+
+    # The watched path is bound at import time, but the loader reads the
+    # path from the settings, so the undecorated loader can be pointed at it.
+    with patch.object(settings, "TRUSTED_KEYS_PATH", str(path)):
+        with pytest.raises(TrustListError, match="is invalid"):
+            load_trusted_keys.__wrapped__()

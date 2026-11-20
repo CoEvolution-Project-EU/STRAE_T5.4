@@ -1,6 +1,7 @@
 # Secrets
 docker/secrets/signing-cert.pem
 docker/secrets/signing-key.pem
+docker/secrets/trusted-keys.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

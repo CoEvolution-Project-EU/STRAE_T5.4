@@ -32,9 +32,11 @@ Every report used for generation, and the generated AIMBOM itself, is validated 
 2. **Report model:** the document is validated against the Pydantic model of its report type (or the `AIMBOM` model).
 3. **Signature:** the document must have a valid `ES256` signature in the [signature format](#signature-format) STRAE uses. It is verified with the public key of the first certificate in `signature.certificatePath`.
 
-Signatures are currently checked for integrity only: whether the signing certificate is trusted is not checked yet.
+4. **Signer:** the SHA-256 of the signing certificate's public key is looked up in the trust list (`TRUSTED_KEYS_PATH`), which lists every key STRAE signs, or has signed, with. A valid signature from a key that is not in the list is not an error, but the document is not *signed by CoEvolution*. The certificate's validity dates are not checked: documents signed before a certificate expired, or before a key was retired, still verify.
 
-If an input report fails any of these checks, generation is rejected (`422` from `/api/generate`; the Kafka event is logged and committed). If the generated AIMBOM fails them, generation fails with an internal error.
+If an input report fails any of these checks, or is not signed by CoEvolution, generation is rejected (`422` from `/api/generate`; the Kafka event is logged and committed). The previous AIMBOM of an update must be signed by CoEvolution too, since the new version is a re-signed copy of it. The unchanged reports it links to are not checked again. If the generated AIMBOM fails these checks, generation fails with an internal error. If the trust list can't be loaded, generation fails like a signing material error (`500`; the Kafka event is dropped for replay).
+
+Before signing, STRAE also checks that the signing certificate is within its validity dates and that its key is in the trust list. Otherwise it refuses to sign (`500` from `/api/sign` and `/api/generate`; the Kafka event is logged as `request dropped` for replay). See [Rotating the signing key/certificate](deployment.md#rotating-the-signing-keycertificate).
 
 ## AIMBOM Validation
 
@@ -56,11 +58,14 @@ The response has the same format whether the AIMBOM is valid or not:
   "detail": "AIMBOM validation completed",
   "model_uuid": "163723c9-173b-4ce2-abc1-4de2b25a7012",
   "model_version": "v1.0",
-  "status": "VALID"
+  "status": "VALID",
+  "signed_by_coevolution": true
 }
 ```
 
 If a check fails, `status` is `INVALID` and `detail` describes the first problem found, e.g. `Report risk_report has an invalid signature: ...`. An invalid AIMBOM still returns `200`, because the validation itself succeeded.
+
+For a `VALID` AIMBOM, `signed_by_coevolution` is `true` only if the AIMBOM and every report are signed with a key in the trust list (see [Report Validation](#report-validation)), and `false` if any of them is signed with another key. It is `null` when `status` is `INVALID`, because validation stops at the first problem. Clients should check `status` first, then `signed_by_coevolution`.
 
 ## Signature Format
 

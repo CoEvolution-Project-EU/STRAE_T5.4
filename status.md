@@ -24,6 +24,7 @@ Comments: AIMBOM generation, AIMBOM deprecation, signing, report signing for the
 - Signature encoding is fixed, and signatures are validated against the certificate path in tests.
 - The signing key and certificate are reloaded automatically when their files change, so they can be rotated without a restart.
 - Errors caused by mismatched signing material are distinguished from errors caused by bad payloads.
+- Signing certificate validity and trust (#49): STRAE refuses to sign with an expired or not-yet-valid certificate, or with a key that is not in the trust list (`trusted-keys.json`, the public keys STRAE signs or has signed with). Verification looks up the signer's key in the trust list: `/api/validation` returns `signed_by_coevolution`, and generation rejects reports and previous AIMBOMs from other signers. A rotation script (`app.scripts.rotate_signing_cert`) renews the certificate or rotates the key and keeps the trust list in sync. The example certificate was reissued with a 100-year validity, and the test fixtures were re-signed with the example key.
 
 ### Kafka worker
 
@@ -60,7 +61,7 @@ Report signing for the Orchestrator: every report uploaded to the CoEvolution Hu
 AIMBOM validation: `GET /api/validation/{uuid}/{version}` checks the AIMBOM of a model version and the reports it references.
 
 - The AIMBOM and its reports are fetched from the Orchestrator's `/models/{uuid}/versions/{version}/aimbom` endpoint, or from MinIO.
-- The AIMBOM and each report are validated against the CycloneDX schema and their models, and their signatures are verified (integrity only; certificate trust is not checked yet).
+- The AIMBOM and each report are validated against the CycloneDX schema and their models, and their signatures are verified (the signer is checked against the trust list since #49).
 - The AIMBOM's external references must point at the BOM-Links of exactly its reports.
 - Validation stops at the first problem. The response has `status` `VALID` or `INVALID`, with the problem in `detail`.
 - Report validation moved from the generator to `services/validator.py`, and is shared by generation and validation. Generation now also verifies report signatures, and rejects invalid reports with `422`.
