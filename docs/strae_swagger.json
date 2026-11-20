@@ -208,7 +208,7 @@
                     "api"
                 ],
                 "summary": "Validate Aimbom",
-                "description": "Validate the AIMBOM of a specific AI model version and its reports.\n\nThe AIMBOM and its reports are fetched from storage, validated against\nthe CycloneDX schema and their models, and the AIMBOM's references are\nchecked against the reports. Validation stops at the first problem.\n\n**Response**\n\n`status` is `VALID` if every check passed. If not, `status` is `INVALID`\nand `detail` describes the first problem found. Returns 404 if the model\nversion has no AIMBOM and 503 if storage is unavailable.",
+                "description": "Validate the AIMBOM of a specific AI model version and its reports.\n\nThe AIMBOM and its reports are fetched from storage, validated against\nthe CycloneDX schema and their models, and the AIMBOM's references are\nchecked against the reports. Validation stops at the first problem.\n\n**Response**\n\n`status` is `VALID` if every check passed. If not, `status` is `INVALID`\nand `detail` describes the first problem found. Returns 404 if the model\nversion has no AIMBOM and 503 if storage is unavailable.\n\nA document with a valid signature from a key that is not CoEvolution's is\nstill `VALID`. For a `VALID` AIMBOM, `signed_by_coevolution` says whether\nthe AIMBOM and all its reports are signed with a CoEvolution key. It is\n`null` when `status` is `INVALID`, so check `status` first.",
                 "operationId": "validate_aimbom_api_validation__uuid___version__get",
                 "parameters": [
                     {
@@ -436,6 +436,18 @@
                         ],
                         "title": "Status",
                         "description": "Validation status of the AIMBOM."
+                    },
+                    "signed_by_coevolution": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Signed By Coevolution",
+                        "description": "Whether the AIMBOM and all its reports are signed with a CoEvolution key. Null when status is INVALID."
                     }
                 },
                 "type": "object",

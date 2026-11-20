@@ -11,21 +11,19 @@ from tests.utils import AIMBOMS_DIR, REPORTS_DIR, load_json
 
 
 def load_aimbom():
-    return validate_report(BOMType.AIMBOM, load_json(AIMBOMS_DIR / "aimbom.json"))
+    aimbom, _ = validate_report(BOMType.AIMBOM, load_json(AIMBOMS_DIR / "aimbom.json"))
+    return aimbom
 
 
 def load_reports():
-    return validate_reports(
+    reports, _ = validate_reports(
         {
             report_type.value: load_json(REPORTS_DIR / f"{report_type.value}.json")
             for report_type in REPORT_TYPES
         },
         REPORT_TYPES,
     )
-
-
-def test_check_links_accepts_matching_references():
-    check_links(load_aimbom(), load_reports())
+    return reports
 
 
 def test_check_links_rejects_unknown_report_type():

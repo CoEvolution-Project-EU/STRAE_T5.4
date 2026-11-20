@@ -56,8 +56,10 @@ class ReportSignerStorageError(ReportSignerError):
 
 
 class ReportSignerSigningError(ReportSignerError):
-    """Raised when signing fails because the signing key and certificate do
-    not match.
+    """Raised when the signing material can't be used to sign: the signing
+    key and certificate don't match, the certificate is expired or not yet
+    valid, the key is not in the trust list, or the trust list can't be
+    loaded.
     """
 
     pass
@@ -123,8 +125,8 @@ class ReportSigner:
                 a signed report.
             ReportSignerProcessingError: When signing fails for any other reason.
             ReportSignerStorageError: When storage operations fail.
-            ReportSignerSigningError: When the signing key and certificate
-                currently loaded don't match.
+            ReportSignerSigningError: When the signing material can't be
+                used to sign (see `signing.SigningError`).
         """
 
         logger.debug(
@@ -272,8 +274,8 @@ class ReportSigner:
             The signed report.
 
         Raises:
-            ReportSignerSigningError: If the signing key and certificate
-                currently loaded don't match (see `signing.SigningError`).
+            ReportSignerSigningError: If the signing material can't be used
+                to sign (see `signing.SigningError`).
             ReportSignerProcessingError: If signing fails for any other reason.
         """
 
@@ -284,7 +286,7 @@ class ReportSigner:
 
             return signed_report
         except signing.SigningError as e:
-            logger.error("Signing material mismatch while signing report: %s", e)
+            logger.error("Signing material error while signing report: %s", e)
             raise ReportSignerSigningError(f"Failed to sign report: {str(e)}") from e
         except Exception as e:
             logger.error("Error signing report: %s", e)

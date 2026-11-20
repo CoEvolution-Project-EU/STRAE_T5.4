@@ -22,10 +22,11 @@ from app.services.generator import (
     GeneratorStorageError,
     GeneratorUploadRejectedError,
 )
-from app.services.signing import SigningError, verify_report
+from app.services.signing import SigningError, TrustListError, verify_report
 from app.utils.utils import ReportComment, ReportType
 from fastapi.encoders import jsonable_encoder
 
+from tests.signing_utils import sign_with_foreign_key
 from tests.utils import (
     AIMBOMS_DIR,
     MODEL_UUID,
@@ -286,6 +287,63 @@ async def test_signing_material_mismatch_raises_signing_error():
                     **get_generation_metadata(model_uuid, model_version)
                 ),
             )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "metadata", [get_generation_metadata, get_generation_metadata_deprecation]
+)
+async def test_trust_list_error_raises_signing_error(metadata):
+    # A broken trust list is a problem with the signing material, not with
+    # the reports, so the request is dropped for replay.
+    generator = AIMBOMGenerator(create_new_mock_storage())
+
+    with patch(
+        "app.services.signing.get_trusted_keys",
+        side_effect=TrustListError("Trust list x can't be read"),
+    ):
+        with pytest.raises(GeneratorSigningError, match="can't be read"):
+            await generator.generate(
+                GenerationMetadata(**metadata(MODEL_UUID, MODEL_VERSION))
+            )
+
+
+@pytest.mark.anyio
+async def test_report_from_unknown_signer_is_rejected():
+    storage = create_new_mock_storage()
+    url = f"reports/{MODEL_UUID}/{MODEL_VERSION}/datasets_report.json"
+    storage.data[url] = sign_with_foreign_key(storage.data[url])
+    generator = AIMBOMGenerator(storage)
+
+    with pytest.raises(GeneratorInvalidReportError, match="datasets_report"):
+        await generator.generate(
+            GenerationMetadata(**get_generation_metadata(MODEL_UUID, MODEL_VERSION))
+        )
+
+
+@pytest.mark.anyio
+async def test_previous_aimbom_from_unknown_signer_is_rejected():
+    storage = create_new_mock_storage()
+    url = f"aimboms/{MODEL_UUID}/{MODEL_VERSION}/aimbom.json"
+    storage.data[url] = sign_with_foreign_key(storage.data[url])
+    generator = AIMBOMGenerator(storage)
+
+    with pytest.raises(
+        GeneratorInvalidReportError, match="Previous AIMBOM is not signed"
+    ):
+        await generator.generate(
+            GenerationMetadata(
+                **get_generation_metadata_deprecation(MODEL_UUID, MODEL_VERSION)
+            )
+        )
+
+
+def test_validate_aimbom_rejects_generated_aimbom_from_unknown_signer():
+    generator = AIMBOMGenerator(create_empty_mock_storage())
+    aimbom = AIMBOM(**sign_with_foreign_key(load_json(AIMBOMS_DIR / "aimbom.json")))
+
+    with pytest.raises(GeneratorGenerationError, match="not signed by CoEvolution"):
+        generator._validate_aimbom(aimbom)
 
 
 @pytest.mark.anyio
