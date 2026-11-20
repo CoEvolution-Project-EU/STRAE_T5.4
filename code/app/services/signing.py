@@ -1,9 +1,12 @@
 import base64
 import copy
 import functools
+import hashlib
+import json
 import logging
 import os
 import threading
+from datetime import datetime, timezone
 from typing import Callable, Dict, TypeVar
 
 import jcs  # RFC8785 canonicalization
@@ -17,6 +20,7 @@ from cryptography.hazmat.primitives.asymmetric.utils import (
 )
 
 from app.core.config import settings
+from app.models.trusted_keys import TrustedKey, TrustedKeys
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +28,22 @@ T = TypeVar("T")
 
 
 class SigningError(RuntimeError):
-    """Raised when the signing key and certificate do not match."""
+    """Raised when the signing material can't be used to sign: the key and
+    certificate don't match, the certificate is expired or not yet valid, the
+    key is not in the trust list, or the trust list can't be loaded.
+    """
 
 
 class SignatureVerificationError(ValueError):
     """Raised when a signed report's signature is missing, malformed or invalid."""
+
+
+class TrustListError(RuntimeError):
+    """Raised when the trust list is missing or malformed.
+
+    This is a server misconfiguration, not a problem with a document, so it
+    must not be reported as an invalid signature.
+    """
 
 
 def load_if_changed(path: str) -> Callable[[Callable[[], T]], Callable[[], T]]:
@@ -112,6 +127,143 @@ def get_certificate() -> x509.Certificate:
 
     with open(settings.SIGNING_CERTIFICATE_PATH, "rb") as f:
         return x509.load_pem_x509_certificate(f.read())
+
+
+@load_if_changed(path=settings.TRUSTED_KEYS_PATH)
+def load_trusted_keys() -> dict[str, TrustedKey]:
+    """Load the trust list from `TRUSTED_KEYS_PATH`.
+
+    Returns:
+        The trusted keys, keyed by public key fingerprint.
+
+    Raises:
+        TrustListError: If the file can't be read, is not valid JSON, or
+            doesn't match the `TrustedKeys` model.
+    """
+
+    path = settings.TRUSTED_KEYS_PATH
+
+    try:
+        with open(path, "rb") as f:
+            trusted = TrustedKeys.model_validate(json.load(f))
+    except OSError as e:
+        raise TrustListError(f"Trust list {path} can't be read: {e}") from e
+    # Invalid JSON, invalid UTF-8 and Pydantic errors are all `ValueError`s.
+    except ValueError as e:
+        raise TrustListError(f"Trust list {path} is invalid: {e}") from e
+
+    logger.info("Loaded %d trusted signing keys from %s", len(trusted.keys), path)
+
+    return {key.sha256: key for key in trusted.keys}
+
+
+def get_trusted_keys() -> dict[str, TrustedKey]:
+    """Get the trust list, reloaded whenever its file changes.
+
+    Returns:
+        The trusted keys, keyed by public key fingerprint.
+
+    Raises:
+        TrustListError: If the trust list is missing or malformed.
+    """
+
+    try:
+        return load_trusted_keys()
+    # `load_if_changed` calls `os.stat` before the loader runs.
+    except OSError as e:
+        raise TrustListError(
+            f"Trust list {settings.TRUSTED_KEYS_PATH} can't be read: {e}"
+        ) from e
+
+
+def public_key_fingerprint(cert: x509.Certificate) -> str:
+    """Get the fingerprint the trust list identifies a key by.
+
+    It is the SHA-256 of the certificate's public key, DER encoded as
+    `SubjectPublicKeyInfo`, so every certificate for the same key has the
+    same fingerprint. The same value as:
+    `openssl x509 -noout -pubkey | openssl pkey -pubin -outform DER | sha256sum`.
+
+    Args:
+        cert: The certificate whose public key to fingerprint.
+
+    Returns:
+        The fingerprint, as lowercase hex.
+    """
+
+    spki = cert.public_key().public_bytes(
+        serialization.Encoding.DER,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    return hashlib.sha256(spki).hexdigest()
+
+
+def is_strae_key(
+    cert: x509.Certificate, trusted: dict[str, TrustedKey] | None = None
+) -> bool:
+    """Check whether the certificate's public key is in the trust list.
+
+    The certificate's validity dates are not checked: documents signed before
+    a certificate expired, or before a key was retired, must still verify.
+
+    Args:
+        cert: The certificate to check.
+        trusted: The trust list. Defaults to `get_trusted_keys()` if not given.
+
+    Returns:
+        Whether the key is one STRAE signs, or has signed, with.
+
+    Raises:
+        TrustListError: If the trust list is missing or malformed.
+    """
+
+    if trusted is None:
+        trusted = get_trusted_keys()
+
+    return public_key_fingerprint(cert) in trusted
+
+
+def check_signing_certificate(
+    cert: x509.Certificate,
+    trusted: dict[str, TrustedKey] | None = None,
+    now: datetime | None = None,
+) -> None:
+    """Check that the certificate can be used to sign now.
+
+    Args:
+        cert: The signing certificate.
+        trusted: The trust list. Defaults to `get_trusted_keys()` if not given.
+        now: The current time. Defaults to the current UTC time if not given.
+
+    Raises:
+        SigningError: If the certificate is not yet valid or has expired, the
+            trust list can't be loaded, or the key is not in the trust list.
+    """
+
+    if now is None:
+        now = datetime.now(timezone.utc)
+
+    if now < cert.not_valid_before_utc:
+        raise SigningError(
+            f"Signing certificate is not valid until "
+            f"{cert.not_valid_before_utc.isoformat()}"
+        )
+    if now > cert.not_valid_after_utc:
+        raise SigningError(
+            f"Signing certificate expired on {cert.not_valid_after_utc.isoformat()}"
+        )
+
+    # A trust list that can't be loaded is a problem with the signing
+    # material, so it takes the same, replayable, error path.
+    try:
+        listed = is_strae_key(cert, trusted)
+    except TrustListError as e:
+        raise SigningError(str(e)) from e
+
+    if not listed:
+        raise SigningError(
+            f"Signing key {public_key_fingerprint(cert)} is not in the trust list"
+        )
 
 
 def encode_base64url(data: bytes) -> str:
@@ -207,6 +359,10 @@ def sign_report(report: Dict) -> Dict:
 
     Returns:
         dict: The signed CycloneDX report with the signature added.
+
+    Raises:
+        SigningError: If the signing material can't be used to sign (see
+            `validate_signing_material` and `check_signing_certificate`).
     """
 
     logger.debug("Starting report signing")
@@ -217,6 +373,7 @@ def sign_report(report: Dict) -> Dict:
     cert = get_certificate()
 
     validate_signing_material(key=private_key, cert=cert)
+    check_signing_certificate(cert)
 
     cert_path = get_certificate_path(cert)
 
@@ -306,17 +463,47 @@ def verify_data(
         raise SignatureVerificationError("Signature does not match") from e
 
 
-def verify_report(report: Dict) -> None:
+def load_signer_certificate(report: Dict) -> x509.Certificate:
+    """Load the first certificate of the report's `signature.certificatePath`.
+
+    Args:
+        report: The signed report.
+
+    Returns:
+        The signer's certificate.
+
+    Raises:
+        SignatureVerificationError: If the report has no certificate, or it
+            can't be parsed.
+    """
+
+    signature = report.get("signature")
+    cert_path = (
+        signature.get("certificatePath") if isinstance(signature, dict) else None
+    )
+    if not isinstance(cert_path, list) or not cert_path:
+        raise SignatureVerificationError("Signature has no certificate")
+
+    try:
+        return x509.load_der_x509_certificate(decode_base64url(cert_path[0]))
+    except (TypeError, ValueError) as e:
+        raise SignatureVerificationError(f"Invalid signing certificate: {e}") from e
+
+
+def verify_signature(report: Dict) -> x509.Certificate:
     """
     Verify the ES256 signature of a CycloneDX report signed by `sign_report`.
 
     The signature is checked against the public key of the first
     certificate in `signature.certificatePath`, over the RFC8785 canonical
     JSON of the report without `signature.value`. This checks integrity
-    only: whether the certificate is trusted is not checked.
+    only: use `verify_report` to also check who signed it.
 
     Args:
         report (dict): The signed CycloneDX report.
+
+    Returns:
+        The signer's certificate.
 
     Raises:
         SignatureVerificationError: If the signature is missing, malformed or
@@ -340,14 +527,7 @@ def verify_report(report: Dict) -> None:
     if not isinstance(signature_value, str):
         raise SignatureVerificationError("Signature has no value")
 
-    cert_path = signature.get("certificatePath")
-    if not isinstance(cert_path, list) or not cert_path:
-        raise SignatureVerificationError("Signature has no certificate")
-
-    try:
-        cert = x509.load_der_x509_certificate(decode_base64url(cert_path[0]))
-    except ValueError as e:
-        raise SignatureVerificationError(f"Invalid signing certificate: {e}") from e
+    cert = load_signer_certificate(report)
 
     public_key = cert.public_key()
     if not isinstance(public_key, ec.EllipticCurvePublicKey):
@@ -363,3 +543,32 @@ def verify_report(report: Dict) -> None:
     verify_data(public_key, canonical_json, signature_value)
 
     logger.debug("Report signature verified successfully")
+
+    return cert
+
+
+def verify_report(report: Dict) -> bool:
+    """
+    Verify the signature of a CycloneDX report, and check who signed it.
+
+    The signature is checked first (see `verify_signature`), and only then is
+    the signer's public key looked up in the trust list, so the result refers
+    to the actual signer. The certificate's validity dates are not checked:
+    documents signed before a certificate expired must still verify.
+
+    Args:
+        report (dict): The signed CycloneDX report.
+
+    Returns:
+        Whether the report is signed with a key in the trust list, i.e. by
+        CoEvolution. A valid signature from any other key returns `False`.
+
+    Raises:
+        SignatureVerificationError: If the signature is missing, malformed or
+            invalid.
+        TrustListError: If the trust list is missing or malformed.
+    """
+
+    cert = verify_signature(report)
+
+    return is_strae_key(cert)

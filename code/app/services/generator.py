@@ -55,8 +55,9 @@ class GeneratorMissingReportError(GeneratorError):
 
 
 class GeneratorInvalidReportError(GeneratorError):
-    """Raised when a fetched report fails CycloneDX schema or report model
-    validation.
+    """Raised when a fetched report or the previous AIMBOM fails CycloneDX
+    schema or report model validation, has a missing or invalid signature,
+    or is not signed by CoEvolution.
     """
 
     pass
@@ -77,8 +78,9 @@ class GeneratorStorageError(GeneratorError):
 
 
 class GeneratorSigningError(GeneratorError):
-    """Raised when signing fails because the signing key and certificate do
-    not match.
+    """Raised when the signing material can't be used: the signing key and
+    certificate don't match, the certificate is expired or not yet valid, the
+    key is not in the trust list, or the trust list can't be loaded.
     """
 
     pass
@@ -262,7 +264,8 @@ class AIMBOMGenerator:
         """Validate the previous AIMBOM and verify its signature.
 
         This is needed because the updated AIMBOM is signed by STRAE and would
-        otherwise vouch for the previous AIMBOM's content.
+        otherwise vouch for the previous AIMBOM's content. For the same reason,
+        the previous AIMBOM must be signed by CoEvolution.
 
         Args:
             raw_previous_aimbom: The previous AIMBOM as parsed JSON.
@@ -272,16 +275,31 @@ class AIMBOMGenerator:
 
         Raises:
             GeneratorInvalidReportError: If the previous AIMBOM fails schema
-                validation or has a missing or invalid signature.
+                validation, has a missing or invalid signature, or is not
+                signed by CoEvolution.
+            GeneratorSigningError: If the trust list can't be loaded.
         """
 
         try:
-            return validator.validate_report(BOMType.AIMBOM, raw_previous_aimbom)
+            previous_aimbom, signed_by_coevolution = validator.validate_report(
+                BOMType.AIMBOM, raw_previous_aimbom
+            )
         # Base class of the schema and signature errors.
         except validator.ValidatorInvalidAIMBOMError as e:
             raise GeneratorInvalidReportError(
                 f"Previous AIMBOM is invalid: {str(e)}"
             ) from e
+        except signing.TrustListError as e:
+            raise GeneratorSigningError(
+                f"Signing material error while validating previous AIMBOM: {str(e)}"
+            ) from e
+
+        if not signed_by_coevolution:
+            raise GeneratorInvalidReportError(
+                "Previous AIMBOM is not signed by CoEvolution"
+            )
+
+        return previous_aimbom
 
     async def _create_updated_aimbom(
         self,
@@ -475,19 +493,42 @@ class AIMBOMGenerator:
             raw_reports: A mapping of report type value to raw JSON dictionaries.
             report_types: Which report types to validate.
 
+        Reports must be signed by CoEvolution: partner reports are signed by
+        STRAE (`/api/sign` or the signing topic) before generation, so a report
+        from any other signer did not come through STRAE, and the generated
+        AIMBOM would vouch for it.
+
         Returns:
             A mapping of `ReportType` to validated `ReportModel` instances.
 
         Raises:
-            GeneratorInvalidReportError: When a report fails schema validation
-                or has a missing or invalid signature.
+            GeneratorInvalidReportError: When a report fails schema validation,
+                has a missing or invalid signature, or is not signed by
+                CoEvolution.
+            GeneratorSigningError: If the trust list can't be loaded.
         """
 
         try:
-            return validator.validate_reports(raw_reports, report_types)
+            reports, signed_by_coevolution = validator.validate_reports(
+                raw_reports, report_types
+            )
         # Base class of the schema and signature errors.
         except validator.ValidatorInvalidAIMBOMError as e:
             raise GeneratorInvalidReportError(str(e)) from e
+        except signing.TrustListError as e:
+            raise GeneratorSigningError(str(e)) from e
+
+        not_signed = [
+            report_type.value
+            for report_type, signed in signed_by_coevolution.items()
+            if not signed
+        ]
+        if not_signed:
+            raise GeneratorInvalidReportError(
+                f"Reports not signed by CoEvolution: {', '.join(not_signed)}"
+            )
+
+        return reports
 
     def _validate_aimbom(self, aimbom: AIMBOM) -> None:
         """Validate the AIMBOM against the CycloneDX schema and the AIMBOM model.
@@ -496,21 +537,37 @@ class AIMBOMGenerator:
             aimbom: The `AIMBOM` instance to validate.
 
         Raises:
-            GeneratorGenerationError: If schema or signature validation fails.
+            GeneratorGenerationError: If schema or signature validation fails,
+                or the AIMBOM is not signed by CoEvolution.
+            GeneratorSigningError: If the trust list can't be loaded.
         """
 
         try:
             logger.debug("Validating AIMBOM")
-            validator.validate_report(
+            _, signed_by_coevolution = validator.validate_report(
                 BOMType.AIMBOM, jsonable_encoder(aimbom, exclude_none=True)
             )
-            logger.debug("AIMBOM validation successful")
         # Base class of the schema and signature errors.
         except validator.ValidatorInvalidAIMBOMError as e:
             logger.error("AIMBOM validation failed: %s", str(e))
             raise GeneratorGenerationError(
                 f"Generated AIMBOM is invalid: {str(e)}"
             ) from e
+        except signing.TrustListError as e:
+            logger.error("Signing material error while validating: %s", e)
+            raise GeneratorSigningError(
+                f"Signing material error while validating AIMBOM: {str(e)}"
+            ) from e
+
+        # The signing check guarantees the current key is in the trust list,
+        # so this only fails on a misconfiguration.
+        if not signed_by_coevolution:
+            logger.error("Generated AIMBOM is not signed by CoEvolution")
+            raise GeneratorGenerationError(
+                "Generated AIMBOM is not signed by CoEvolution"
+            )
+
+        logger.debug("AIMBOM validation successful")
 
     def _sign_aimbom(self, aimbom: AIMBOM) -> AIMBOM:
         """Sign the AIMBOM to ensure its integrity and authenticity.
@@ -522,8 +579,8 @@ class AIMBOMGenerator:
             A signed `AIMBOM` instance.
 
         Raises:
-            GeneratorSigningError: If the signing key and certificate
-                currently loaded don't match (see `signing.SigningError`).
+            GeneratorSigningError: If the signing material can't be used to
+                sign (see `signing.SigningError`).
             GeneratorGenerationError: If signing fails for any other reason.
         """
 
@@ -537,7 +594,7 @@ class AIMBOMGenerator:
 
             return aimbom
         except signing.SigningError as e:
-            logger.error("Signing material mismatch while signing AIMBOM: %s", e)
+            logger.error("Signing material error while signing AIMBOM: %s", e)
             raise GeneratorSigningError(f"Failed to sign AIMBOM: {str(e)}") from e
         except Exception as e:
             logger.error("Error signing AIMBOM: %s", e)

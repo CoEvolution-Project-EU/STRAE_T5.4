@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     # Signing configuration (from .env)
     SIGNING_PRIVATE_KEY_PATH: str = "/run/secrets/signing-key.pem"
     SIGNING_CERTIFICATE_PATH: str = "/run/secrets/signing-cert.pem"
+    # Every key STRAE signs, or has signed, with. See docs/deployment.md.
+    TRUSTED_KEYS_PATH: str = "/run/secrets/trusted-keys.json"
 
     # Kafka configuration (from .env)
     KAFKA_TOPIC: str = "strae"

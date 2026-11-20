@@ -61,6 +61,25 @@ cp signing-cert.pem.example signing-cert.pem
 # Edit signing-key.pem and signing-cert.pem with your own key and certificate.
 ```
 
+Create the trust list, `trusted-keys.json`, which lists the public keys STRAE signs
+with. STRAE refuses to sign with a key that is not in it, and reports documents
+signed with other keys as `signed_by_coevolution: false`. With the example key, copy
+the example list:
+
+```bash
+cp trusted-keys.json.example trusted-keys.json
+```
+
+With your own key, create it with the rotation script (from the `code` directory,
+with the requirements installed, or in the STRAE image):
+
+```bash
+python3 -m app.scripts.rotate_signing_cert --dir ../docker/secrets --init
+```
+
+See [Rotating the signing key/certificate](../docs/deployment.md#rotating-the-signing-keycertificate)
+for renewing the certificate and rotating the key.
+
 ### 4. Start the services
 
 This project uses **Docker Compose profiles** to distinguish between different deployment scenarios.

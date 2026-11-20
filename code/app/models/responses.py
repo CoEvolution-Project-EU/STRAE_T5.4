@@ -48,6 +48,13 @@ class AIMBOMValidationResponse(BaseModel):
     status: Literal["VALID", "INVALID"] = Field(
         ..., description="Validation status of the AIMBOM."
     )
+    signed_by_coevolution: bool | None = Field(
+        None,
+        description=(
+            "Whether the AIMBOM and all its reports are signed with a CoEvolution "
+            "key. Null when status is INVALID."
+        ),
+    )
 
 
 class ErrorResponse(BaseModel):
